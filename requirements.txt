@@ -4,3 +4,4 @@ plotly
 dash
 jupyter_dash
 icoscp
+folium
