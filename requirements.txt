@@ -1,6 +1,5 @@
 numpy
 pandas
-jupyter_server_proxy
 plotly
 dash
 jupyter_dash
