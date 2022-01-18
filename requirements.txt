@@ -5,3 +5,5 @@ dash
 jupyter_dash
 icoscp
 folium
+ipykernel==5.5.5
+IPython==7.26.0
