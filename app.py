@@ -25,12 +25,12 @@ import data_access
 # for the usual Dash app, and:
 # https://github.com/plotly/jupyter-dash/blob/master/notebooks/getting_started.ipynb
 # for a JupyterDash app version.
-RUNNING_IN_BINDER = True
-app_conf = {'mode': 'inline', 'debug': True}
+RUNNING_IN_BINDER = False
+app_conf = {'mode': 'external', 'debug': True}
 if RUNNING_IN_BINDER:
     JupyterDash.infer_jupyter_proxy_config()
 else:
-    app_conf.update({'host': 'localhost', 'port': 9234})
+    app_conf.update({'host': 'localhost', 'port': 9235})
 
 
 # Below there are id's of Dash JS components.
