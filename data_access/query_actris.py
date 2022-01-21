@@ -9,7 +9,8 @@ CACHE_DIR = 'cache'
 
 
 MAPPING_ECV2ACTRIS = {
-    'Aerosol Optical Properties': ['aerosol.absorption.coefficient', 'aerosol.backscatter.coefficient', 'aerosol.backscatter.coefficient.hemispheric', 'aerosol.backscatter.ratio', 'aerosol.depolarisation.coefficient', 'aerosol.depolarisation.ratio', 'aerosol.extinction.coefficient', 'aerosol.extinction.ratio', 'aerosol.extinction.to.backscatter.ratio', 'aerosol.optical.depth', 'aerosol.optical.depth.550', 'aerosol.rayleigh.backscatter', 'aerosol.scattering.coefficient', 'volume.depolarization.ratio', 'cloud.condensation.nuclei.number.concentration'],
+    # TODO: temporary patch for performance reasons (there are many very short datasets with AOP variables)
+    # 'Aerosol Optical Properties': ['aerosol.absorption.coefficient', 'aerosol.backscatter.coefficient', 'aerosol.backscatter.coefficient.hemispheric', 'aerosol.backscatter.ratio', 'aerosol.depolarisation.coefficient', 'aerosol.depolarisation.ratio', 'aerosol.extinction.coefficient', 'aerosol.extinction.ratio', 'aerosol.extinction.to.backscatter.ratio', 'aerosol.optical.depth', 'aerosol.optical.depth.550', 'aerosol.rayleigh.backscatter', 'aerosol.scattering.coefficient', 'volume.depolarization.ratio', 'cloud.condensation.nuclei.number.concentration'],
     'Aerosol Chemical Properties': ['elemental.carbon', 'organic.carbon.concentration', 'organic.mass.concentration', 'total.carbon.concentration'],
     'Aerosol Physical Properties': ['particle.number.concentration', 'particle.number.size.distribution', 'pm10.concentration', 'pm1.concentration', 'pm2.5.concentration', 'pm2.5-&gt;pm10.concentration'],
 }
