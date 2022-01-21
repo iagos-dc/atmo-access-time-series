@@ -11,6 +11,7 @@ from dash import dcc
 from dash import html
 from dash import dash_table
 from dash.dependencies import Input, Output, State
+import dash_bootstrap_components as dbc
 
 # Provides a version of Dash application which can be run in Jupyter notebook/lab
 # See: https://github.com/plotly/jupyter-dash
@@ -25,8 +26,8 @@ import data_access
 # for the usual Dash app, and:
 # https://github.com/plotly/jupyter-dash/blob/master/notebooks/getting_started.ipynb
 # for a JupyterDash app version.
-RUNNING_IN_BINDER = False
-app_conf = {'mode': 'external', 'debug': True}
+RUNNING_IN_BINDER = False   # for running in Binder change it to True
+app_conf = {'mode': 'external', 'debug': True}  # for running inside a Jupyter notebook change 'mode' to 'inline'
 if RUNNING_IN_BINDER:
     JupyterDash.infer_jupyter_proxy_config()
 else:
@@ -66,9 +67,22 @@ DATASETS_TABLE_ID = 'datasets-table'
     # 'data' contains a list of records as provided by the method pd.DataFrame.to_dict(orient='records')
 
 
+# Color codes
+ACTRIS_COLOR_HEX = '#00adb7'
+IAGOS_COLOR_HEX = '#456096'
+ICOS_COLOR_HEX = '#ec165c'
+
+
+def _get_station_fullname_by_shortnameRI(stations):
+    df = stations.set_index('short_name_RI')[['long_name', 'RI']]
+    res = df['long_name'] + ' (' + df['RI'] + ')'
+    return res.rename('station_fullname')
+
+
 # Initialization of global objects
 app = JupyterDash(__name__)
 stations = data_access.get_stations()
+station_fullname_by_shortnameRI = _get_station_fullname_by_shortnameRI(stations)
 variables = data_access.get_vars()
 
 
@@ -80,13 +94,19 @@ def get_variables_checklist():
     See: https://dash.plotly.com/dash-core-components/checklist
     :return: dash.dcc.Checklist
     """
-    variables_options = variables \
-        .rename(columns={'ECV_name': 'label', 'variable_name': 'value'})[['label', 'value']] \
-        .to_dict(orient='index').values()
+    std_vars = variables[['std_ECV_name', 'code']].drop_duplicates()
+    # TODO: temporary
+    try:
+        std_vars = std_vars[std_vars['std_ECV_name'] != 'Aerosol Optical Properties']
+    except ValueError:
+        pass
+    std_vars['label'] = std_vars['code'] + ' - ' + std_vars['std_ECV_name']
+    std_vars = std_vars.rename(columns={'std_ECV_name': 'value'}).drop(columns='code')
+    variables_options = std_vars.to_dict(orient='records')
     variables_checklist = dcc.Checklist(
         id=VARIABLES_CHECKLIST_ID,
-        options=list(variables_options),
-        value=list(variables['variable_name']),
+        options=variables_options,
+        value=std_vars['value'].tolist(),
         labelStyle={'display': 'flex'},  # display in column rather than in a row; not sure if it is the right way to do
     )
     return variables_checklist
@@ -101,13 +121,21 @@ def get_stations_map():
     fig = px.scatter_mapbox(
         stations,
         lat="latitude", lon="longitude", color='RI',
-        hover_name="long_name", hover_data=["ground_elevation"],
-        color_discrete_sequence=["red"], #, "blue"],  # can define colors to be used in case of many RI's
-        zoom=3, height=600
+        hover_name="long_name", hover_data={'ground_elevation': True, 'marker_size': False},
+        custom_data=['idx'],
+        size=stations['marker_size'],
+        size_max=7,
+        category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
+        color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
+        zoom=3, height=600,
+        title='Stations map',
     )
-    fig.update_layout(mapbox_style="open-street-map",
-                      margin={'r': 0, 't': 0, 'l': 0, 'b': 0},
-                      clickmode='event+select')
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={'r': 0, 't': 0, 'l': 0, 'b': 0},
+        clickmode='event+select',
+        hoverdistance=1, hovermode='closest',  # hoverlabel=None,
+    )
 
     stations_map = dcc.Graph(
         id=STATIONS_MAP_ID,
@@ -210,6 +238,10 @@ def get_dashboard_layout():
                 id=GANTT_GRAPH_ID,
             ),
 
+            html.Div(
+                id='tmp_url',
+            ),
+
             dash_table.DataTable(
                 id=DATASETS_TABLE_ID,
             ),
@@ -244,8 +276,11 @@ def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat
     if selected_stations_idx is None:
         selected_stations_idx = []
     datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
-    selected_stations_short_name = stations['short_name'].iloc[selected_stations_idx]
-    datasets_df_filtered = datasets_df[datasets_df['platform_id'].isin(selected_stations_short_name)]
+    selected_stations = stations.iloc[selected_stations_idx]
+    datasets_df_filtered = datasets_df[
+        datasets_df['platform_id'].isin(selected_stations['short_name']) &
+        datasets_df['RI'].isin(selected_stations['RI'])     # short_name of the station might not be unique among RI's
+    ]
     return datasets_df_filtered.to_json(orient='split', date_format='iso')
 
 
@@ -253,12 +288,22 @@ def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat
     Output(DATASETS_TABLE_ID, 'columns'),
     Output(DATASETS_TABLE_ID, 'data'),
     Input(DATASETS_STORE_ID, 'data'),
+    Input(GANTT_GRAPH_ID, 'selectedData'),
 )
-def datasets_as_table(datasets_json):
+def datasets_as_table(datasets_json, gantt_figure_selectedData):
     if not datasets_json:
         return None, None
-    datasets_df = pd.read_json(datasets_json, orient='split')
-    table_columns = [{"name": i, "id": i} for i in datasets_df.columns]
+    datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+
+    # print(gantt_figure_selectedData)
+    # filter on selected timeline bars on the Gantt figure
+    if gantt_figure_selectedData and 'points' in gantt_figure_selectedData:
+        datasets_indices = []
+        for timeline_bar in gantt_figure_selectedData['points']:
+            datasets_indices.extend(timeline_bar['customdata'][0])
+        datasets_df = datasets_df.iloc[datasets_indices]
+
+    table_columns = [{"name": col, "id": col} for col in datasets_df.columns]
     table_data = datasets_df.to_dict(orient='records')
     return table_columns, table_data
 
@@ -266,9 +311,11 @@ def datasets_as_table(datasets_json):
 def _get_selected_points(selected_stations):
     if selected_stations is not None:
         points = selected_stations['points']
+        for point in points:
+            point['idx'] = round(point['customdata'][0])
     else:
         points = []
-    return pd.DataFrame.from_records(points, index='pointIndex', columns=['pointIndex', 'lon', 'lat'])
+    return pd.DataFrame.from_records(points, index='idx', columns=['idx', 'lon', 'lat'])
 
 
 def _get_bounding_box(selected_points_df, selected_stations):
@@ -296,18 +343,10 @@ def _get_bounding_box(selected_points_df, selected_stations):
     return [round(coord, decimal_precision) for coord in (lon_min, lon_max, lat_min, lat_max)]
 
 
-def _get_selected_stations_option_list(selected_stations_df):
-    idx = selected_stations_df.index
-    df = stations.iloc[idx]
-    labels = df['short_name'] + ' (' + df['long_name'] + ', ' + df['country'] + ')'
-    options = labels.rename('label').reset_index()
-    return [html.Option(children=option, value=str(i), selected=True) for i, option in zip(options['index'], options['label'])]
-
-
 def _get_selected_stations_dropdown(selected_stations_df):
     idx = selected_stations_df.index
     df = stations.iloc[idx]
-    labels = df['short_name'] + ' (' + df['long_name'] + ', ' + df['country'] + ')'
+    labels = df['short_name'] + ' (' + df['long_name'] + ', ' + df['RI'] + ')'
     options = labels.rename('label').reset_index().rename(columns={'index': 'value'})
     return options.to_dict(orient='records'), list(options['value'])
 
@@ -327,29 +366,63 @@ def get_selected_stations_bbox_and_dropdown(selected_stations):
     return bbox + [selected_stations_dropdown_options, selected_stations_dropdown_value]
 
 
-def _contiguous_periods(start, end):
+def _contiguous_periods(start, end, var_codes=None, dt=pd.Timedelta('1D')):
+    """
+    Merge together periods which overlap, are adjacent or nearly adjacent (up to dt). The merged periods are returned
+    with:
+    - start and end time ('time_period_start', 'time_period_end'),
+    - list of indices of datasets which enters into a given period ('indices'),
+    - number of the datasets (the length of the above list) ('datasets'),
+    - codes of variables available within a given period, if the parameter var_codes is provided.
+    :param start: pandas.Series of Timestamps with periods' start
+    :param end: pandas.Series of Timestamps with periods' end
+    :param var_codes: pandas.Series of strings or None, optional; if given, must contain variable codes separated by comma
+    :param dt: pandas.Timedelta
+    :return: pandas.DataFrame with columns 'time_period_start', 'time_period_end', 'indices', 'datasets' and 'var_codes'
+    """
     s, e, idx = [], [], []
-    df = pd.DataFrame({'s': start, 'e': end}).sort_values(by='s', ignore_index=False)
+    df_dict = {'s': start, 'e': end}
+    if var_codes is not None:
+        dat = []
+        df_dict['var_codes'] = var_codes
+    df = pd.DataFrame(df_dict).sort_values(by='s', ignore_index=False)
     df['e'] = df['e'].cummax()
     if len(df) > 0:
-        delims, = np.nonzero(df['e'].values[:-1] < df['s'].values[1:])
+        delims, = np.nonzero((df['e'] + dt).values[:-1] < df['s'].values[1:])
         delims = np.concatenate(([0], delims + 1, [len(df)]))
         for i, j in zip(delims[:-1], delims[1:]):
             s.append(df['s'].iloc[i])
             e.append(df['e'].iloc[j - 1])
             idx.append(df.index[i:j])
-    return pd.DataFrame({'time_period_start': s, 'time_period_end': e, 'idx': idx})
+            if var_codes is not None:
+                # concatenate all var_codes; [:-1] is to suppress the last comma
+                all_var_codes = (df['var_codes'].iloc[i:j] + ', ').sum()[:-2]
+                # remove duplicates from all_var_codes...
+                all_var_codes = np.sort(np.unique(all_var_codes.split(', ')))
+                # ...and form a single string with codes separated by comma
+                all_var_codes = ', '.join(all_var_codes)
+                dat.append(all_var_codes)
+    res_dict = {'time_period_start': s, 'time_period_end': e, 'indices': idx, 'datasets': [len(i) for i in idx]}
+    if var_codes is not None:
+        res_dict['var_codes'] = dat
+    return pd.DataFrame(res_dict)
 
 
 def _get_timeline_by_station(datasets_df):
     df = datasets_df\
-        .groupby(['platform_id'])\
-        .apply(lambda x: _contiguous_periods(x.time_period_start, x.time_period_end))\
+        .groupby(['platform_id_RI', 'station_fullname', 'RI'])\
+        .apply(lambda x: _contiguous_periods(x['time_period_start'], x['time_period_end'], x['var_codes_filtered']))\
         .reset_index()
-    no_platforms = len(df['platform_id'].unique())
+    df = df.sort_values('platform_id_RI')
+    no_platforms = len(df['platform_id_RI'].unique())
     height = 100 + max(100, 50 + 30 * no_platforms)
     gantt = px.timeline(
-        df, x_start='time_period_start', x_end='time_period_end', y='platform_id', color='platform_id',
+        df, x_start='time_period_start', x_end='time_period_end', y='platform_id_RI', color='RI',
+        hover_name='var_codes',
+        hover_data={'station_fullname': True, 'platform_id_RI': True, 'datasets': True, 'RI': False},
+        custom_data=['indices'],
+        category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
+        color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
         height=height
     )
     gantt.update_layout(clickmode='event+select')
@@ -358,16 +431,20 @@ def _get_timeline_by_station(datasets_df):
 
 def _get_timeline_by_station_and_vars(datasets_df):
     df = datasets_df\
-        .groupby(['platform_id', 'var_codes_filtered'])\
-        .apply(lambda x: _contiguous_periods(x.time_period_start, x.time_period_end))\
+        .groupby(['platform_id_RI', 'station_fullname', 'var_codes_filtered'])\
+        .apply(lambda x: _contiguous_periods(x['time_period_start'], x['time_period_end']))\
         .reset_index()
+    df = df.sort_values('platform_id_RI')
     facet_col_wrap = 3
-    no_platforms = len(df['platform_id'].unique())
+    no_platforms = len(df['platform_id_RI'].unique())
     no_var_codes_filtered = len(df['var_codes_filtered'].unique())
     no_facet_rows = (no_var_codes_filtered + facet_col_wrap - 1) // facet_col_wrap
     height = 100 + max(100, 50 + 25 * no_platforms) * no_facet_rows
     gantt = px.timeline(
-        df, x_start='time_period_start', x_end='time_period_end', y='platform_id', color='var_codes_filtered',
+        df, x_start='time_period_start', x_end='time_period_end', y='platform_id_RI', color='var_codes_filtered',
+        hover_name='station_fullname',
+        hover_data={'station_fullname': True, 'platform_id_RI': True, 'var_codes_filtered': True, 'datasets': True},
+        custom_data=['indices'],
         height=height, facet_col='var_codes_filtered', facet_col_wrap=facet_col_wrap,
     )
     gantt.update_layout(clickmode='event+select')
@@ -380,13 +457,27 @@ def _get_timeline_by_station_and_vars(datasets_df):
     Input(DATASETS_STORE_ID, 'data'),
 )
 def get_gantt_figure(gantt_view_type, datasets_json):
-    datasets_df = pd.read_json(datasets_json, orient='split')
+    datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+    datasets_df = datasets_df.join(station_fullname_by_shortnameRI, on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
     if len(datasets_df) == 0:
         return {}   # empty figure; TODO: is it the right way to do?
     if gantt_view_type == 'compact':
         return _get_timeline_by_station(datasets_df)
     else:
         return _get_timeline_by_station_and_vars(datasets_df)
+
+
+@app.callback(
+    Output('tmp_url', 'children'),
+    Input(DATASETS_TABLE_ID, 'active_cell'),
+    State(DATASETS_TABLE_ID, 'data'),
+)
+def popup_graphs(table_active_cell, table_data):
+    if table_active_cell:
+        row = table_active_cell['row']
+        return table_data[row]['url']
+    else:
+        return None
 
 # End of callback definitions
 
