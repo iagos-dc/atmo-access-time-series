@@ -197,10 +197,11 @@ def _query_datasets(variables, temporal_extent, spatial_extent):
 
             ecv_vars = []
 
-            if any(x in MAPPING_ECV2ACTRIS['Aerosol Optical Properties'] for x in attribute_descriptions):
-                ecv_vars.append('Aerosol Optical Properties')
-            else:
-                pass
+            # TODO: temporary patch for performance reasons (there are many very short datasets with AOP variables)
+            # if any(x in MAPPING_ECV2ACTRIS['Aerosol Optical Properties'] for x in attribute_descriptions):
+            #    ecv_vars.append('Aerosol Optical Properties')
+            # else:
+            #    pass
 
             if any(x in MAPPING_ECV2ACTRIS['Aerosol Chemical Properties'] for x in attribute_descriptions):
                 ecv_vars.append('Aerosol Chemical Properties')
