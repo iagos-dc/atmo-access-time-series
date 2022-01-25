@@ -5,6 +5,7 @@ ATMO-ACCESS time series service
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 from dash import dcc
@@ -73,16 +74,16 @@ IAGOS_COLOR_HEX = '#456096'
 ICOS_COLOR_HEX = '#ec165c'
 
 
-def _get_station_fullname_by_shortnameRI(stations):
+def _get_station_by_shortnameRI(stations):
     df = stations.set_index('short_name_RI')[['long_name', 'RI']]
-    res = df['long_name'] + ' (' + df['RI'] + ')'
-    return res.rename('station_fullname')
+    df['station_fullname'] = df['long_name'] + ' (' + df['RI'] + ')'
+    return df
 
 
 # Initialization of global objects
-app = JupyterDash(__name__)
+app = JupyterDash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 stations = data_access.get_stations()
-station_fullname_by_shortnameRI = _get_station_fullname_by_shortnameRI(stations)
+station_by_shortnameRI = _get_station_by_shortnameRI(stations)
 variables = data_access.get_vars()
 
 
@@ -241,11 +242,25 @@ def get_dashboard_layout():
             html.Div(
                 id='tmp_url',
             ),
+        ]),
 
+        html.Div(id='table-div', className='twelve columns', children=[
             dash_table.DataTable(
                 id=DATASETS_TABLE_ID,
+                # see: https://dash.plotly.com/datatable/interactivity
+                row_selectable="multi",
+                sort_action='native',
+                # filter_action='native',
+                page_action="native", page_current=0, page_size=20,
+                # see: https://dash.plotly.com/datatable/width
+                hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
+                style_data={
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                    'lineHeight': '15px'
+                },
             ),
-        ]),
+        ])
     ])
     return layout
 
@@ -282,30 +297,6 @@ def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat
         datasets_df['RI'].isin(selected_stations['RI'])     # short_name of the station might not be unique among RI's
     ]
     return datasets_df_filtered.to_json(orient='split', date_format='iso')
-
-
-@app.callback(
-    Output(DATASETS_TABLE_ID, 'columns'),
-    Output(DATASETS_TABLE_ID, 'data'),
-    Input(DATASETS_STORE_ID, 'data'),
-    Input(GANTT_GRAPH_ID, 'selectedData'),
-)
-def datasets_as_table(datasets_json, gantt_figure_selectedData):
-    if not datasets_json:
-        return None, None
-    datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
-
-    # print(gantt_figure_selectedData)
-    # filter on selected timeline bars on the Gantt figure
-    if gantt_figure_selectedData and 'points' in gantt_figure_selectedData:
-        datasets_indices = []
-        for timeline_bar in gantt_figure_selectedData['points']:
-            datasets_indices.extend(timeline_bar['customdata'][0])
-        datasets_df = datasets_df.iloc[datasets_indices]
-
-    table_columns = [{"name": col, "id": col} for col in datasets_df.columns]
-    table_data = datasets_df.to_dict(orient='records')
-    return table_columns, table_data
 
 
 def _get_selected_points(selected_stations):
@@ -458,7 +449,7 @@ def _get_timeline_by_station_and_vars(datasets_df):
 )
 def get_gantt_figure(gantt_view_type, datasets_json):
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
-    datasets_df = datasets_df.join(station_fullname_by_shortnameRI, on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
+    datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
     if len(datasets_df) == 0:
         return {}   # empty figure; TODO: is it the right way to do?
     if gantt_view_type == 'compact':
@@ -468,16 +459,129 @@ def get_gantt_figure(gantt_view_type, datasets_json):
 
 
 @app.callback(
-    Output('tmp_url', 'children'),
-    Input(DATASETS_TABLE_ID, 'active_cell'),
-    State(DATASETS_TABLE_ID, 'data'),
+    Output(DATASETS_TABLE_ID, 'columns'),
+    Output(DATASETS_TABLE_ID, 'data'),
+    Input(DATASETS_STORE_ID, 'data'),
+    Input(GANTT_GRAPH_ID, 'selectedData'),
 )
-def popup_graphs(table_active_cell, table_data):
-    if table_active_cell:
-        row = table_active_cell['row']
-        return table_data[row]['url']
-    else:
+def datasets_as_table(datasets_json, gantt_figure_selectedData):
+    if not datasets_json:
+        return None, None
+    datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+    datasets_df = datasets_df.join(station_by_shortnameRI['long_name'], on='platform_id_RI')
+
+    # print(gantt_figure_selectedData)
+    # filter on selected timeline bars on the Gantt figure
+    if gantt_figure_selectedData and 'points' in gantt_figure_selectedData:
+        datasets_indices = []
+        for timeline_bar in gantt_figure_selectedData['points']:
+            datasets_indices.extend(timeline_bar['customdata'][0])
+        datasets_df = datasets_df.iloc[datasets_indices]
+
+    table_col_ids = ['title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
+                     'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI']
+    table_col_names = ['Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
+                       'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI']
+    table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
+    table_data = datasets_df[table_col_ids].to_dict(orient='records')
+    return table_columns, table_data
+
+
+_tmp_dataset_df = None
+_tmp_ds = None
+
+
+def _plot_vars(ds, v1, v2=None):
+    vars_long = data_access.get_vars_long()
+    vs = [v1, v2] if v2 is not None else [v1]
+    v_names = []
+    for v in vs:
+        try:
+            v_name = vars_long.loc[vars_long['variable_name'] == v]['std_ECV_name'].iloc[0] + f' ({v})'
+        except:
+            v_name = v
+        v_names.append(v_name)
+    fig = go.Figure()
+    for i, v in enumerate(vs):
+        da = ds[v]
+        fig.add_trace(go.Scatter(
+            x=da['time'].values,
+            y=da.values,
+            name=v,
+            yaxis=f'y{i + 1}'
+        ))
+
+    fig.update_layout(
+        xaxis=dict(
+            domain=[0.0, 0.95]
+        ),
+        yaxis1=dict(
+            title=v_names[0],
+            titlefont=dict(
+                color="#1f77b4"
+            ),
+            tickfont=dict(
+                color="#1f77b4"
+            ),
+            anchor='x',
+            side='left',
+        ),
+    )
+    if v2 is not None:
+        fig.update_layout(
+            yaxis2=dict(
+                title=v_names[1],
+                titlefont=dict(
+                    color="#ff7f0e"
+                ),
+                tickfont=dict(
+                    color="#ff7f0e"
+                ),
+                anchor="x",
+                overlaying="y1",
+                side="right",
+                # position=0.15
+            ),
+        )
+
+    return fig
+
+
+@app.callback(
+    Output('tmp_url', 'children'),
+    Input(DATASETS_TABLE_ID, 'derived_virtual_data'),
+    Input(DATASETS_TABLE_ID, 'derived_virtual_selected_rows'),
+)
+def popup_graphs(data, selected_rows):
+    global _tmp_dataset_df, _tmp_ds
+    if data is None or selected_rows is None:
         return None
+    if len(selected_rows) == 0:
+        return []
+    df = pd.DataFrame.from_dict([data[i] for i in selected_rows])
+    s = df.iloc[-1]
+    ds = data_access.read_dataset(s['RI'], s['url'], s)
+    _tmp_dataset_df = df
+    _tmp_ds = ds
+
+    ds_vars = list(ds)
+
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle(s['title'])),
+            dbc.ModalBody(
+                dcc.Graph(
+                    id='quick-plot',
+                    figure=_plot_vars(ds, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None)
+                )
+            ),
+        ],
+        id="modal-xl",
+        size="xl",
+        is_open=True,
+    )
+    #print(df['RI'][0] + ': ' + str(df['url'][0]))
+    #return df['RI'] + ': ' + str(df['url'])
 
 # End of callback definitions
 

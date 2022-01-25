@@ -5,7 +5,7 @@ import pandas as pd
 import xarray as xr
 
 
-CACHE_DIR = 'cache'
+CACHE_DIR = pathlib.Path('cache')
 
 
 MAPPING_ECV2ACTRIS = {
@@ -275,16 +275,17 @@ def read_dataset(url, variables):
             actris_varlist.append(k)
 
     try:
-        ds = xr.open_dataset(url)
-        var_list = []
-        for varname, da in ds.data_vars.items():
-            if 'metadata' in varname or 'time' in varname or '_qc' in varname:
-                pass
-            elif any(var in varname for var in actris_varlist):
-                var_list.append(varname)
-            else:
-                pass
-        return ds[var_list]
+        with xr.open_dataset(url) as ds:
+            var_list = []
+            for varname, da in ds.data_vars.items():
+                if 'metadata' in varname or 'time' in varname or '_qc' in varname:
+                    pass
+                elif any(var in varname for var in actris_varlist):
+                    var_list.append(varname)
+                else:
+                    pass
+            ds_filtered = ds[var_list].compute()
+        return ds_filtered
 
-    except BaseException:
+    except Exception:
         return None

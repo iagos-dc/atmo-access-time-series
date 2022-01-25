@@ -18,7 +18,7 @@ MAPPING_ECV_IAGOS={
     "Carbon Dioxide" : [ "mole_fraction_of_carbon_dioxide_in_air" ],
     "Methane" : [ "mole_fraction_of_methane_in_air" ],
     "Ozone" : [ "mole_fraction_of_ozone_in_air" ],
-    "Carbon monoxide" : [ "mole_fraction_of_carbon_monoxide_in_air" ],
+    "Carbon Monoxide" : [ "mole_fraction_of_carbon_monoxide_in_air" ],
     "NO2" : [ "mole_fraction_of_nitrogen_dioxide_in_air" ]
 }
 MAPPING_CF_IAGOS={
