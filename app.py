@@ -579,7 +579,7 @@ def popup_graphs(selected_row_ids, datasets_json):
     ds = data_access.read_dataset(s['RI'], s['url'], s)
     _tmp_ds = ds
 
-    ds_vars = list(ds)
+    ds_vars = [v for v in ds if ds[v].squeeze().ndim == 1]
 
     return dbc.Modal(
         [
@@ -588,7 +588,7 @@ def popup_graphs(selected_row_ids, datasets_json):
                 dcc.Graph(
                     id='quick-plot',
                     figure=_plot_vars(ds, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None)
-                )
+                ) if len(ds_vars) > 0 else None
             ),
         ],
         id="modal-xl",
