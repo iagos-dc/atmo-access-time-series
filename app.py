@@ -2,6 +2,7 @@
 ATMO-ACCESS time series service
 """
 
+import os
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -27,8 +28,8 @@ import data_access
 # for the usual Dash app, and:
 # https://github.com/plotly/jupyter-dash/blob/master/notebooks/getting_started.ipynb
 # for a JupyterDash app version.
-RUNNING_IN_BINDER = False   # for running in Binder change it to True
 app_conf = {'mode': 'external', 'debug': True}  # for running inside a Jupyter notebook change 'mode' to 'inline'
+RUNNING_IN_BINDER = os.environ.get('BINDER_SERVICE_HOST') is not None
 if RUNNING_IN_BINDER:
     JupyterDash.infer_jupyter_proxy_config()
 else:
