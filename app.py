@@ -66,7 +66,8 @@ DATASETS_STORE_ID = 'datasets-store'
 DATASETS_TABLE_ID = 'datasets-table'
     # 'columns' contains list of dictionaries {'name' -> column name, 'id' -> column id}
     # 'data' contains a list of records as provided by the method pd.DataFrame.to_dict(orient='records')
-
+QUICKLOOK_POPUP_ID = 'quicklook-popup'
+    # 'children' contains a layout of the popup
 
 # Color codes
 ACTRIS_COLOR_HEX = '#00adb7'
@@ -104,7 +105,7 @@ def get_variables_checklist():
     std_vars['label'] = std_vars['code'] + ' - ' + std_vars['std_ECV_name']
     std_vars = std_vars.rename(columns={'std_ECV_name': 'value'}).drop(columns='code')
     variables_options = std_vars.to_dict(orient='records')
-    variables_checklist = dcc.Checklist(
+    variables_checklist = dbc.Checklist(
         id=VARIABLES_CHECKLIST_ID,
         options=variables_options,
         value=std_vars['value'].tolist(),
@@ -225,7 +226,7 @@ def get_dashboard_layout():
 
             html.Hr(),
 
-            dcc.RadioItems(
+            dbc.RadioItems(
                 id=GANTT_VIEW_RADIO_ID,
                 options=[
                     {'label': 'compact view', 'value': 'compact'},
@@ -238,10 +239,6 @@ def get_dashboard_layout():
             dcc.Graph(
                 id=GANTT_GRAPH_ID,
             ),
-
-            html.Div(
-                id='tmp_url',
-            ),
         ]),
 
         html.Div(id='table-div', className='twelve columns', children=[
@@ -249,18 +246,21 @@ def get_dashboard_layout():
                 id=DATASETS_TABLE_ID,
                 # see: https://dash.plotly.com/datatable/interactivity
                 row_selectable="multi",
+                selected_rows=[],
                 sort_action='native',
                 # filter_action='native',
                 page_action="native", page_current=0, page_size=20,
                 # see: https://dash.plotly.com/datatable/width
-                hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
+                # hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
                 style_data={
                     'whiteSpace': 'normal',
                     'height': 'auto',
                     'lineHeight': '15px'
                 },
             ),
-        ])
+        ]),
+
+        html.Div(id=QUICKLOOK_POPUP_ID),
     ])
     return layout
 
@@ -296,6 +296,10 @@ def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat
         datasets_df['platform_id'].isin(selected_stations['short_name']) &
         datasets_df['RI'].isin(selected_stations['RI'])     # short_name of the station might not be unique among RI's
     ]
+
+    datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
+    datasets_df_filtered['id'] = datasets_df_filtered.index
+
     return datasets_df_filtered.to_json(orient='split', date_format='iso')
 
 
@@ -461,6 +465,7 @@ def get_gantt_figure(gantt_view_type, datasets_json):
 @app.callback(
     Output(DATASETS_TABLE_ID, 'columns'),
     Output(DATASETS_TABLE_ID, 'data'),
+    Output(DATASETS_TABLE_ID, 'selected_rows'),
     Input(DATASETS_STORE_ID, 'data'),
     Input(GANTT_GRAPH_ID, 'selectedData'),
 )
@@ -479,16 +484,20 @@ def datasets_as_table(datasets_json, gantt_figure_selectedData):
         datasets_df = datasets_df.iloc[datasets_indices]
 
     table_col_ids = ['title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
-                     'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI']
+                     #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                     ]
     table_col_names = ['Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
-                       'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI']
+                       #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                       ]
     table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
-    table_data = datasets_df[table_col_ids].to_dict(orient='records')
-    return table_columns, table_data
+    table_data = datasets_df[['id'] + table_col_ids].to_dict(orient='records')
+    selected_rows = []
+    return table_columns, table_data, selected_rows
 
 
 _tmp_dataset_df = None
 _tmp_ds = None
+_selected_row_ids = None
 
 
 def _plot_vars(ds, v1, v2=None):
@@ -548,20 +557,26 @@ def _plot_vars(ds, v1, v2=None):
 
 
 @app.callback(
-    Output('tmp_url', 'children'),
-    Input(DATASETS_TABLE_ID, 'derived_virtual_data'),
-    Input(DATASETS_TABLE_ID, 'derived_virtual_selected_rows'),
+    Output(QUICKLOOK_POPUP_ID, 'children'),
+    Input(DATASETS_TABLE_ID, 'selected_row_ids'),
+    State(DATASETS_STORE_ID, 'data'),
 )
-def popup_graphs(data, selected_rows):
-    global _tmp_dataset_df, _tmp_ds
-    if data is None or selected_rows is None:
+def popup_graphs(selected_row_ids, datasets_json):
+    global _tmp_dataset_df, _tmp_ds, _selected_row_ids
+
+    _selected_row_ids = selected_row_ids
+
+    if datasets_json is None or selected_row_ids is None:
         return None
-    if len(selected_rows) == 0:
+    if len(selected_row_ids) == 0:
         return []
-    df = pd.DataFrame.from_dict([data[i] for i in selected_rows])
-    s = df.iloc[-1]
+
+    datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+    datasets_df = datasets_df.loc[selected_row_ids]
+    _tmp_dataset_df = datasets_df
+
+    s = datasets_df.iloc[-1]
     ds = data_access.read_dataset(s['RI'], s['url'], s)
-    _tmp_dataset_df = df
     _tmp_ds = ds
 
     ds_vars = list(ds)

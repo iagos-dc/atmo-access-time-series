@@ -385,5 +385,6 @@ def read_dataset(ri, url, ds_metadata):
             pd.DataFrame(index=ds_metadata['std_ecv_variables_filtered']),
             on='std_ECV_name',
             how='inner')['variable_name'].unique())
+        variables_names_filtered = [v for v in ds if v in variables_names_filtered]
         ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
         return ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
