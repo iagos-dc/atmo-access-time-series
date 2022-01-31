@@ -577,27 +577,36 @@ def popup_graphs(selected_row_ids, datasets_json):
     _tmp_dataset_df = datasets_df
 
     s = datasets_df.iloc[-1]
-    ds = data_access.read_dataset(s['RI'], s['url'], s)
+    try:
+        ds = data_access.read_dataset(s['RI'], s['url'], s)
+        ds_exc = None
+    except Exception as e:
+        ds = None
+        ds_exc = e
+
     _tmp_ds = ds
 
-    ds_vars = [v for v in ds if ds[v].squeeze().ndim == 1]
+    if ds is not None:
+        ds_vars = [v for v in ds if ds[v].squeeze().ndim == 1]
+        if len(ds_vars) > 0:
+            ds_plot = dcc.Graph(
+                id='quick-plot',
+                figure=_plot_vars(ds, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None)
+            )
+        else:
+            ds_plot = None
+    else:
+        ds_plot = repr(ds_exc)
 
     return dbc.Modal(
         [
             dbc.ModalHeader(dbc.ModalTitle(s['title'])),
-            dbc.ModalBody(
-                dcc.Graph(
-                    id='quick-plot',
-                    figure=_plot_vars(ds, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None)
-                ) if len(ds_vars) > 0 else None
-            ),
+            dbc.ModalBody(ds_plot),
         ],
         id="modal-xl",
         size="xl",
         is_open=True,
     )
-    #print(df['RI'][0] + ': ' + str(df['url'][0]))
-    #return df['RI'] + ': ' + str(df['url'])
 
 # End of callback definitions
 
