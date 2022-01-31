@@ -9,7 +9,7 @@ dependencies:
   - pandas
   - xarray
   - plotly>=5.4
-  - dash>=2.0
+  - dash>=2.0,<2.1
   - dash-bootstrap-components
   - jupyter-dash
   - folium
