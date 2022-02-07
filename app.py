@@ -39,6 +39,13 @@ else:
 # Below there are id's of Dash JS components.
 # The components themselves are declared in the dashboard layout (see the function get_dashboard_layout).
 # Essential properties of each component are explained in the comments below.
+APP_TABS_ID = 'app-tabs'    # see: https://dash.plotly.com/dash-core-components/tabs; method 1 (content as callback)
+    # value contains an id of the active tab
+    # children contains a list of layouts of each tab
+STATIONS_VARS_TAB_VALUE = 'stations-vars-tab'
+GANTT_FIGURE_TAB_VALUE = 'gantt-figure-tab'
+DATASETS_AS_TABLE_TAB_VALUE = 'datasets-as-table-tab'
+
 STATIONS_MAP_ID = 'stations-map'
     # 'selectedData' contains a dictionary
     # {
@@ -130,7 +137,7 @@ def get_stations_map():
         size_max=7,
         category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
         color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
-        zoom=3, height=600,
+        zoom=3, height=700,
         title='Stations map',
     )
     fig.update_layout(
@@ -184,25 +191,24 @@ def get_dashboard_layout():
         dcc.Store(id=DATASETS_STORE_ID),
     ]
 
-    layout = html.Div(id='app-container-div', children=stores + [
+    # logo and application title
+    title_and_logo_bar = html.Div(className='row', children=[
+        html.Div(style={'float': 'left'}, children=[
+            html.A(
+                html.Img(
+                    src=app.get_asset_url('atmo_access_logo.png'),
+                    style={'float': 'right', 'height': '70px', 'margin-top': '10px'}
+                ),
+                href="https://www.atmo-access.eu/",
+            ),
+        ]),
+        html.Div(style={'float': 'right'}, children=[
+            html.H3('Time-series analysis'),
+        ]),
+    ])
+
+    stations_vars_tab = dcc.Tab(label='Stations and variables', value=STATIONS_VARS_TAB_VALUE, children=[
         html.Div(id='left-panel-div', className='four columns', children=[
-
-            # logo and application title
-            html.Div(className='row', children=[
-                html.Div(style={'float': 'left'}, children=[
-                    html.A(
-                        html.Img(
-                            src=app.get_asset_url('atmo_access_logo.png'),
-                            style={'float': 'right', 'height': '40px', 'margin-top': '10px'}
-                        ),
-                        href="https://www.atmo-access.eu/",
-                    ),
-                ]),
-                html.Div(style={'float': 'right'}, children=[
-                    html.H3('Time-series analysis'),
-                ]),
-            ]),
-
             html.Div(id='variables-selection-div', children=[
                 html.P('Select variable(s)', style={'font-weight': 'bold'}),
                 get_variables_checklist(),
@@ -222,26 +228,33 @@ def get_dashboard_layout():
             html.Button(id=SEARCH_DATASETS_BUTTON_ID, n_clicks=0, children='Search datasets'),
         ]),
 
-        html.Div(id='rest-of-dashboard-div', className='eight columns', children=[
+        html.Div(id='right-panel-div', className='eight columns', children=[
             get_stations_map(),
-
-            html.Hr(),
-
-            dbc.RadioItems(
-                id=GANTT_VIEW_RADIO_ID,
-                options=[
-                    {'label': 'compact view', 'value': 'compact'},
-                    {'label': 'detailed view', 'value': 'detailed'},
-                ],
-                value='compact',
-                labelStyle={'display': 'flex'},
-            ),
-
-            dcc.Graph(
-                id=GANTT_GRAPH_ID,
-            ),
         ]),
+    ])
 
+    gantt_figure_tab = dcc.Tab(label='Timeline coverage', value=GANTT_FIGURE_TAB_VALUE, children=[
+        html.Div(id='gantt-figure-tab-div', className='twelve columns', children=[
+            html.Div(id='gantt-figure-left-panel-div', className='two columns', children=[
+                dbc.RadioItems(
+                    id=GANTT_VIEW_RADIO_ID,
+                    options=[
+                        {'label': 'compact view', 'value': 'compact'},
+                        {'label': 'detailed view', 'value': 'detailed'},
+                    ],
+                    value='compact',
+                    labelStyle={'display': 'flex'},
+                ),
+            ]),
+            html.Div(id='gantt-figure-right-panel-div', className='ten columns', children=[
+                dcc.Graph(
+                    id=GANTT_GRAPH_ID,
+                ),
+            ]),
+        ]),
+    ])
+
+    datasets_as_table_tab = dcc.Tab(label='Datasets', value=DATASETS_AS_TABLE_TAB_VALUE, children=[
         html.Div(id='table-div', className='twelve columns', children=[
             dash_table.DataTable(
                 id=DATASETS_TABLE_ID,
@@ -263,6 +276,21 @@ def get_dashboard_layout():
 
         html.Div(id=QUICKLOOK_POPUP_ID),
     ])
+
+    app_tabs = dcc.Tabs(id=APP_TABS_ID, value=STATIONS_VARS_TAB_VALUE,
+                        children=[
+                            stations_vars_tab,
+                            gantt_figure_tab,
+                            datasets_as_table_tab,
+                        ])
+
+    layout = html.Div(id='app-container-div', children=stores + [
+        html.Div(id='heading-div', className='twelve columns', children=[
+            title_and_logo_bar,
+            app_tabs,
+        ])
+    ])
+
     return layout
 
 # End of definition of routines which constructs components of the dashboard
@@ -280,6 +308,7 @@ app.layout = get_dashboard_layout()
 
 @app.callback(
     Output(DATASETS_STORE_ID, 'data'),
+    Output(APP_TABS_ID, 'value'),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(VARIABLES_CHECKLIST_ID, 'value'),
     State(LON_MIN_ID, 'value'),
@@ -301,7 +330,7 @@ def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
     datasets_df_filtered['id'] = datasets_df_filtered.index
 
-    return datasets_df_filtered.to_json(orient='split', date_format='iso')
+    return datasets_df_filtered.to_json(orient='split', date_format='iso'), GANTT_FIGURE_TAB_VALUE
 
 
 def _get_selected_points(selected_stations):
