@@ -54,6 +54,7 @@ STATIONS_MAP_ID = 'stations-map'
     #   'range' (present only if a box was selected on the map) ->
     #       {'mapbox' -> [[lon_min, lat_max], [lon_max, lat_min]]}
     # }
+VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID = 'variables-checklist-all-none-switch'
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
 SELECTED_STATIONS_DROPDOWN_ID = 'selected-stations-dropdown'
     # 'options' contains a list of dictionaries {'label' -> station label, 'value' -> index of the station in the global dataframe stations (see below)}
@@ -89,11 +90,23 @@ def _get_station_by_shortnameRI(stations):
     return df
 
 
+def _get_std_variables(variables):
+    std_vars = variables[['std_ECV_name', 'code']].drop_duplicates()
+    # TODO: temporary
+    try:
+        std_vars = std_vars[std_vars['std_ECV_name'] != 'Aerosol Optical Properties']
+    except ValueError:
+        pass
+    std_vars['label'] = std_vars['code'] + ' - ' + std_vars['std_ECV_name']
+    return std_vars.rename(columns={'std_ECV_name': 'value'}).drop(columns='code')
+
+
 # Initialization of global objects
 app = JupyterDash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 stations = data_access.get_stations()
 station_by_shortnameRI = _get_station_by_shortnameRI(stations)
 variables = data_access.get_vars()
+std_variables = _get_std_variables(variables)
 
 
 # Begin of definition of routines which constructs components of the dashboard
@@ -104,19 +117,12 @@ def get_variables_checklist():
     See: https://dash.plotly.com/dash-core-components/checklist
     :return: dash.dcc.Checklist
     """
-    std_vars = variables[['std_ECV_name', 'code']].drop_duplicates()
-    # TODO: temporary
-    try:
-        std_vars = std_vars[std_vars['std_ECV_name'] != 'Aerosol Optical Properties']
-    except ValueError:
-        pass
-    std_vars['label'] = std_vars['code'] + ' - ' + std_vars['std_ECV_name']
-    std_vars = std_vars.rename(columns={'std_ECV_name': 'value'}).drop(columns='code')
-    variables_options = std_vars.to_dict(orient='records')
+    variables_options = std_variables.to_dict(orient='records')
+    variables_values = std_variables['value'].tolist()
     variables_checklist = dbc.Checklist(
         id=VARIABLES_CHECKLIST_ID,
         options=variables_options,
-        value=std_vars['value'].tolist(),
+        value=variables_values,
         labelStyle={'display': 'flex'},  # display in column rather than in a row; not sure if it is the right way to do
     )
     return variables_checklist
@@ -138,11 +144,12 @@ def get_stations_map():
         category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
         color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
         zoom=3, height=700,
+        center={'lon': 10, 'lat': 55},
         title='Stations map',
     )
     fig.update_layout(
         mapbox_style="open-street-map",
-        margin={'r': 0, 't': 0, 'l': 0, 'b': 0},
+        margin={'r': 0, 't': 40, 'l': 0, 'b': 0},
         clickmode='event+select',
         hoverdistance=1, hovermode='closest',  # hoverlabel=None,
     )
@@ -162,23 +169,27 @@ def get_bbox_selection_div():
     """
     bbox_selection_div = html.Div(id='bbox-selection-div', children=[
         html.Div(className='row', children=[
-            html.Div(className='offset-by-six columns', children=[
-                dcc.Input(className='three columns', id=LAT_MAX_ID, placeholder='lat max', type='number', min=-90,
-                          max=90),  # , step=0.01),
+            html.Div(className='three columns, offset-by-six columns', children=[
+                dcc.Input(id=LAT_MAX_ID, style={'width': '100%'}, placeholder='lat max', type='number', min=-90, max=90),  # , step=0.01),
             ]),
         ]),
         html.Div(className='row', children=[
-            html.P(className='three columns', children='Bounding box:', style={'font-weight': 'bold'}),
-            dcc.Input(className='three columns', id=LON_MIN_ID, placeholder='lon min', type='number', min=-180,
-                      max=180),  # , step=0.01),
-            dcc.Input(className='three columns, offset-by-three columns', id=LON_MAX_ID, placeholder='lon max',
-                      type='number', min=-180, max=180),  # , step=0.01),
+            html.Div(className='three columns',
+                     children=html.P(children='Bounding box:', style={'width': '100%', 'font-weight': 'bold'})),
+            html.Div(className='three columns',
+                     children=dcc.Input(style={'width': '100%'}, id=LON_MIN_ID, placeholder='lon min', type='number',
+                                        min=-180, max=180),  # , step=0.01),
+                     ),
+            html.Div(className='offset-by-three columns, three columns',
+                     children=dcc.Input(style={'width': '100%'}, id=LON_MAX_ID, placeholder='lon max', type='number',
+                                        min=-180, max=180),  # , step=0.01),
+                     ),
         ]),
         html.Div(className='row', children=[
-            html.Div(className='offset-by-six columns', children=[
-                dcc.Input(className='three columns', id=LAT_MIN_ID, placeholder='lat min', type='number', min=-90,
-                          max=90),  # , step=0.01),
-            ]),
+            html.Div(className='offset-by-six columns, three columns',
+                     children=dcc.Input(style={'width': '100%'}, id=LAT_MIN_ID, placeholder='lat min', type='number',
+                                        min=-90, max=90),  # , step=0.01),
+                     ),
         ]),
     ])
     return bbox_selection_div
@@ -192,8 +203,13 @@ def get_dashboard_layout():
     ]
 
     # logo and application title
-    title_and_logo_bar = html.Div(className='row', children=[
-        html.Div(style={'float': 'left'}, children=[
+    title_and_logo_bar = html.Div(style={'display': 'flex', 'justify-content': 'space-between',
+                                         'margin-bottom': '20px'},
+                                  children=[
+        html.Div(children=[
+            html.H2('Time-series analysis', style={'font-weight': 'bold'}),
+        ]),
+        html.Div(children=[
             html.A(
                 html.Img(
                     src=app.get_asset_url('atmo_access_logo.png'),
@@ -202,38 +218,50 @@ def get_dashboard_layout():
                 href="https://www.atmo-access.eu/",
             ),
         ]),
-        html.Div(style={'float': 'right'}, children=[
-            html.H3('Time-series analysis'),
-        ]),
     ])
 
-    stations_vars_tab = dcc.Tab(label='Stations and variables', value=STATIONS_VARS_TAB_VALUE, children=[
+    stations_vars_tab = dcc.Tab(label='Stations and variables', value=STATIONS_VARS_TAB_VALUE,
+                                children=html.Div(style={'margin': '20px'}, children=[
         html.Div(id='left-panel-div', className='four columns', children=[
-            html.Div(id='variables-selection-div', children=[
-                html.P('Select variable(s)', style={'font-weight': 'bold'}),
+            html.Div(id='variables-selection-div', className='nine columns', children=[
+                html.P('Select variable(s):', style={'font-weight': 'bold'}),
+                dbc.Switch(
+                    id=VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID,
+                    label='Select all / none',
+                    style={'margin-top': '10px'},
+                    value=True,
+                ),
                 get_variables_checklist(),
             ]),
 
-            get_bbox_selection_div(),
+            html.Div(id='search-datasets-button-div', className='three columns',
+                     children=dbc.Button(id=SEARCH_DATASETS_BUTTON_ID, n_clicks=0,
+                                         color='primary',
+                                         type='submit',
+                                         style={'font-weight': 'bold'},
+                                         children='Search datasets')),
 
-            html.Hr(),
+            html.Div(id='left-panel-cont-div', className='twelve columns',
+                     style={'margin-top': '20px'},
+                     children=[
+                        get_bbox_selection_div(),
 
-            html.Div(id='selected-stations-div', children=[
-                html.P('Selected stations (you can refine your selection)', style={'font-weight': 'bold'}),
-                dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True, clearable=False),
-            ]),
-
-            html.Hr(),
-
-            html.Button(id=SEARCH_DATASETS_BUTTON_ID, n_clicks=0, children='Search datasets'),
+                        html.Div(id='selected-stations-div',
+                                 style={'margin-top': '20px'},
+                                 children=[
+                                    html.P('Selected stations (you can refine your selection)', style={'font-weight': 'bold'}),
+                                    dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True, clearable=False),
+                                 ]),
+                     ]),
         ]),
 
         html.Div(id='right-panel-div', className='eight columns', children=[
             get_stations_map(),
         ]),
-    ])
+    ]))
 
-    gantt_figure_tab = dcc.Tab(label='Timeline coverage', value=GANTT_FIGURE_TAB_VALUE, children=[
+    gantt_figure_tab = dcc.Tab(label='Timeline coverage', value=GANTT_FIGURE_TAB_VALUE,
+                               children=html.Div(style={'margin': '20px'}, children=[
         html.Div(id='gantt-figure-tab-div', className='twelve columns', children=[
             html.Div(id='gantt-figure-left-panel-div', className='two columns', children=[
                 dbc.RadioItems(
@@ -252,9 +280,10 @@ def get_dashboard_layout():
                 ),
             ]),
         ]),
-    ])
+    ]))
 
-    datasets_as_table_tab = dcc.Tab(label='Datasets', value=DATASETS_AS_TABLE_TAB_VALUE, children=[
+    datasets_as_table_tab = dcc.Tab(label='Datasets', value=DATASETS_AS_TABLE_TAB_VALUE,
+                                    children=html.Div(style={'margin': '20px'}, children=[
         html.Div(id='table-div', className='twelve columns', children=[
             dash_table.DataTable(
                 id=DATASETS_TABLE_ID,
@@ -275,7 +304,7 @@ def get_dashboard_layout():
         ]),
 
         html.Div(id=QUICKLOOK_POPUP_ID),
-    ])
+    ]))
 
     app_tabs = dcc.Tabs(id=APP_TABS_ID, value=STATIONS_VARS_TAB_VALUE,
                         children=[
@@ -284,7 +313,7 @@ def get_dashboard_layout():
                             datasets_as_table_tab,
                         ])
 
-    layout = html.Div(id='app-container-div', children=stores + [
+    layout = html.Div(id='app-container-div', style={'margin': '30px', 'padding-bottom': '50px'}, children=stores + [
         html.Div(id='heading-div', className='twelve columns', children=[
             title_and_logo_bar,
             app_tabs,
@@ -307,6 +336,17 @@ app.layout = get_dashboard_layout()
 # for more detailed documentation
 
 @app.callback(
+    Output(VARIABLES_CHECKLIST_ID, 'value'),
+    Input(VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value')
+)
+def toogle_variable_checklist(variables_checklist_all_none_switch):
+    if variables_checklist_all_none_switch:
+        return std_variables['value'].tolist()
+    else:
+        return []
+
+
+@app.callback(
     Output(DATASETS_STORE_ID, 'data'),
     Output(APP_TABS_ID, 'value'),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
@@ -321,6 +361,14 @@ def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat
     if selected_stations_idx is None:
         selected_stations_idx = []
     datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
+
+    if datasets_df is None:  # is it a right way?
+        datasets_df = pd.DataFrame(
+            columns=['title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes', 'ecv_variables_filtered',
+                     'std_ecv_variables_filtered', 'var_codes_filtered', 'time_period_start', 'time_period_end',
+                     'platform_id_RI']
+        )
+
     selected_stations = stations.iloc[selected_stations_idx]
     datasets_df_filtered = datasets_df[
         datasets_df['platform_id'].isin(selected_stations['short_name']) &
@@ -330,7 +378,9 @@ def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
     datasets_df_filtered['id'] = datasets_df_filtered.index
 
-    return datasets_df_filtered.to_json(orient='split', date_format='iso'), GANTT_FIGURE_TAB_VALUE
+    new_active_tab = GANTT_FIGURE_TAB_VALUE if n_clicks > 0 else STATIONS_VARS_TAB_VALUE  # TODO: is it a right way?
+
+    return datasets_df_filtered.to_json(orient='split', date_format='iso'), new_active_tab
 
 
 def _get_selected_points(selected_stations):
@@ -485,7 +535,7 @@ def get_gantt_figure(gantt_view_type, datasets_json):
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
     if len(datasets_df) == 0:
-        return {}   # empty figure; TODO: is it the right way to do?
+        return {}   # empty figure; TODO: is it a right way?
     if gantt_view_type == 'compact':
         return _get_timeline_by_station(datasets_df)
     else:
@@ -641,4 +691,5 @@ def popup_graphs(selected_row_ids, datasets_json):
 
 
 # Launch the Dash application.
+#app_conf['debug'] = False
 app.run_server(**app_conf)
