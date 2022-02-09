@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import datetime
 
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 from dash import dcc
@@ -167,7 +168,7 @@ def get_bbox_selection_div():
     See: https://dash.plotly.com/dash-core-components/input
     :return: dash.html.Div object
     """
-    bbox_selection_div = html.Div(id='bbox-selection-div', children=[
+    bbox_selection_div = html.Div(id='bbox-selection-div', style={'margin-top': '15px'}, children=[
         html.Div(className='row', children=[
             html.Div(className='three columns, offset-by-six columns', children=[
                 dcc.Input(id=LAT_MAX_ID, style={'width': '100%'}, placeholder='lat max', type='number', min=-90, max=90),  # , step=0.01),
@@ -220,7 +221,7 @@ def get_dashboard_layout():
         ]),
     ])
 
-    stations_vars_tab = dcc.Tab(label='Stations and variables', value=STATIONS_VARS_TAB_VALUE,
+    stations_vars_tab = dcc.Tab(label='Search datasets', value=STATIONS_VARS_TAB_VALUE,
                                 children=html.Div(style={'margin': '20px'}, children=[
         html.Div(id='left-panel-div', className='four columns', children=[
             html.Div(id='variables-selection-div', className='nine columns', children=[
@@ -244,14 +245,23 @@ def get_dashboard_layout():
             html.Div(id='left-panel-cont-div', className='twelve columns',
                      style={'margin-top': '20px'},
                      children=[
-                        get_bbox_selection_div(),
-
-                        html.Div(id='selected-stations-div',
-                                 style={'margin-top': '20px'},
-                                 children=[
-                                    html.P('Selected stations (you can refine your selection)', style={'font-weight': 'bold'}),
-                                    dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True, clearable=False),
-                                 ]),
+                         html.Div(children=[
+                             html.P('Date range:', style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}),
+                             dcc.DatePickerRange(
+                                 id='my-date-picker-range',
+                                 min_date_allowed=datetime.date(1900, 1, 1),
+                                 max_date_allowed=datetime.date(2022, 12, 31),
+                                 initial_visible_month=datetime.date(2017, 8, 5),
+                                 end_date=datetime.date(2017, 8, 25)
+                             ),
+                         ]),
+                         get_bbox_selection_div(),
+                         html.Div(id='selected-stations-div',
+                                  style={'margin-top': '20px'},
+                                  children=[
+                                      html.P('Selected stations (you can refine your selection)', style={'font-weight': 'bold'}),
+                                      dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True, clearable=False),
+                                  ]),
                      ]),
         ]),
 
@@ -260,7 +270,7 @@ def get_dashboard_layout():
         ]),
     ]))
 
-    gantt_figure_tab = dcc.Tab(label='Timeline coverage', value=GANTT_FIGURE_TAB_VALUE,
+    gantt_figure_tab = dcc.Tab(label='Filter datasets', value=GANTT_FIGURE_TAB_VALUE,
                                children=html.Div(style={'margin': '20px'}, children=[
         html.Div(id='gantt-figure-tab-div', className='twelve columns', children=[
             html.Div(id='gantt-figure-left-panel-div', className='two columns', children=[
@@ -282,7 +292,7 @@ def get_dashboard_layout():
         ]),
     ]))
 
-    datasets_as_table_tab = dcc.Tab(label='Datasets', value=DATASETS_AS_TABLE_TAB_VALUE,
+    datasets_as_table_tab = dcc.Tab(label='Select datasets', value=DATASETS_AS_TABLE_TAB_VALUE,
                                     children=html.Div(style={'margin': '20px'}, children=[
         html.Div(id='table-div', className='twelve columns', children=[
             dash_table.DataTable(
@@ -306,11 +316,14 @@ def get_dashboard_layout():
         html.Div(id=QUICKLOOK_POPUP_ID),
     ]))
 
+    mockup_remaining_tabs = _get_mockup_remaining_tabs()
+
     app_tabs = dcc.Tabs(id=APP_TABS_ID, value=STATIONS_VARS_TAB_VALUE,
                         children=[
                             stations_vars_tab,
                             gantt_figure_tab,
                             datasets_as_table_tab,
+                            *mockup_remaining_tabs
                         ])
 
     layout = html.Div(id='app-container-div', style={'margin': '30px', 'padding-bottom': '50px'}, children=stores + [
@@ -321,6 +334,11 @@ def get_dashboard_layout():
     ])
 
     return layout
+
+
+def _get_mockup_remaining_tabs():
+    filter_data_tab = dcc.Tab(label='Filter data and data analysis', value='filter-data-tab')
+    return [filter_data_tab]
 
 # End of definition of routines which constructs components of the dashboard
 
@@ -691,5 +709,5 @@ def popup_graphs(selected_row_ids, datasets_json):
 
 
 # Launch the Dash application.
-#app_conf['debug'] = False
+# app_conf['debug'] = False
 app.run_server(**app_conf)
