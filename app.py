@@ -403,15 +403,15 @@ def search_datasets(
     empty_datasets_df = pd.DataFrame(
         columns=['title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes', 'ecv_variables_filtered',
                  'std_ecv_variables_filtered', 'var_codes_filtered', 'time_period_start', 'time_period_end',
-                 'platform_id_RI']
+                 'platform_id_RI', 'id']
     )   # TODO: do it cleanly
 
     if not selected_variables or None in [lon_min, lon_max, lat_min, lat_max]:
-        if previous_datasets_json is None:
-            datasets_df = previous_datasets_json
+        if previous_datasets_json is not None:
+            datasets_json = previous_datasets_json
         else:
-            datasets_df = empty_datasets_df
-        return datasets_df, SEARCH_DATASETS_TAB_VALUE
+            datasets_json = empty_datasets_df.to_json(orient='split', date_format='iso')
+        return datasets_json, SEARCH_DATASETS_TAB_VALUE
 
     datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
     if datasets_df is None:
@@ -615,13 +615,13 @@ def get_gantt_figure(gantt_view_type, datasets_json):
     Output(DATASETS_TABLE_ID, 'data'),
     Output(DATASETS_TABLE_ID, 'selected_rows'),
     Output(DATASETS_TABLE_ID, 'selected_row_ids'),
-    Input(DATASETS_STORE_ID, 'data'),
     Input(GANTT_GRAPH_ID, 'selectedData'),
     Input(DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
+    State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
 )
-def datasets_as_table(datasets_json, gantt_figure_selectedData, datasets_table_checklist_all_none_switch,
-                      previously_selected_row_ids):
+def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_none_switch,
+                      datasets_json, previously_selected_row_ids):
     table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
                      #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
                      ]
