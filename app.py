@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import datetime
 
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
+import dash
 from dash import dcc
 from dash import html
 from dash import dash_table
@@ -43,9 +44,8 @@ else:
 APP_TABS_ID = 'app-tabs'    # see: https://dash.plotly.com/dash-core-components/tabs; method 1 (content as callback)
     # value contains an id of the active tab
     # children contains a list of layouts of each tab
-STATIONS_VARS_TAB_VALUE = 'stations-vars-tab'
-GANTT_FIGURE_TAB_VALUE = 'gantt-figure-tab'
-DATASETS_AS_TABLE_TAB_VALUE = 'datasets-as-table-tab'
+SEARCH_DATASETS_TAB_VALUE = 'search-datasets-tab'
+SELECT_DATASETS_TAB_VALUE = 'select-datasets-tab'
 
 STATIONS_MAP_ID = 'stations-map'
     # 'selectedData' contains a dictionary
@@ -73,6 +73,7 @@ GANTT_GRAPH_ID = 'gantt-graph'
     # 'figure' contains a Plotly figure object
 DATASETS_STORE_ID = 'datasets-store'
     # 'data' stores datasets metadata in JSON, as provided by the method pd.DataFrame.to_json(orient='split', date_format='iso')
+DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID = 'datasets-table-checklist-all-none-switch'
 DATASETS_TABLE_ID = 'datasets-table'
     # 'columns' contains list of dictionaries {'name' -> column name, 'id' -> column id}
     # 'data' contains a list of records as provided by the method pd.DataFrame.to_dict(orient='records')
@@ -103,7 +104,8 @@ def _get_std_variables(variables):
 
 
 # Initialization of global objects
-app = JupyterDash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = JupyterDash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP,
+                                                  'https://use.fontawesome.com/releases/v5.10.2/css/all.css'])
 stations = data_access.get_stations()
 station_by_shortnameRI = _get_station_by_shortnameRI(stations)
 variables = data_access.get_vars()
@@ -154,7 +156,8 @@ def get_stations_map():
         clickmode='event+select',
         hoverdistance=1, hovermode='closest',  # hoverlabel=None,
     )
-
+    # TODO: synchronize box selection on the map with max/min lon/lat input fields
+    # TODO: as explained in https://dash.plotly.com/interactive-graphing (Generic Crossfilter Recipe)
     stations_map = dcc.Graph(
         id=STATIONS_MAP_ID,
         figure=fig,
@@ -221,7 +224,7 @@ def get_dashboard_layout():
         ]),
     ])
 
-    stations_vars_tab = dcc.Tab(label='Search datasets', value=STATIONS_VARS_TAB_VALUE,
+    stations_vars_tab = dcc.Tab(label='Search datasets', value=SEARCH_DATASETS_TAB_VALUE,
                                 children=html.Div(style={'margin': '20px'}, children=[
         html.Div(id='left-panel-div', className='four columns', children=[
             html.Div(id='variables-selection-div', className='nine columns', children=[
@@ -270,10 +273,10 @@ def get_dashboard_layout():
         ]),
     ]))
 
-    gantt_figure_tab = dcc.Tab(label='Filter datasets', value=GANTT_FIGURE_TAB_VALUE,
-                               children=html.Div(style={'margin': '20px'}, children=[
-        html.Div(id='gantt-figure-tab-div', className='twelve columns', children=[
-            html.Div(id='gantt-figure-left-panel-div', className='two columns', children=[
+    select_datasets_tab = dcc.Tab(label='Select datasets', value=SELECT_DATASETS_TAB_VALUE,
+                                  children=html.Div(style={'margin': '20px'}, children=[
+        #html.Div(id='datasets-selection-tab-div', className='twelve columns', children=[
+        #    html.Div(id='gantt-figure-left-panel-div', className='four columns', children=[
                 dbc.RadioItems(
                     id=GANTT_VIEW_RADIO_ID,
                     options=[
@@ -281,48 +284,60 @@ def get_dashboard_layout():
                         {'label': 'detailed view', 'value': 'detailed'},
                     ],
                     value='compact',
-                    labelStyle={'display': 'flex'},
+                    inline=True,
                 ),
-            ]),
-            html.Div(id='gantt-figure-right-panel-div', className='ten columns', children=[
+                #html.Div(id='gantt-figure-right-panel-div', className='ten columns', children=[
                 dcc.Graph(
                     id=GANTT_GRAPH_ID,
                 ),
-            ]),
-        ]),
-    ]))
+                #]),
+            #]),
+            #html.Div(id='metadata-table-right-panel-div', className='eight columns', children=[
+                html.Div(style={'display': 'inline'}, children=[
+                    dbc.Button(id='foo', n_clicks=0,
+                               color='primary',
+                               type='submit',
+                               style={'font-weight': 'bold'},
+                               children='Choose these datasets...'),
+                    dbc.Switch(
+                        id=DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID,
+                        label='Select all / none',
+                        style={'margin-top': '10px'},
+                        value=False,
+                    ),
+                ]),
+                dash_table.DataTable(
+                    id=DATASETS_TABLE_ID,
+                    css=[dict(selector="p", rule="margin: 0px;")],
+                    # see: https://dash.plotly.com/datatable/interactivity
+                    row_selectable="multi",
+                    selected_rows=[],
+                    selected_row_ids=[],
+                    sort_action='native',
+                    # filter_action='native',
+                    page_action="native", page_current=0, page_size=20,
+                    # see: https://dash.plotly.com/datatable/width
+                    # hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
+                    style_data={
+                        'whiteSpace': 'normal',
+                        'height': 'auto',
+                        'lineHeight': '15px'
+                    },
+                    style_cell={'textAlign': 'left'},
+                    markdown_options={'html': True},
+                ),
+            #]),
 
-    datasets_as_table_tab = dcc.Tab(label='Select datasets', value=DATASETS_AS_TABLE_TAB_VALUE,
-                                    children=html.Div(style={'margin': '20px'}, children=[
-        html.Div(id='table-div', className='twelve columns', children=[
-            dash_table.DataTable(
-                id=DATASETS_TABLE_ID,
-                # see: https://dash.plotly.com/datatable/interactivity
-                row_selectable="multi",
-                selected_rows=[],
-                sort_action='native',
-                # filter_action='native',
-                page_action="native", page_current=0, page_size=20,
-                # see: https://dash.plotly.com/datatable/width
-                # hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
-                style_data={
-                    'whiteSpace': 'normal',
-                    'height': 'auto',
-                    'lineHeight': '15px'
-                },
-            ),
-        ]),
-
-        html.Div(id=QUICKLOOK_POPUP_ID),
+            html.Div(id=QUICKLOOK_POPUP_ID),
+        #]),
     ]))
 
     mockup_remaining_tabs = _get_mockup_remaining_tabs()
 
-    app_tabs = dcc.Tabs(id=APP_TABS_ID, value=STATIONS_VARS_TAB_VALUE,
+    app_tabs = dcc.Tabs(id=APP_TABS_ID, value=SEARCH_DATASETS_TAB_VALUE,
                         children=[
                             stations_vars_tab,
-                            gantt_figure_tab,
-                            datasets_as_table_tab,
+                            select_datasets_tab,
                             *mockup_remaining_tabs
                         ])
 
@@ -337,8 +352,10 @@ def get_dashboard_layout():
 
 
 def _get_mockup_remaining_tabs():
-    filter_data_tab = dcc.Tab(label='Filter data and data analysis', value='filter-data-tab')
-    return [filter_data_tab]
+    filter_data_tab = dcc.Tab(label='Filter data', value='filter-data-tab')
+    data_analysis_tab = dcc.Tab(label='Data analysis', value='data-analysis-tab')
+    data_plotting_and_download_tab = dcc.Tab(label='Data plotting and download', value='data-plotting-and-download-tab')
+    return [filter_data_tab, data_analysis_tab, data_plotting_and_download_tab]
 
 # End of definition of routines which constructs components of the dashboard
 
@@ -373,19 +390,32 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
     State(LON_MAX_ID, 'value'),
     State(LAT_MIN_ID, 'value'),
     State(LAT_MAX_ID, 'value'),
-    State(SELECTED_STATIONS_DROPDOWN_ID, 'value')
+    State(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
+    State(DATASETS_STORE_ID, 'data'),  # TODO: if no station or variable selected, do not launch Search datasets action; instead, return an old data
 )
-def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat_max, selected_stations_idx):
+def search_datasets(
+        n_clicks, selected_variables, lon_min, lon_max, lat_min, lat_max,
+        selected_stations_idx, previous_datasets_json
+    ):
     if selected_stations_idx is None:
         selected_stations_idx = []
-    datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
 
-    if datasets_df is None:  # is it a right way?
-        datasets_df = pd.DataFrame(
-            columns=['title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes', 'ecv_variables_filtered',
-                     'std_ecv_variables_filtered', 'var_codes_filtered', 'time_period_start', 'time_period_end',
-                     'platform_id_RI']
-        )
+    empty_datasets_df = pd.DataFrame(
+        columns=['title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes', 'ecv_variables_filtered',
+                 'std_ecv_variables_filtered', 'var_codes_filtered', 'time_period_start', 'time_period_end',
+                 'platform_id_RI']
+    )   # TODO: do it cleanly
+
+    if not selected_variables or None in [lon_min, lon_max, lat_min, lat_max]:
+        if previous_datasets_json is None:
+            datasets_df = previous_datasets_json
+        else:
+            datasets_df = empty_datasets_df
+        return datasets_df, SEARCH_DATASETS_TAB_VALUE
+
+    datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
+    if datasets_df is None:
+        datasets_df = empty_datasets_df
 
     selected_stations = stations.iloc[selected_stations_idx]
     datasets_df_filtered = datasets_df[
@@ -396,7 +426,7 @@ def search_datasets(n_clicks, selected_variables, lon_min, lon_max, lat_min, lat
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
     datasets_df_filtered['id'] = datasets_df_filtered.index
 
-    new_active_tab = GANTT_FIGURE_TAB_VALUE if n_clicks > 0 else STATIONS_VARS_TAB_VALUE  # TODO: is it a right way?
+    new_active_tab = SELECT_DATASETS_TAB_VALUE if n_clicks > 0 else SEARCH_DATASETS_TAB_VALUE  # TODO: is it a right way?
 
     return datasets_df_filtered.to_json(orient='split', date_format='iso'), new_active_tab
 
@@ -518,7 +548,10 @@ def _get_timeline_by_station(datasets_df):
         color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
         height=height
     )
-    gantt.update_layout(clickmode='event+select')
+    gantt.update_layout(
+        clickmode='event+select',
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.04, 'xanchor': 'left', 'x': 0},
+    )
     return gantt
 
 
@@ -528,7 +561,7 @@ def _get_timeline_by_station_and_vars(datasets_df):
         .apply(lambda x: _contiguous_periods(x['time_period_start'], x['time_period_end']))\
         .reset_index()
     df = df.sort_values('platform_id_RI')
-    facet_col_wrap = 3
+    facet_col_wrap = 4
     no_platforms = len(df['platform_id_RI'].unique())
     no_var_codes_filtered = len(df['var_codes_filtered'].unique())
     no_facet_rows = (no_var_codes_filtered + facet_col_wrap - 1) // facet_col_wrap
@@ -540,36 +573,69 @@ def _get_timeline_by_station_and_vars(datasets_df):
         custom_data=['indices'],
         height=height, facet_col='var_codes_filtered', facet_col_wrap=facet_col_wrap,
     )
-    gantt.update_layout(clickmode='event+select')
+    gantt.update_layout(
+        clickmode='event+select',
+        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.06, 'xanchor': 'left', 'x': 0},
+    )
     return gantt
 
 
 @app.callback(
     Output(GANTT_GRAPH_ID, 'figure'),
+    Output(GANTT_GRAPH_ID, 'selectedData'),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
 )
 def get_gantt_figure(gantt_view_type, datasets_json):
+    selectedData = {'points': []}
+
+    if datasets_json is None:
+       return {}, selectedData   # empty figure; TODO: is it a right way?
+
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
+
     if len(datasets_df) == 0:
-        return {}   # empty figure; TODO: is it a right way?
+       return {}, selectedData   # empty figure; TODO: is it a right way?
+
     if gantt_view_type == 'compact':
-        return _get_timeline_by_station(datasets_df)
+        fig = _get_timeline_by_station(datasets_df)
     else:
-        return _get_timeline_by_station_and_vars(datasets_df)
+        fig = _get_timeline_by_station_and_vars(datasets_df)
+    fig.update_traces(
+        selectedpoints=[],
+        #mode='markers+text', marker={'color': 'rgba(0, 116, 217, 0.7)', 'size': 20},
+        unselected={'marker': {'opacity': 0.4}, }
+    )
+    return fig, selectedData
 
 
 @app.callback(
     Output(DATASETS_TABLE_ID, 'columns'),
     Output(DATASETS_TABLE_ID, 'data'),
     Output(DATASETS_TABLE_ID, 'selected_rows'),
+    Output(DATASETS_TABLE_ID, 'selected_row_ids'),
     Input(DATASETS_STORE_ID, 'data'),
     Input(GANTT_GRAPH_ID, 'selectedData'),
+    Input(DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
+    State(DATASETS_TABLE_ID, 'selected_row_ids'),
 )
-def datasets_as_table(datasets_json, gantt_figure_selectedData):
-    if not datasets_json:
-        return None, None
+def datasets_as_table(datasets_json, gantt_figure_selectedData, datasets_table_checklist_all_none_switch,
+                      previously_selected_row_ids):
+    table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
+                     #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                     ]
+    table_col_names = ['', 'Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
+                       #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                       ]
+    table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
+    # on rendering HTML snipplets in DataTable cells:
+    # https://github.com/plotly/dash-table/pull/916
+    table_columns[0]['presentation'] = 'markdown'
+
+    if datasets_json is None:
+        return table_columns, [], [], []
+
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     datasets_df = datasets_df.join(station_by_shortnameRI['long_name'], on='platform_id_RI')
 
@@ -581,21 +647,37 @@ def datasets_as_table(datasets_json, gantt_figure_selectedData):
             datasets_indices.extend(timeline_bar['customdata'][0])
         datasets_df = datasets_df.iloc[datasets_indices]
 
-    table_col_ids = ['title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
-                     #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
-                     ]
-    table_col_names = ['Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
-                       #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
-                       ]
-    table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
+    # on rendering HTML snipplets in DataTable cells:
+    # https://github.com/plotly/dash-table/pull/916
+    datasets_df['eye'] = '<i class="fa fa-eye"></i>'
+
     table_data = datasets_df[['id'] + table_col_ids].to_dict(orient='records')
-    selected_rows = []
-    return table_columns, table_data, selected_rows
+
+    # see here for explanation how dash.callback_context works
+    # https://community.plotly.com/t/select-all-rows-in-dash-datatable/41466/2
+    # TODO: this part needs to be checked and polished;
+    # TODO: e.g. is the manual synchronization between selected_rows and selected_row_ids needed?
+    trigger = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    if trigger == DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID:
+        if datasets_table_checklist_all_none_switch:
+            selected_rows = list(range(len(table_data)))
+        else:
+            selected_rows = []
+        selected_row_ids = datasets_df['id'].iloc[selected_rows].to_list()
+    else:
+        if previously_selected_row_ids is None:
+            previously_selected_row_ids = []
+        selected_row_ids = sorted(set(previously_selected_row_ids) & set(datasets_df['id'].to_list()))
+        idx = pd.DataFrame({'idx': datasets_df['id'], 'n': range(len(datasets_df['id']))}).set_index('idx')
+        idx = idx.loc[selected_row_ids]
+        selected_row_ids = idx.index.to_list()
+        selected_rows = idx['n'].to_list()
+    return table_columns, table_data, selected_rows, selected_row_ids
 
 
-_tmp_dataset_df = None
+_tmp_dataset = None
 _tmp_ds = None
-_selected_row_ids = None
+_active_cell = None
 
 
 def _plot_vars(ds, v1, v2=None):
@@ -656,24 +738,22 @@ def _plot_vars(ds, v1, v2=None):
 
 @app.callback(
     Output(QUICKLOOK_POPUP_ID, 'children'),
-    Input(DATASETS_TABLE_ID, 'selected_row_ids'),
+    Input(DATASETS_TABLE_ID, 'active_cell'),
     State(DATASETS_STORE_ID, 'data'),
 )
-def popup_graphs(selected_row_ids, datasets_json):
-    global _tmp_dataset_df, _tmp_ds, _selected_row_ids
+def popup_graphs(active_cell, datasets_json):
+    global _tmp_dataset, _tmp_ds, _active_cell
 
-    _selected_row_ids = selected_row_ids
+    _active_cell = active_cell
+    print(active_cell)
 
-    if datasets_json is None or selected_row_ids is None:
+    if datasets_json is None or active_cell is None:
         return None
-    if len(selected_row_ids) == 0:
-        return []
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
-    datasets_df = datasets_df.loc[selected_row_ids]
-    _tmp_dataset_df = datasets_df
+    s = datasets_df.loc[active_cell['row_id']]
+    _tmp_dataset = s
 
-    s = datasets_df.iloc[-1]
     try:
         ds = data_access.read_dataset(s['RI'], s['url'], s)
         ds_exc = None
