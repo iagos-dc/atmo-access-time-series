@@ -80,6 +80,10 @@ DATASETS_TABLE_ID = 'datasets-table'
 QUICKLOOK_POPUP_ID = 'quicklook-popup'
     # 'children' contains a layout of the popup
 
+# Atmo-Access logo url
+ATMO_ACCESS_LOGO_URL = \
+    'https://www7.obs-mip.fr/wp-content-aeris/uploads/sites/82/2021/03/ATMO-ACCESS-Logo-final_horizontal-payoff-grey-blue.png'
+
 # Color codes
 ACTRIS_COLOR_HEX = '#00adb7'
 IAGOS_COLOR_HEX = '#456096'
@@ -218,7 +222,7 @@ def get_dashboard_layout():
         html.Div(children=[
             html.A(
                 html.Img(
-                    src=app.get_asset_url('atmo_access_logo.png'),
+                    src=app.get_asset_url('atmo_access_logo.png') if not RUNNING_IN_BINDER else ATMO_ACCESS_LOGO_URL,
                     style={'float': 'right', 'height': '70px', 'margin-top': '10px'}
                 ),
                 href="https://www.atmo-access.eu/",
@@ -741,7 +745,7 @@ def popup_graphs(active_cell, datasets_json):
     global _tmp_dataset, _tmp_ds, _active_cell
 
     _active_cell = active_cell
-    print(f'active_cell={active_cell}')
+    # print(f'active_cell={active_cell}')
 
     if datasets_json is None or active_cell is None:
         return None
