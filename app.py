@@ -104,8 +104,10 @@ def _get_std_variables(variables):
 
 
 # Initialization of global objects
-app = JupyterDash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP,
-                                                  'https://use.fontawesome.com/releases/v5.10.2/css/all.css'])
+app = JupyterDash(__name__, external_stylesheets=[
+    dbc.themes.BOOTSTRAP,
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css',
+])
 stations = data_access.get_stations()
 station_by_shortnameRI = _get_station_by_shortnameRI(stations)
 variables = data_access.get_vars()
@@ -226,7 +228,7 @@ def get_dashboard_layout():
 
     stations_vars_tab = dcc.Tab(label='Search datasets', value=SEARCH_DATASETS_TAB_VALUE,
                                 children=html.Div(style={'margin': '20px'}, children=[
-        html.Div(id='left-panel-div', className='four columns', children=[
+        html.Div(id='search-datasets-left-panel-div', className='four columns', children=[
             html.Div(id='variables-selection-div', className='nine columns', children=[
                 html.P('Select variable(s):', style={'font-weight': 'bold'}),
                 dbc.Switch(
@@ -245,7 +247,7 @@ def get_dashboard_layout():
                                          style={'font-weight': 'bold'},
                                          children='Search datasets')),
 
-            html.Div(id='left-panel-cont-div', className='twelve columns',
+            html.Div(id='search-datasets-left-panel-cont-div', className='twelve columns',
                      style={'margin-top': '20px'},
                      children=[
                          html.Div(children=[
@@ -268,15 +270,15 @@ def get_dashboard_layout():
                      ]),
         ]),
 
-        html.Div(id='right-panel-div', className='eight columns', children=[
+        html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
             get_stations_map(),
         ]),
     ]))
 
     select_datasets_tab = dcc.Tab(label='Select datasets', value=SELECT_DATASETS_TAB_VALUE,
                                   children=html.Div(style={'margin': '20px'}, children=[
-        #html.Div(id='datasets-selection-tab-div', className='twelve columns', children=[
-        #    html.Div(id='gantt-figure-left-panel-div', className='four columns', children=[
+        html.Div(id='select-datasets-left-panel-div', className='four columns', children=[
+            html.Div(id='select-datasets-left-left-subpanel-div', className='nine columns', children=
                 dbc.RadioItems(
                     id=GANTT_VIEW_RADIO_ID,
                     options=[
@@ -284,52 +286,46 @@ def get_dashboard_layout():
                         {'label': 'detailed view', 'value': 'detailed'},
                     ],
                     value='compact',
-                    inline=True,
-                ),
-                #html.Div(id='gantt-figure-right-panel-div', className='ten columns', children=[
-                dcc.Graph(
-                    id=GANTT_GRAPH_ID,
-                ),
-                #]),
-            #]),
-            #html.Div(id='metadata-table-right-panel-div', className='eight columns', children=[
-                html.Div(style={'display': 'inline'}, children=[
-                    dbc.Button(id='foo', n_clicks=0,
-                               color='primary',
-                               type='submit',
-                               style={'font-weight': 'bold'},
-                               children='Choose these datasets...'),
-                    dbc.Switch(
-                        id=DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID,
-                        label='Select all / none',
-                        style={'margin-top': '10px'},
-                        value=False,
-                    ),
-                ]),
-                dash_table.DataTable(
-                    id=DATASETS_TABLE_ID,
-                    css=[dict(selector="p", rule="margin: 0px;")],
-                    # see: https://dash.plotly.com/datatable/interactivity
-                    row_selectable="multi",
-                    selected_rows=[],
-                    selected_row_ids=[],
-                    sort_action='native',
-                    # filter_action='native',
-                    page_action="native", page_current=0, page_size=20,
-                    # see: https://dash.plotly.com/datatable/width
-                    # hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
-                    style_data={
-                        'whiteSpace': 'normal',
-                        'height': 'auto',
-                        'lineHeight': '15px'
-                    },
-                    style_cell={'textAlign': 'left'},
-                    markdown_options={'html': True},
-                ),
-            #]),
-
+                    inline=True)),
+            html.Div(id='select-datasets-left-right-subpanel-div', className='three columns', children=
+                dbc.Button(id='foo', n_clicks=0,
+                       color='primary', type='submit',
+                       style={'font-weight': 'bold'},
+                       children='Select datasets'))
+        ]),
+        html.Div(id='select-datasets-right-panel-div', className='eight columns', children=None),
+        html.Div(id='select-datasets-main-panel-div', className='twelve columns', children=[
+            dcc.Graph(
+                id=GANTT_GRAPH_ID,
+            ),
+            dbc.Switch(
+                id=DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID,
+                label='Select all / none',
+                style={'margin-top': '10px'},
+                value=False,
+            ),
+            dash_table.DataTable(
+                id=DATASETS_TABLE_ID,
+                css=[dict(selector="p", rule="margin: 0px;")],
+                # see: https://dash.plotly.com/datatable/interactivity
+                row_selectable="multi",
+                selected_rows=[],
+                selected_row_ids=[],
+                sort_action='native',
+                # filter_action='native',
+                page_action="native", page_current=0, page_size=20,
+                # see: https://dash.plotly.com/datatable/width
+                # hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
+                style_data={
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                    'lineHeight': '15px'
+                },
+                style_cell={'textAlign': 'left'},
+                markdown_options={'html': True},
+            ),
             html.Div(id=QUICKLOOK_POPUP_ID),
-        #]),
+        ]),
     ]))
 
     mockup_remaining_tabs = _get_mockup_remaining_tabs()
@@ -354,8 +350,7 @@ def get_dashboard_layout():
 def _get_mockup_remaining_tabs():
     filter_data_tab = dcc.Tab(label='Filter data', value='filter-data-tab')
     data_analysis_tab = dcc.Tab(label='Data analysis', value='data-analysis-tab')
-    data_plotting_and_download_tab = dcc.Tab(label='Data plotting and download', value='data-plotting-and-download-tab')
-    return [filter_data_tab, data_analysis_tab, data_plotting_and_download_tab]
+    return [filter_data_tab, data_analysis_tab]
 
 # End of definition of routines which constructs components of the dashboard
 
@@ -550,6 +545,7 @@ def _get_timeline_by_station(datasets_df):
     )
     gantt.update_layout(
         clickmode='event+select',
+        selectdirection='h',
         legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.04, 'xanchor': 'left', 'x': 0},
     )
     return gantt
@@ -575,6 +571,7 @@ def _get_timeline_by_station_and_vars(datasets_df):
     )
     gantt.update_layout(
         clickmode='event+select',
+        selectdirection='h',
         legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.06, 'xanchor': 'left', 'x': 0},
     )
     return gantt
@@ -639,7 +636,6 @@ def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_no
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     datasets_df = datasets_df.join(station_by_shortnameRI['long_name'], on='platform_id_RI')
 
-    # print(gantt_figure_selectedData)
     # filter on selected timeline bars on the Gantt figure
     if gantt_figure_selectedData and 'points' in gantt_figure_selectedData:
         datasets_indices = []
@@ -745,7 +741,7 @@ def popup_graphs(active_cell, datasets_json):
     global _tmp_dataset, _tmp_ds, _active_cell
 
     _active_cell = active_cell
-    print(active_cell)
+    print(f'active_cell={active_cell}')
 
     if datasets_json is None or active_cell is None:
         return None
