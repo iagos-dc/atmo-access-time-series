@@ -25,8 +25,8 @@ then open `app.ipynb` in the notebook and run all cells (can use >> button to th
 
 If you need to change the application configuration, modify this part of the code (somewhere at the beginning of the script):
 ```python
-RUNNING_IN_BINDER = False   # for running in Binder change it to True
 app_conf = {'mode': 'external', 'debug': True}  # for running inside a Jupyter notebook change 'mode' to 'inline'
+RUNNING_IN_BINDER = os.environ.get('BINDER_SERVICE_HOST') is not None
 if RUNNING_IN_BINDER:
     JupyterDash.infer_jupyter_proxy_config()
 else:

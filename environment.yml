@@ -17,5 +17,6 @@ dependencies:
   - IPython==7.26.0
   - notebook==6.0.3
   - jupyter-server-proxy
+  - werkzeug
   - pip:
     - icoscp

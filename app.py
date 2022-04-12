@@ -8,6 +8,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime
+import json
+import logging
+import werkzeug.utils
 
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 import dash
@@ -23,6 +26,9 @@ from jupyter_dash import JupyterDash
 
 # Local imports
 import data_access
+
+
+logger = logging.getLogger(__name__)
 
 
 # Configuration of the app
@@ -73,6 +79,8 @@ GANTT_GRAPH_ID = 'gantt-graph'
     # 'figure' contains a Plotly figure object
 DATASETS_STORE_ID = 'datasets-store'
     # 'data' stores datasets metadata in JSON, as provided by the method pd.DataFrame.to_json(orient='split', date_format='iso')
+DATASET_MD_STORE_ID = 'dataset-md-store'
+    # 'data' stores a chosen dataset metadata in JSON, as provided by the method pd.Series.to_json(orient='index', date_format='iso')
 DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID = 'datasets-table-checklist-all-none-switch'
 DATASETS_TABLE_ID = 'datasets-table'
     # 'columns' contains list of dictionaries {'name' -> column name, 'id' -> column id}
@@ -108,10 +116,13 @@ def _get_std_variables(variables):
 
 
 # Initialization of global objects
-app = JupyterDash(__name__, external_stylesheets=[
-    dbc.themes.BOOTSTRAP,
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css',
-])
+app = JupyterDash(
+    __name__,
+    external_stylesheets=[
+        dbc.themes.BOOTSTRAP,
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css',
+    ],
+)
 stations = data_access.get_stations()
 station_by_shortnameRI = _get_station_by_shortnameRI(stations)
 variables = data_access.get_vars()
@@ -210,6 +221,7 @@ def get_dashboard_layout():
     # without displaying the data
     stores = [
         dcc.Store(id=DATASETS_STORE_ID),
+        dcc.Store(id=DATASET_MD_STORE_ID),
     ]
 
     # logo and application title
@@ -395,7 +407,7 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
 def search_datasets(
         n_clicks, selected_variables, lon_min, lon_max, lat_min, lat_max,
         selected_stations_idx, previous_datasets_json
-    ):
+):
     if selected_stations_idx is None:
         selected_stations_idx = []
 
@@ -675,9 +687,7 @@ def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_no
     return table_columns, table_data, selected_rows, selected_row_ids
 
 
-_tmp_dataset = None
-_tmp_ds = None
-_active_cell = None
+# _active_cell = None
 
 
 def _plot_vars(ds, v1, v2=None):
@@ -738,30 +748,30 @@ def _plot_vars(ds, v1, v2=None):
 
 @app.callback(
     Output(QUICKLOOK_POPUP_ID, 'children'),
+    Output(DATASET_MD_STORE_ID, 'data'),
     Input(DATASETS_TABLE_ID, 'active_cell'),
     State(DATASETS_STORE_ID, 'data'),
+    prevent_initial_call=True,
 )
 def popup_graphs(active_cell, datasets_json):
-    global _tmp_dataset, _tmp_ds, _active_cell
+    # global _active_cell
 
-    _active_cell = active_cell
+    # _active_cell = active_cell
     # print(f'active_cell={active_cell}')
 
     if datasets_json is None or active_cell is None:
         return None
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
-    s = datasets_df.loc[active_cell['row_id']]
-    _tmp_dataset = s
+    ds_md = datasets_df.loc[active_cell['row_id']]
 
     try:
-        ds = data_access.read_dataset(s['RI'], s['url'], s)
+        ds = data_access.read_dataset(ds_md['RI'], ds_md['url'], ds_md)
+        # ds.to_netcdf('/home/wolp/data/tmp/ds.nc')
         ds_exc = None
     except Exception as e:
         ds = None
         ds_exc = e
-
-    _tmp_ds = ds
 
     if ds is not None:
         ds_vars = [v for v in ds if ds[v].squeeze().ndim == 1]
@@ -775,15 +785,38 @@ def popup_graphs(active_cell, datasets_json):
     else:
         ds_plot = repr(ds_exc)
 
-    return dbc.Modal(
+    popup = dbc.Modal(
         [
-            dbc.ModalHeader(dbc.ModalTitle(s['title'])),
-            dbc.ModalBody(ds_plot),
+            dbc.ModalHeader(dbc.ModalTitle(ds_md['title'])),
+            dbc.ModalBody(children=[
+                ds_plot,
+                html.Button('Download CSV', id='btn_csv'),
+                dcc.Download(id='download_csv'),
+            ]),
         ],
         id="modal-xl",
         size="xl",
         is_open=True,
     )
+
+    return popup, ds_md.to_json(orient='index', date_format='iso')
+
+
+@app.callback(
+    Output('download_csv', 'data'),
+    Input('btn_csv', 'n_clicks'),
+    State(DATASET_MD_STORE_ID, 'data'),
+    prevent_initial_call=True,
+)
+def download_csv(n_clicks, ds_md_json):
+    try:
+        s = pd.Series(json.loads(ds_md_json))
+        ds = data_access.read_dataset(s['RI'], s['url'], s)
+        df = ds.reset_coords(drop=True).to_dataframe()
+        download_filename = werkzeug.utils.secure_filename(s['title'] + '.csv')
+        return dcc.send_data_frame(df.to_csv, download_filename)
+    except Exception as e:
+        logger.exception(f'Failed to download the dataset {ds_md_json}', exc_info=e)
 
 # End of callback definitions
 

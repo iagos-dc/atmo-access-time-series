@@ -3,12 +3,14 @@ This module provides a unified API for access to metadata and datasets from ACTR
 At the moment, the access to ICOS RI is implemented here.
 """
 
+import pkg_resources
 import numpy as np
 import pandas as pd
-# import xarray as xr
+import xarray as xr
 import logging
 import pathlib
-# import yaml
+import json
+from timeit import default_timer as timer
 
 from . import query_actris
 from . import query_iagos
@@ -42,6 +44,10 @@ _stations = None
 _variables = None
 
 
+_RIS = ['actris', 'iagos', 'icos']
+_GET_DATASETS_BY_RI = dict()
+
+
 # mapping from standard ECV names to short variable names (used for time-line graphs)
 # must be updated on adding new RI's!
 VARIABLES_MAPPING = {
@@ -68,7 +74,7 @@ _ECV_by_var_codes = pd.Series({v: k for k, v in VARIABLES_MAPPING.items()}, name
 
 def _get_ri_query_module_by_ri(ris=None):
     if ris is None:
-        ris = ['actris', 'iagos', 'icos']
+        ris = _RIS
     else:
         ris = sorted(ri.lower() for ri in ris)
     ri_query_module_by_ri = {}
@@ -231,8 +237,18 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
         bbox = [lon_min, lat_min, lon_max, lat_max]
 
     datasets_dfs = []
-    for get_ri_datasets in (_get_actris_datasets, _get_icos_datasets):
-        df = get_ri_datasets(variables, bbox)
+    for ri, get_ri_datasets in _GET_DATASETS_BY_RI.items():
+        try:
+            print(f'getting data for {ri.upper()}...', end='')
+            t0 = timer()
+            df = get_ri_datasets(variables, bbox)
+            t1 = timer()
+            print(f'done in {t1 - t0} sec', end='')
+        except Exception as e:
+            logger.exception(f'getting datasets for {ri.upper()} failed', exc_info=e)
+            continue
+        finally:
+            print()
         if df is not None:
             datasets_dfs.append(df)
 
@@ -299,6 +315,32 @@ def _get_icos_datasets(variables, bbox):
     datasets_df = pd.DataFrame.from_dict(datasets)
     datasets_df['RI'] = 'ICOS'
     return datasets_df
+
+
+_iagos_catalogue_df = None
+
+def _get_iagos_datasets_catalogue():
+    global _iagos_catalogue_df
+    if _iagos_catalogue_df is None:
+        url = pkg_resources.resource_filename('data_access', 'resources/catalogue.json')
+        with open(url, 'r') as f:
+            md = json.load(f)
+        _iagos_catalogue_df = pd.DataFrame.from_records(md)
+    return _iagos_catalogue_df
+
+
+def _get_iagos_datasets(variables, bbox):
+    variables = set(variables)
+    df = _get_iagos_datasets_catalogue()
+    variables_filter = df['ecv_variables'].map(lambda vs: bool(variables.intersection(vs)))
+    lon_min, lat_min, lon_max, lat_max = bbox
+    bbox_filter = (df['longitude'] >= lon_min) & (df['longitude'] <= lon_max) & \
+                  (df['latitude'] >= lat_min) & (df['latitude'] <= lat_max)
+    df = df[variables_filter & bbox_filter].explode('layer', ignore_index=True)
+    df['title'] = 'Monthly mean of ' + df['ecv_variables'].map(lambda vs: ', '.join(vs).lower()) + ' in ' + df['layer']
+    df['transform_func'] = "lambda ds: ds.sel({'layer': '" + df['layer'] + "'})"
+    df = df[['title', 'urls', 'ecv_variables', 'time_period', 'platform_id', 'RI', 'transform_func']]
+    return df
 
 
 def filter_datasets_on_stations(datasets_df, stations_short_name):
@@ -388,3 +430,18 @@ def read_dataset(ri, url, ds_metadata):
         variables_names_filtered = [v for v in ds if v in variables_names_filtered]
         ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
         return ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
+    elif ri == 'iagos':
+        ds = xr.open_dataset(url)
+        transform_func = eval(ds_metadata['transform_func'])
+        ds = transform_func(ds)
+        std_ecv_to_vcode = {
+            'Carbon Monoxide': 'CO_mean',
+            'Ozone': 'O3_mean',
+        }
+        vs = [std_ecv_to_vcode[v] for v in ds_metadata['std_ecv_variables_filtered']]
+        return ds[vs].load()
+    else:
+        raise ValueError(f'unknown RI={ri}')
+
+
+_GET_DATASETS_BY_RI.update(zip(_RIS, (_get_actris_datasets, _get_iagos_datasets, _get_icos_datasets)))
