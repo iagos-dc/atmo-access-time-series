@@ -1,4 +1,4 @@
-name: aats
+name: aa-time-series-env
 channels:
   - conda-forge
 dependencies:
@@ -7,16 +7,16 @@ dependencies:
   - requests
   - numpy
   - pandas
-  - netcdf4
   - xarray
-  - plotly
-  - dash
+  - plotly>=5.4
+  - dash>=2.0,<2.1
   - dash-bootstrap-components
   - jupyter-dash
   - folium
-  - ipykernel
-  - IPython
+  - ipykernel==5.5.5
+  - IPython==7.26.0
   - notebook==6.0.3
   - jupyter-server-proxy
+  - werkzeug==2.0.1
   - pip:
     - icoscp
