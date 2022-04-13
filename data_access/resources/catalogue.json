@@ -1,7 +1,7 @@
 [
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_ATL.nc",
+    "urls": "CO_monthly_means/CO_profile_ATL.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -27,7 +27,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_BKK.nc",
+    "urls": "CO_monthly_means/CO_profile_BKK.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -53,7 +53,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_BOG.nc",
+    "urls": "CO_monthly_means/CO_profile_BOG.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -79,7 +79,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_BOS.nc",
+    "urls": "CO_monthly_means/CO_profile_BOS.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -105,7 +105,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_CCS.nc",
+    "urls": "CO_monthly_means/CO_profile_CCS.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -131,7 +131,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_CDG.nc",
+    "urls": "CO_monthly_means/CO_profile_CDG.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -157,7 +157,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_DAL.nc",
+    "urls": "CO_monthly_means/CO_profile_DAL.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -183,7 +183,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_DEL.nc",
+    "urls": "CO_monthly_means/CO_profile_DEL.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -209,7 +209,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_DUS.nc",
+    "urls": "CO_monthly_means/CO_profile_DUS.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -235,7 +235,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_EWR.nc",
+    "urls": "CO_monthly_means/CO_profile_EWR.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -261,7 +261,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_FRA.nc",
+    "urls": "CO_monthly_means/CO_profile_FRA.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -287,7 +287,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_HKG.nc",
+    "urls": "CO_monthly_means/CO_profile_HKG.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -313,7 +313,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_HYD.nc",
+    "urls": "CO_monthly_means/CO_profile_HYD.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -339,7 +339,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_IAD.nc",
+    "urls": "CO_monthly_means/CO_profile_IAD.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -365,7 +365,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_JFK.nc",
+    "urls": "CO_monthly_means/CO_profile_JFK.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -391,7 +391,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_KIX.nc",
+    "urls": "CO_monthly_means/CO_profile_KIX.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -417,7 +417,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_LAX.nc",
+    "urls": "CO_monthly_means/CO_profile_LAX.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -443,7 +443,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_LGW.nc",
+    "urls": "CO_monthly_means/CO_profile_LGW.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -469,7 +469,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_MAA.nc",
+    "urls": "CO_monthly_means/CO_profile_MAA.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -495,7 +495,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_MUC.nc",
+    "urls": "CO_monthly_means/CO_profile_MUC.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -521,7 +521,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_NGO.nc",
+    "urls": "CO_monthly_means/CO_profile_NGO.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -547,7 +547,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_NKG.nc",
+    "urls": "CO_monthly_means/CO_profile_NKG.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -573,7 +573,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_NRT.nc",
+    "urls": "CO_monthly_means/CO_profile_NRT.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -599,7 +599,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_ORD.nc",
+    "urls": "CO_monthly_means/CO_profile_ORD.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -625,7 +625,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_PDX.nc",
+    "urls": "CO_monthly_means/CO_profile_PDX.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -651,7 +651,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_PHL.nc",
+    "urls": "CO_monthly_means/CO_profile_PHL.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -677,7 +677,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_SGN.nc",
+    "urls": "CO_monthly_means/CO_profile_SGN.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -703,7 +703,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_THR.nc",
+    "urls": "CO_monthly_means/CO_profile_THR.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -729,7 +729,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_TLV.nc",
+    "urls": "CO_monthly_means/CO_profile_TLV.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -755,7 +755,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_TPE.nc",
+    "urls": "CO_monthly_means/CO_profile_TPE.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -781,7 +781,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_VIE.nc",
+    "urls": "CO_monthly_means/CO_profile_VIE.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -807,7 +807,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_WDH.nc",
+    "urls": "CO_monthly_means/CO_profile_WDH.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -833,7 +833,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_YUL.nc",
+    "urls": "CO_monthly_means/CO_profile_YUL.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -859,7 +859,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_YVR.nc",
+    "urls": "CO_monthly_means/CO_profile_YVR.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -885,7 +885,7 @@
   },
   {
     "title": "Monthly aggregated profile data of carbon monoxide mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/CO_monthly_means/CO_profile_YYZ.nc",
+    "urls": "CO_monthly_means/CO_profile_YYZ.nc",
     "ecv_variables": [
       "Carbon Monoxide"
     ],
@@ -911,7 +911,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_YUL.nc",
+    "urls": "O3_monthly_means/O3_profile_YUL.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -937,7 +937,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_YVR.nc",
+    "urls": "O3_monthly_means/O3_profile_YVR.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -963,7 +963,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_YYZ.nc",
+    "urls": "O3_monthly_means/O3_profile_YYZ.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -989,7 +989,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_PHL.nc",
+    "urls": "O3_monthly_means/O3_profile_PHL.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1015,7 +1015,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_SFO.nc",
+    "urls": "O3_monthly_means/O3_profile_SFO.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1041,7 +1041,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_SHA.nc",
+    "urls": "O3_monthly_means/O3_profile_SHA.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1067,7 +1067,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_THR.nc",
+    "urls": "O3_monthly_means/O3_profile_THR.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1093,7 +1093,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_GRU.nc",
+    "urls": "O3_monthly_means/O3_profile_GRU.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1119,7 +1119,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_HKG.nc",
+    "urls": "O3_monthly_means/O3_profile_HKG.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1145,7 +1145,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_HNL.nc",
+    "urls": "O3_monthly_means/O3_profile_HNL.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1171,7 +1171,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_HYD.nc",
+    "urls": "O3_monthly_means/O3_profile_HYD.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1197,7 +1197,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_CAI.nc",
+    "urls": "O3_monthly_means/O3_profile_CAI.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1223,7 +1223,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_CCS.nc",
+    "urls": "O3_monthly_means/O3_profile_CCS.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1249,7 +1249,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_CDG.nc",
+    "urls": "O3_monthly_means/O3_profile_CDG.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1275,7 +1275,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_CVG.nc",
+    "urls": "O3_monthly_means/O3_profile_CVG.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1301,7 +1301,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_DAL.nc",
+    "urls": "O3_monthly_means/O3_profile_DAL.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1327,7 +1327,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_DEL.nc",
+    "urls": "O3_monthly_means/O3_profile_DEL.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1353,7 +1353,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_DMK.nc",
+    "urls": "O3_monthly_means/O3_profile_DMK.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1379,7 +1379,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_DTW.nc",
+    "urls": "O3_monthly_means/O3_profile_DTW.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1405,7 +1405,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_DUS.nc",
+    "urls": "O3_monthly_means/O3_profile_DUS.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1431,7 +1431,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_DXB.nc",
+    "urls": "O3_monthly_means/O3_profile_DXB.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1457,7 +1457,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_EWR.nc",
+    "urls": "O3_monthly_means/O3_profile_EWR.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1483,7 +1483,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_FRA.nc",
+    "urls": "O3_monthly_means/O3_profile_FRA.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1509,7 +1509,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_GIG.nc",
+    "urls": "O3_monthly_means/O3_profile_GIG.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1535,7 +1535,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_GMP.nc",
+    "urls": "O3_monthly_means/O3_profile_GMP.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1561,7 +1561,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_ATL.nc",
+    "urls": "O3_monthly_means/O3_profile_ATL.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1587,7 +1587,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_BKK.nc",
+    "urls": "O3_monthly_means/O3_profile_BKK.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1613,7 +1613,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_BOG.nc",
+    "urls": "O3_monthly_means/O3_profile_BOG.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1639,7 +1639,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_BOS.nc",
+    "urls": "O3_monthly_means/O3_profile_BOS.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1665,7 +1665,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_BRU.nc",
+    "urls": "O3_monthly_means/O3_profile_BRU.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1691,7 +1691,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_IAD.nc",
+    "urls": "O3_monthly_means/O3_profile_IAD.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1717,7 +1717,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_IAH.nc",
+    "urls": "O3_monthly_means/O3_profile_IAH.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1743,7 +1743,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_JED.nc",
+    "urls": "O3_monthly_means/O3_profile_JED.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1769,7 +1769,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_JFK.nc",
+    "urls": "O3_monthly_means/O3_profile_JFK.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1795,7 +1795,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_JNB.nc",
+    "urls": "O3_monthly_means/O3_profile_JNB.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1821,7 +1821,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_KIX.nc",
+    "urls": "O3_monthly_means/O3_profile_KIX.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1847,7 +1847,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_KWI.nc",
+    "urls": "O3_monthly_means/O3_profile_KWI.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1873,7 +1873,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_LAX.nc",
+    "urls": "O3_monthly_means/O3_profile_LAX.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1899,7 +1899,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_LGW.nc",
+    "urls": "O3_monthly_means/O3_profile_LGW.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1925,7 +1925,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_MAA.nc",
+    "urls": "O3_monthly_means/O3_profile_MAA.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1951,7 +1951,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_MIA.nc",
+    "urls": "O3_monthly_means/O3_profile_MIA.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -1977,7 +1977,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_MUC.nc",
+    "urls": "O3_monthly_means/O3_profile_MUC.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -2003,7 +2003,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_NGO.nc",
+    "urls": "O3_monthly_means/O3_profile_NGO.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -2029,7 +2029,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_NRT.nc",
+    "urls": "O3_monthly_means/O3_profile_NRT.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -2055,7 +2055,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_ORD.nc",
+    "urls": "O3_monthly_means/O3_profile_ORD.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -2081,7 +2081,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_PDX.nc",
+    "urls": "O3_monthly_means/O3_profile_PDX.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -2107,7 +2107,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_PEK.nc",
+    "urls": "O3_monthly_means/O3_profile_PEK.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -2133,7 +2133,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_TPE.nc",
+    "urls": "O3_monthly_means/O3_profile_TPE.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -2159,7 +2159,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_VIE.nc",
+    "urls": "O3_monthly_means/O3_profile_VIE.nc",
     "ecv_variables": [
       "Ozone"
     ],
@@ -2185,7 +2185,7 @@
   },
   {
     "title": "Monthly aggregated profile data of ozone mixing ratio",
-    "urls": "/home/wolp/PycharmProjects/atmo-access-time-series/data_access/resources/O3_monthly_means/O3_profile_WDH.nc",
+    "urls": "O3_monthly_means/O3_profile_WDH.nc",
     "ecv_variables": [
       "Ozone"
     ],

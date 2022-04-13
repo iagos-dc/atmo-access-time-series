@@ -8,10 +8,11 @@ import xarray as xr
 data_path = pathlib.Path(pkg_resources.resource_filename('data_access', 'resources'))
 md = []
 for url in data_path.glob('*/*.nc'):
+    rel_url = url.relative_to(data_path)
     with xr.open_dataset(url) as ds:
         ds_md = {
             'title': ds.attrs['title'],
-            'urls': str(url),
+            'urls': str(rel_url),
         }
 
         if 'CO_mean' in ds:

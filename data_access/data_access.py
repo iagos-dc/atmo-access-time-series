@@ -431,7 +431,8 @@ def read_dataset(ri, url, ds_metadata):
         ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
         return ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
     elif ri == 'iagos':
-        ds = xr.open_dataset(url)
+        data_path = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'resources'))
+        ds = xr.open_dataset(data_path / url)
         transform_func = eval(ds_metadata['transform_func'])
         ds = transform_func(ds)
         std_ecv_to_vcode = {
