@@ -12,6 +12,8 @@ import json
 import logging
 import werkzeug.utils
 
+import gunicorn
+
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 import dash
 from dash import dcc
@@ -22,7 +24,7 @@ import dash_bootstrap_components as dbc
 
 # Provides a version of Dash application which can be run in Jupyter notebook/lab
 # See: https://github.com/plotly/jupyter-dash
-from jupyter_dash import JupyterDash
+from dash import Dash
 
 # Local imports
 import data_access
@@ -36,12 +38,12 @@ logger = logging.getLogger(__name__)
 # for the usual Dash app, and:
 # https://github.com/plotly/jupyter-dash/blob/master/notebooks/getting_started.ipynb
 # for a JupyterDash app version.
-app_conf = {'mode': 'external', 'debug': True}  # for running inside a Jupyter notebook change 'mode' to 'inline'
-RUNNING_IN_BINDER = os.environ.get('BINDER_SERVICE_HOST') is not None
-if RUNNING_IN_BINDER:
-    JupyterDash.infer_jupyter_proxy_config()
-else:
-    app_conf.update({'host': 'localhost', 'port': 9235})
+# app_conf = {'mode': 'external', 'debug': True}  # for running inside a Jupyter notebook change 'mode' to 'inline'
+# RUNNING_IN_BINDER = os.environ.get('BINDER_SERVICE_HOST') is not None
+# if RUNNING_IN_BINDER:
+#     JupyterDash.infer_jupyter_proxy_config()
+# else:
+#     app_conf.update({'host': 'localhost', 'port': 9235})
 
 
 # Below there are id's of Dash JS components.
@@ -116,13 +118,15 @@ def _get_std_variables(variables):
 
 
 # Initialization of global objects
-app = JupyterDash(
+app = Dash(
     __name__,
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
         'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css',
     ],
 )
+server = app.server
+
 stations = data_access.get_stations()
 station_by_shortnameRI = _get_station_by_shortnameRI(stations)
 variables = data_access.get_vars()
@@ -823,4 +827,5 @@ def download_csv(n_clicks, ds_md_json):
 
 # Launch the Dash application.
 # app_conf['debug'] = False
-app.run_server(**app_conf)
+if __name__ == "__main__":
+    app.run_server(debug=False, host='0.0.0.0', port=8050)
