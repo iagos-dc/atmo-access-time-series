@@ -6,3 +6,5 @@ hdf5==1.12.1
 pandas==1.4.2
 werkzeug==2.1.1
 xarray==2022.3.0
+icoscp==0.1.14
+tqdm==4.64.0
