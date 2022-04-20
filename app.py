@@ -238,7 +238,8 @@ def get_dashboard_layout():
         html.Div(children=[
             html.A(
                 html.Img(
-                    src=app.get_asset_url('atmo_access_logo.png') if not RUNNING_IN_BINDER else ATMO_ACCESS_LOGO_URL,
+                    #src=app.get_asset_url('atmo_access_logo.png') if not RUNNING_IN_BINDER else ATMO_ACCESS_LOGO_URL,
+                    src=ATMO_ACCESS_LOGO_URL,
                     style={'float': 'right', 'height': '70px', 'margin-top': '10px'}
                 ),
                 href="https://www.atmo-access.eu/",
