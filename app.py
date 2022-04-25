@@ -177,6 +177,29 @@ def get_stations_map():
         clickmode='event+select',
         hoverdistance=1, hovermode='closest',  # hoverlabel=None,
     )
+
+    regions = stations[stations['is_region']]
+    regions_lon = []
+    regions_lat = []
+    for lon_min, lon_max, lat_min, lat_max in zip(regions['longitude_min'], regions['longitude_max'], regions['latitude_min'], regions['latitude_max']):
+        if len(regions_lon) > 0:
+            regions_lon.append(None)
+            regions_lat.append(None)
+        regions_lon.extend([lon_min, lon_min, lon_max, lon_max, lon_min])
+        regions_lat.extend([lat_min, lat_max, lat_max, lat_min, lat_min])
+
+    fig.add_trace(go.Scattermapbox(
+        mode="lines",
+        fill="toself",
+        fillcolor='rgba(69, 96, 150, 0.1)',
+        lon=regions_lon,
+        lat=regions_lat,
+        marker={'color': IAGOS_COLOR_HEX},
+        name='IAGOS',
+        legendgroup='IAGOS',
+        opacity=0.7
+    ))
+
     # TODO: synchronize box selection on the map with max/min lon/lat input fields
     # TODO: as explained in https://dash.plotly.com/interactive-graphing (Generic Crossfilter Recipe)
     stations_map = dcc.Graph(
@@ -184,6 +207,7 @@ def get_stations_map():
         figure=fig,
     )
     return stations_map
+
 
 
 def get_bbox_selection_div():

@@ -16,7 +16,7 @@ from . import query_actris
 from . import query_iagos
 from . import query_icos
 
-
+LON_LAT_BBOX_EPS = 0.05 # epsilon of margin for selecting stations
 CACHE_DIR = pathlib.Path('cache')
 
 # RI_CACHE_DS_DIR = {}
@@ -93,6 +93,35 @@ def _get_ri_query_module_by_ri(ris=None):
 _ri_query_module_by_ri = _get_ri_query_module_by_ri()
 
 
+def _get_iagos_regions():
+    regions = {
+        'WNAm': ('western North America', [-125, -105], [40, 60]),
+        'EUS': ('the eastern United States', [-90, -60], [35, 50]),
+        'NAt': ('the North Atlantic', [-50, -20], [50, 60]),
+        'Eur': ('Europe', [-15, 15], [45, 55]),
+        'WMed': ('the western Mediterranean basin', [-5, 15], [35, 45]),
+        'MidE': ('the Middle East', [25, 55], [35, 45]),
+        'Sib': ('Siberia', [40, 120], [50, 65]),
+        'NEAs': ('the northeastern Asia', [105, 145], [30, 50]),
+    }
+    short_name = list(regions)
+    long_name = list(v[0] for v in regions.values())
+    longitude_min, longitude_max = zip(*(v[1] for v in regions.values()))
+    latitude_min, latitude_max = zip(*(v[2] for v in regions.values()))
+    df = pd.DataFrame.from_dict({
+        'short_name': short_name,
+        'long_name': long_name,
+        'longitude_min': longitude_min,
+        'longitude_max': longitude_max,
+        'latitude_min': latitude_min,
+        'latitude_max': latitude_max,
+    })
+    df['longitude'] = 0.5 * (df['longitude_min'] + df['longitude_max'])
+    df['latitude'] = 0.5 * (df['latitude_min'] + df['latitude_max'])
+    df['is_region'] = True
+    return df
+
+
 def _get_stations(ris=None):
     ri_query_module_by_ri = _get_ri_query_module_by_ri(ris)
     stations_dfs = []
@@ -114,6 +143,10 @@ def _get_stations(ris=None):
                 stations_dfs.append(stations_df)
             elif ri == 'iagos':
                 stations_df = stations_df.rename(columns={'altitude': 'ground_elevation'})
+
+                # add IAGOS regions
+                stations_df = pd.concat([stations_df, _get_iagos_regions()], ignore_index=True)
+
                 stations_df['RI'] = 'IAGOS'
                 stations_df['uri'] = np.nan
                 stations_df['country'] = np.nan
@@ -132,6 +165,8 @@ def _get_stations(ris=None):
     all_stations_df['short_name_RI'] = all_stations_df['short_name'] + ' (' + all_stations_df['RI'] + ')'
     all_stations_df['idx'] = all_stations_df.index
     all_stations_df['marker_size'] = 7
+
+    all_stations_df['is_region'] = all_stations_df['is_region'].fillna(False)
 
     return all_stations_df
 
@@ -334,12 +369,12 @@ def _get_iagos_datasets(variables, bbox):
     df = _get_iagos_datasets_catalogue()
     variables_filter = df['ecv_variables'].map(lambda vs: bool(variables.intersection(vs)))
     lon_min, lat_min, lon_max, lat_max = bbox
-    bbox_filter = (df['longitude'] >= lon_min) & (df['longitude'] <= lon_max) & \
-                  (df['latitude'] >= lat_min) & (df['latitude'] <= lat_max)
+    bbox_filter = (df['longitude'] >= lon_min - LON_LAT_BBOX_EPS) & (df['longitude'] <= lon_max + LON_LAT_BBOX_EPS) & \
+                  (df['latitude'] >= lat_min - LON_LAT_BBOX_EPS) & (df['latitude'] <= lat_max + LON_LAT_BBOX_EPS)
     df = df[variables_filter & bbox_filter].explode('layer', ignore_index=True)
-    df['title'] = 'Monthly mean of ' + df['ecv_variables'].map(lambda vs: ', '.join(vs).lower()) + ' in ' + df['layer']
-    df['transform_func'] = "lambda ds: ds.sel({'layer': '" + df['layer'] + "'})"
-    df = df[['title', 'urls', 'ecv_variables', 'time_period', 'platform_id', 'RI', 'transform_func']]
+    df['title'] = df['title'] + ' in ' + df['layer']
+    df['selector'] = 'layer:' + df['layer']
+    df = df[['title', 'urls', 'ecv_variables', 'time_period', 'platform_id', 'RI', 'selector']]
     return df
 
 
@@ -431,10 +466,13 @@ def read_dataset(ri, url, ds_metadata):
         ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
         return ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
     elif ri == 'iagos':
-        data_path = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'resources'))
+        data_path = pathlib.Path(pkg_resources.resource_filename('data_access', 'resources/iagos_L3_postprocessed'))
         ds = xr.open_dataset(data_path / url)
-        transform_func = eval(ds_metadata['transform_func'])
-        ds = transform_func(ds)
+        if 'selector' in ds_metadata and ds_metadata['selector'] is not np.nan and bool(ds_metadata['selector']):
+            dim, *coord = ds_metadata['selector'].split(':')
+            coord = ':'.join(coord)
+            # if ds[dim].dtype is not object/str, need to convert coord to the dtype
+            ds = ds.sel({dim: coord})
         std_ecv_to_vcode = {
             'Carbon Monoxide': 'CO_mean',
             'Ozone': 'O3_mean',
