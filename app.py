@@ -167,14 +167,18 @@ def get_stations_map():
         size_max=7,
         category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
         color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
-        zoom=3, height=700,
+        zoom=2,
+        # width=1200, height=700,
         center={'lon': 10, 'lat': 55},
         title='Stations map',
     )
     fig.update_layout(
         mapbox_style="open-street-map",
-        margin={'r': 0, 't': 40, 'l': 0, 'b': 0},
+        margin={'autoexpand': True, 'r': 0, 't': 40, 'l': 0, 'b': 0},
+        # width=1100, height=700,
+        autosize=True,
         clickmode='event+select',
+        dragmode='select',
         hoverdistance=1, hovermode='closest',  # hoverlabel=None,
     )
 
@@ -191,7 +195,7 @@ def get_stations_map():
     fig.add_trace(go.Scattermapbox(
         mode="lines",
         fill="toself",
-        fillcolor='rgba(69, 96, 150, 0.1)',
+        fillcolor='rgba(69, 96, 150, 0.05)',  # IAGOS_COLOR_HEX as rgba with opacity=0.05
         lon=regions_lon,
         lat=regions_lat,
         marker={'color': IAGOS_COLOR_HEX},
@@ -205,6 +209,11 @@ def get_stations_map():
     stations_map = dcc.Graph(
         id=STATIONS_MAP_ID,
         figure=fig,
+        config={
+            'displayModeBar': True,
+            'displaylogo': False,
+            'scrollZoom': True,
+        }
     )
     return stations_map
 
@@ -219,24 +228,24 @@ def get_bbox_selection_div():
     bbox_selection_div = html.Div(id='bbox-selection-div', style={'margin-top': '15px'}, children=[
         html.Div(className='row', children=[
             html.Div(className='three columns, offset-by-six columns', children=[
-                dcc.Input(id=LAT_MAX_ID, style={'width': '100%'}, placeholder='lat max', type='number', min=-90, max=90),  # , step=0.01),
+                dcc.Input(id=LAT_MAX_ID, style={'width': '120%'}, placeholder='lat max', type='number', min=-90, max=90),  # , step=0.01),
             ]),
         ]),
         html.Div(className='row', children=[
             html.Div(className='three columns',
                      children=html.P(children='Bounding box:', style={'width': '100%', 'font-weight': 'bold'})),
             html.Div(className='three columns',
-                     children=dcc.Input(style={'width': '100%'}, id=LON_MIN_ID, placeholder='lon min', type='number',
+                     children=dcc.Input(style={'width': '120%'}, id=LON_MIN_ID, placeholder='lon min', type='number',
                                         min=-180, max=180),  # , step=0.01),
                      ),
             html.Div(className='offset-by-three columns, three columns',
-                     children=dcc.Input(style={'width': '100%'}, id=LON_MAX_ID, placeholder='lon max', type='number',
+                     children=dcc.Input(style={'width': '120%'}, id=LON_MAX_ID, placeholder='lon max', type='number',
                                         min=-180, max=180),  # , step=0.01),
                      ),
         ]),
         html.Div(className='row', children=[
             html.Div(className='offset-by-six columns, three columns',
-                     children=dcc.Input(style={'width': '100%'}, id=LAT_MIN_ID, placeholder='lat min', type='number',
+                     children=dcc.Input(style={'width': '120%'}, id=LAT_MIN_ID, placeholder='lat min', type='number',
                                         min=-90, max=90),  # , step=0.01),
                      ),
         ]),
@@ -306,17 +315,20 @@ def get_dashboard_layout():
                              ),
                          ]),
                          get_bbox_selection_div(),
-                         html.Div(id='selected-stations-div',
-                                  style={'margin-top': '20px'},
-                                  children=[
-                                      html.P('Selected stations (you can refine your selection)', style={'font-weight': 'bold'}),
-                                      dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True, clearable=False),
-                                  ]),
                      ]),
         ]),
 
         html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
             get_stations_map(),
+
+            html.Div(id='selected-stations-div',
+                     style={'margin-top': '20px'},
+                     children=[
+                         html.P('Selected stations (you can refine your selection)',
+                                style={'font-weight': 'bold'}),
+                         dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True,
+                                      clearable=False),
+            ]),
         ]),
     ]))
 
@@ -807,7 +819,12 @@ def popup_graphs(active_cell, datasets_json):
         if len(ds_vars) > 0:
             ds_plot = dcc.Graph(
                 id='quick-plot',
-                figure=_plot_vars(ds, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None)
+                figure=_plot_vars(ds, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None),
+                config={
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'scrollZoom': False,
+                }
             )
         else:
             ds_plot = None
