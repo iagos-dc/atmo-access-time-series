@@ -12,7 +12,7 @@ import json
 import logging
 import werkzeug.utils
 
-import gunicorn
+# import gunicorn
 
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 import dash
