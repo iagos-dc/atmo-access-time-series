@@ -7,17 +7,20 @@ import pkg_resources
 import numpy as np
 import pandas as pd
 import xarray as xr
-import logging
 import pathlib
 import json
 from timeit import default_timer as timer
+import itertools
+from . import helper
+
+from log import logger, log_exectime, log_profiler_info
 
 from . import query_actris
 from . import query_iagos
 from . import query_icos
 
-LON_LAT_BBOX_EPS = 0.05 # epsilon of margin for selecting stations
-CACHE_DIR = pathlib.Path('cache')
+LON_LAT_BBOX_EPS = 0.05  # epsilon of margin for selecting stations
+CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
 
 # RI_CACHE_DS_DIR = {}
 # RI_CACHE_DS_DICT_FILE = {}
@@ -33,9 +36,6 @@ CACHE_DIR = pathlib.Path('cache')
 #     except FileNotFoundError:
 #         continue
 #     _ri_cache_ds_dict[ri] = {url: pathlib.Path(path) for url, path in dic.items()}
-
-
-logger = logging.getLogger(__name__)
 
 
 # for caching purposes
@@ -126,7 +126,7 @@ def _get_stations(ris=None):
     ri_query_module_by_ri = _get_ri_query_module_by_ri(ris)
     stations_dfs = []
     for ri, ri_query_module in ri_query_module_by_ri.items():
-        cache_path = pathlib.PurePath(CACHE_DIR, f'stations_{ri}.pkl')
+        cache_path = CACHE_DIR / f'stations_{ri}.pkl'
         try:
             try:
                 stations_df = pd.read_pickle(cache_path)
@@ -159,7 +159,7 @@ def _get_stations(ris=None):
             else:
                 raise ValueError(f'ri={ri}')
         except Exception as e:
-            logger.exception(f'getting {ri.upper()} stations failed', exc_info=e)
+            logger().exception(f'getting {ri.upper()} stations failed', exc_info=e)
 
     all_stations_df = pd.concat(stations_dfs, ignore_index=True)
     all_stations_df['short_name_RI'] = all_stations_df['short_name'] + ' (' + all_stations_df['RI'] + ')'
@@ -209,7 +209,7 @@ def get_vars_long():
         # ri_query_module_by_ri = _get_ri_query_module_by_ri(['actris', 'icos'])
         variables_dfs = []
         for ri, ri_query_module in _ri_query_module_by_ri.items():
-            cache_path = pathlib.PurePath(CACHE_DIR, f'variables_{ri}.pkl')
+            cache_path = CACHE_DIR / f'variables_{ri}.pkl'
             try:
                 try:
                     variables_df = pd.read_pickle(cache_path)
@@ -219,7 +219,7 @@ def get_vars_long():
                     variables_df.to_pickle(cache_path)
                 variables_dfs.append(variables_df)
             except Exception as e:
-                logger.exception(f'getting {ri.upper()} variables failed', exc_info=e)
+                logger().exception(f'getting {ri.upper()} variables failed', exc_info=e)
         df = pd.concat(variables_dfs, ignore_index=True)
         df['std_ECV_name'] = df['ECV_name'].apply(lambda l: l[0])
         df = df.join(_var_codes_by_ECV, on='std_ECV_name')
@@ -239,7 +239,111 @@ def get_vars():
     return variables_df.drop_duplicates(subset=['std_ECV_name', 'ECV_name'], keep='first', ignore_index=True)
 
 
+@log_exectime
+#@log_profiler_info()
 def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+    """
+    Provide metadata of datasets selected according to the provided criteria.
+    :param variables: list of str or None; list of variable standard ECV names (as in the column 'std_ECV_name' of the dataframe returned by get_vars function)
+    :param lon_min: float or None
+    :param lon_max: float or None
+    :param lat_min: float or None
+    :param lat_max: float or None
+    :return: pandas.DataFrame with columns: 'title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes',
+     'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes_filtered',
+     'time_period_start', 'time_period_end', 'platform_id_RI';
+    e.g. for the call get_datasets(['Pressure (surface)', 'Temperature (near surface)'] one gets a dataframe with an example row like:
+         'title': 'ICOS_ATC_L2_L2-2021.1_GAT_2.5_CTS_MTO.zip',
+         'url': [{'url': 'https://meta.icos-cp.eu/objects/0HxLXMXolAVqfcuqpysYz8jK', 'type': 'landing_page'}],
+         'ecv_variables': ['Pressure (surface)', 'Surface Wind Speed and direction', 'Temperature (near surface)', 'Water Vapour (surface)'],
+         'platform_id': 'GAT',
+         'RI': 'ICOS',
+         'var_codes': ['AP', 'AT', 'RH', 'WSD'],
+         'ecv_variables_filtered': ['Pressure (surface)', 'Temperature (near surface)'],
+         'std_ecv_variables_filtered': ['Pressure (surface)', 'Temperature (near surface)'],
+         'var_codes_filtered': 'AP, AT',
+         'time_period_start': Timestamp('2016-05-10 00:00:00+0000', tz='UTC'),
+         'time_period_end': Timestamp('2021-01-31 23:00:00+0000', tz='UTC'),
+         'platform_id_RI': 'GAT (ICOS)'
+    """
+    if variables is None:
+        variables = []
+    else:
+        variables = list(variables)
+    if None in [lon_min, lon_max, lat_min, lat_max]:
+        bbox = []
+    else:
+        bbox = [lon_min, lat_min, lon_max, lat_max]
+
+    datasets_dfs = []
+    for ri, get_ri_datasets in _GET_DATASETS_BY_RI.items():
+        # get_ri_datasets = log_exectime(get_ri_datasets)
+        try:
+            df = get_ri_datasets(variables, bbox)
+        except Exception as e:
+            logger().exception(f'getting datasets for {ri.upper()} failed', exc_info=e)
+            continue
+        if df is not None:
+            datasets_dfs.append(df)
+
+    if not datasets_dfs:
+        return None
+    datasets_df = pd.concat(datasets_dfs, ignore_index=True)#.reset_index()
+
+    vars_long = get_vars_long()
+
+    codes_by_ECV_name = helper.many2many_to_dictOfList(
+        zip(vars_long['ECV_name'].to_list(), vars_long['code'].to_list())
+    )
+    codes_by_variable_name = helper.many2many_to_dictOfList(
+        zip(vars_long['variable_name'].to_list(), vars_long['code'].to_list())
+    )
+    codes_by_name = helper.many2manyLists_to_dictOfList(
+        itertools.chain(codes_by_ECV_name.items(), codes_by_variable_name.items())
+    )
+    datasets_df['var_codes'] = [
+        sorted(helper.image_of_dictOfLists(vs, codes_by_name))
+        for vs in datasets_df['ecv_variables'].to_list()
+    ]
+
+    std_ECV_names_by_ECV_name = helper.many2many_to_dictOfList(
+        zip(vars_long['ECV_name'].to_list(), vars_long['std_ECV_name'].to_list()), keep_set=True
+    )
+    std_ECV_names_by_variable_name = helper.many2many_to_dictOfList(
+        zip(vars_long['variable_name'].to_list(), vars_long['std_ECV_name'].to_list()), keep_set=True
+    )
+    std_ECV_names_by_name = helper.many2manyLists_to_dictOfList(
+        itertools.chain(std_ECV_names_by_ECV_name.items(), std_ECV_names_by_variable_name.items()), keep_set=True
+    )
+    datasets_df['ecv_variables_filtered'] = [
+        sorted(
+            v for v in vs if std_ECV_names_by_name[v].intersection(variables)
+        )
+        for vs in datasets_df['ecv_variables'].to_list()
+    ]
+    datasets_df['std_ecv_variables_filtered'] = [
+        sorted(
+            helper.image_of_dictOfLists(vs, std_ECV_names_by_name).intersection(variables)
+        )
+        for vs in datasets_df['ecv_variables'].to_list()
+    ]
+    req_var_codes = helper.image_of_dict(variables, VARIABLES_MAPPING)
+    datasets_df['var_codes_filtered'] = [
+        ', '.join(sorted(vc for vc in var_codes if vc in req_var_codes))
+        for var_codes in datasets_df['var_codes'].to_list()
+    ]
+    # datasets_df['url'] = datasets_df['urls'].apply(lambda x: x[-1]['url'])  # now we take the last proposed url; TODO: see what should be a proper rule (first non-empty url?)
+    datasets_df['time_period_start'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[0]))
+    datasets_df['time_period_end'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[1]))
+    datasets_df['platform_id_RI'] = datasets_df['platform_id'] + ' (' + datasets_df['RI'] + ')'
+
+    # return datasets_df.drop(columns=['urls', 'time_period'])
+    return datasets_df.drop(columns=['time_period']).rename(columns={'urls': 'url'})
+
+
+@log_exectime
+#@log_profiler_info()
+def get_datasets_old(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
     """
     Provide metadata of datasets selected according to the provided criteria.
     :param variables: list of str or None; list of variable standard ECV names (as in the column 'std_ECV_name' of the dataframe returned by get_vars function)
@@ -273,17 +377,12 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
 
     datasets_dfs = []
     for ri, get_ri_datasets in _GET_DATASETS_BY_RI.items():
+        # get_ri_datasets = log_exectime(get_ri_datasets)
         try:
-            print(f'getting data for {ri.upper()}...', end='')
-            t0 = timer()
             df = get_ri_datasets(variables, bbox)
-            t1 = timer()
-            print(f'done in {t1 - t0} sec', end='')
         except Exception as e:
-            logger.exception(f'getting datasets for {ri.upper()} failed', exc_info=e)
+            logger().exception(f'getting datasets for {ri.upper()} failed', exc_info=e)
             continue
-        finally:
-            print()
         if df is not None:
             datasets_dfs.append(df)
 
@@ -314,12 +413,13 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
     datasets_df['ecv_variables_filtered'] = datasets_df['ecv_variables'].apply(lambda var_names:
                                                                                var_names_to_std_ecv_by_var_name(var_names)\
                                                                                .join(pd.DataFrame(index=variables), on='std_ECV_name', how='inner')['name']\
+                                                                               .sort_values()\
                                                                                .tolist())
     datasets_df['std_ecv_variables_filtered'] = datasets_df['ecv_variables'].apply(lambda var_names:
-                                                                                   [v for v in var_names_to_std_ecv_by_var_name(var_names)['std_ECV_name'].tolist() if v in variables])
+                                                                                   [v for v in var_names_to_std_ecv_by_var_name(var_names)['std_ECV_name'].sort_values().tolist() if v in variables])
     req_var_codes = set(VARIABLES_MAPPING[v] for v in variables if v in VARIABLES_MAPPING)
     datasets_df['var_codes_filtered'] = datasets_df['var_codes']\
-        .apply(lambda var_codes: ', '.join([vc for vc in var_codes if vc in req_var_codes]))
+        .apply(lambda var_codes: ', '.join(sorted(vc for vc in var_codes if vc in req_var_codes)))
 
     # datasets_df['url'] = datasets_df['urls'].apply(lambda x: x[-1]['url'])  # now we take the last proposed url; TODO: see what should be a proper rule (first non-empty url?)
     datasets_df['time_period_start'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[0]))

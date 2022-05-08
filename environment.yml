@@ -163,3 +163,4 @@ dependencies:
   - pip:
     - icoscp==0.1.14
     - tqdm==4.64.0
+    - toolz==0.11.2

@@ -3,16 +3,17 @@ ATMO-ACCESS time series service
 """
 
 import os
+import pathlib
+import pkg_resources
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime
 import json
-import logging
 import werkzeug.utils
 
-# import gunicorn
+import gunicorn
 
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 import dash
@@ -27,10 +28,12 @@ import dash_bootstrap_components as dbc
 from dash import Dash
 
 # Local imports
+from log import logger
 import data_access
 
 
-logger = logging.getLogger(__name__)
+CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
+DEBUG_GET_DATASETS = False
 
 
 # Configuration of the app
@@ -466,6 +469,23 @@ def search_datasets(
         return datasets_json, SEARCH_DATASETS_TAB_VALUE
 
     datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
+    if DEBUG_GET_DATASETS:
+        datasets_df2 = data_access.get_datasets_old(selected_variables, lon_min, lon_max, lat_min, lat_max)
+        datasets_df_not_match = False
+        if datasets_df is None and datasets_df2 is not None or datasets_df is not None and datasets_df2 is None:
+            datasets_df_not_match = True
+        elif datasets_df is not None:
+            datasets_df_not_match = datasets_df.equals(datasets_df2)
+        if not datasets_df_not_match:
+            logger().error(f'datasets dfs do not match: selected_variables={selected_variables}, '
+                           f'lon_min={lon_min}, lon_max={lon_max}, lat_min={lat_min}, lat_max={lat_max}\n'
+                           f'datasets_df={datasets_df}\n'
+                           f'datasets_df2={datasets_df2}')
+            datasets_df.to_pickle(CACHE_DIR / '_datasets_df.pkl')
+            datasets_df2.to_pickle(CACHE_DIR / '_datasets_df2.pkl')
+        else:
+            logger().info('datasets_df == datasets_df2')
+
     if datasets_df is None:
         datasets_df = empty_datasets_df
 
@@ -862,7 +882,7 @@ def download_csv(n_clicks, ds_md_json):
         download_filename = werkzeug.utils.secure_filename(s['title'] + '.csv')
         return dcc.send_data_frame(df.to_csv, download_filename)
     except Exception as e:
-        logger.exception(f'Failed to download the dataset {ds_md_json}', exc_info=e)
+        logger().exception(f'Failed to download the dataset {ds_md_json}', exc_info=e)
 
 # End of callback definitions
 

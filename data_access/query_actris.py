@@ -1,11 +1,13 @@
 import requests
 import json
 import pathlib
+import pkg_resources
 import pandas as pd
 import xarray as xr
 
 
-CACHE_DIR = pathlib.Path('cache')
+CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
+
 
 
 MAPPING_ECV2ACTRIS = {
@@ -121,7 +123,7 @@ def query_datasets(variables=None, temporal_extent=None, spatial_extent=None):
 
     global _all_datasets
     if _all_datasets is None:
-        cache_path = pathlib.PurePath(CACHE_DIR, f'actris_datasets.json')
+        cache_path = CACHE_DIR / 'actris_datasets.json'
         try:
             with open(cache_path, 'r') as f:
                 _all_datasets = json.load(f)
