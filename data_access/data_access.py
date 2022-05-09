@@ -527,6 +527,15 @@ def filter_datasets_on_vars(datasets_df, var_codes):
 #     _cache_ds_dict[url] = path
 
 
+def _infer_ts_frequency(da):
+    dt = da.dropna('time')['time'].diff('time').to_series().reset_index(drop=True)
+    if len(dt) > 0:
+        freq = dt.value_counts().sort_index().index[0]
+    else:
+        freq = pd.Timedelta(0)
+    return freq
+
+
 def read_dataset(ri, url, ds_metadata):
     if isinstance(url, (list, tuple)):
         ds = None
@@ -554,7 +563,7 @@ def read_dataset(ri, url, ds_metadata):
     # else:
     #     return xr.load_dataset(path)
     if ri == 'actris':
-        return _ri_query_module_by_ri[ri].read_dataset(url, ds_metadata['ecv_variables_filtered'])
+        ds = _ri_query_module_by_ri[ri].read_dataset(url, ds_metadata['ecv_variables_filtered'])
     elif ri == 'icos':
         ds = _ri_query_module_by_ri[ri].read_dataset(url)
         vars_long = get_vars_long()
@@ -564,7 +573,7 @@ def read_dataset(ri, url, ds_metadata):
             how='inner')['variable_name'].unique())
         variables_names_filtered = [v for v in ds if v in variables_names_filtered]
         ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
-        return ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
+        ds = ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
     elif ri == 'iagos':
         data_path = pathlib.Path(pkg_resources.resource_filename('data_access', 'resources/iagos_L3_postprocessed'))
         ds = xr.open_dataset(data_path / url)
@@ -578,9 +587,23 @@ def read_dataset(ri, url, ds_metadata):
             'Ozone': 'O3_mean',
         }
         vs = [std_ecv_to_vcode[v] for v in ds_metadata['std_ecv_variables_filtered']]
-        return ds[vs].load()
+        ds = ds[vs].load()
     else:
         raise ValueError(f'unknown RI={ri}')
+
+    res = {}
+    if ds is not None:
+        for v, da in ds.items():
+            freq = _infer_ts_frequency(da)
+            if pd.Timedelta(28, 'D') <= freq <= pd.Timedelta(31, 'D'):
+                freq = '1M'
+            else:
+                freq = f'{int(freq.total_seconds())}s'
+            da.attrs['_aats_freq'] = freq
+            da_resampled = da.resample({'time': freq}).asfreq()
+            da_resampled.attrs = dict(da.attrs)
+            res[v] = da_resampled
+    return res
 
 
 _GET_DATASETS_BY_RI.update(zip(_RIS, (_get_actris_datasets, _get_iagos_datasets, _get_icos_datasets)))

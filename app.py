@@ -164,7 +164,14 @@ def get_stations_map():
     fig = px.scatter_mapbox(
         stations,
         lat="latitude", lon="longitude", color='RI',
-        hover_name="long_name", hover_data={'ground_elevation': True, 'marker_size': False},
+        hover_name="long_name",
+        hover_data={
+            'RI': True,
+            'longitude': ':.2f',
+            'latitude': ':.2f',
+            'ground elevation': stations['ground_elevation'].round(0).fillna('N/A').to_list(),
+            'marker_size': False
+        },
         custom_data=['idx'],
         size=stations['marker_size'],
         size_max=7,
@@ -711,6 +718,10 @@ def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_no
         return table_columns, [], [], []
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+    if len(datasets_df) > 0:
+        datasets_df['time_period_start'] = datasets_df['time_period_start'].dt.strftime('%Y-%m-%d')
+        datasets_df['time_period_end'] = datasets_df['time_period_end'].dt.strftime('%Y-%m-%d')
+
     datasets_df = datasets_df.join(station_by_shortnameRI['long_name'], on='platform_id_RI')
 
     # filter on selected timeline bars on the Gantt figure
@@ -827,19 +838,20 @@ def popup_graphs(active_cell, datasets_json):
     ds_md = datasets_df.loc[active_cell['row_id']]
 
     try:
-        ds = data_access.read_dataset(ds_md['RI'], ds_md['url'], ds_md)
-        # ds.to_netcdf('/home/wolp/data/tmp/ds.nc')
+        da_by_var = data_access.read_dataset(ds_md['RI'], ds_md['url'], ds_md)
+        for v, da in da_by_var.items():
+            da.to_netcdf(CACHE_DIR / 'tmp' / f'{v}.nc')
         ds_exc = None
     except Exception as e:
-        ds = None
+        da_by_var = None
         ds_exc = e
 
-    if ds is not None:
-        ds_vars = [v for v in ds if ds[v].squeeze().ndim == 1]
+    if da_by_var is not None:
+        ds_vars = [v for v in da_by_var if da_by_var[v].squeeze().ndim == 1]
         if len(ds_vars) > 0:
             ds_plot = dcc.Graph(
                 id='quick-plot',
-                figure=_plot_vars(ds, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None),
+                figure=_plot_vars(da_by_var, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None),
                 config={
                     'displayModeBar': True,
                     'displaylogo': False,
@@ -856,8 +868,8 @@ def popup_graphs(active_cell, datasets_json):
             dbc.ModalHeader(dbc.ModalTitle(ds_md['title'])),
             dbc.ModalBody(children=[
                 ds_plot,
-                html.Button('Download CSV', id='btn_csv'),
-                dcc.Download(id='download_csv'),
+                # html.Button('Download CSV', id='btn_csv'),
+                # dcc.Download(id='download_csv'),
             ]),
         ],
         id="modal-xl",
@@ -868,12 +880,12 @@ def popup_graphs(active_cell, datasets_json):
     return popup, ds_md.to_json(orient='index', date_format='iso')
 
 
-@app.callback(
-    Output('download_csv', 'data'),
-    Input('btn_csv', 'n_clicks'),
-    State(DATASET_MD_STORE_ID, 'data'),
-    prevent_initial_call=True,
-)
+# @app.callback(
+#     Output('download_csv', 'data'),
+#     Input('btn_csv', 'n_clicks'),
+#     State(DATASET_MD_STORE_ID, 'data'),
+#     prevent_initial_call=True,
+# )
 def download_csv(n_clicks, ds_md_json):
     try:
         s = pd.Series(json.loads(ds_md_json))
