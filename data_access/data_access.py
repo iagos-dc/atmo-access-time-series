@@ -600,9 +600,12 @@ def read_dataset(ri, url, ds_metadata):
             else:
                 freq = f'{int(freq.total_seconds())}s'
             da.attrs['_aats_freq'] = freq
-            da_resampled = da.resample({'time': freq}).asfreq()
-            da_resampled.attrs = dict(da.attrs)
-            res[v] = da_resampled
+            if freq != '0s':
+                da_resampled = da.resample({'time': freq}).asfreq()
+                da_resampled.attrs = dict(da.attrs)
+                res[v] = da_resampled
+            else:
+                res[v] = da
     return res
 
 
