@@ -233,7 +233,11 @@ def _query_datasets(variables, temporal_extent, spatial_extent):
     #    return "Variables must be one of the following: 'Aerosol Optical Properties','Aerosol Chemical Properties','Aerosol Physical Properties'"
 
 
-def read_dataset(url, variables):
+def read_dataset(url, variables=None):
+
+    # TODO: temporary patch; to be removed ???
+    if variables is None:
+        return xr.load_dataset(url)
 
     # For InSitu specific variables
     actris2insitu = {'particle_number_size_distribution': 'particle.number.size.distribution',

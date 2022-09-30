@@ -19,23 +19,9 @@ from . import query_actris
 from . import query_iagos
 from . import query_icos
 
+
 LON_LAT_BBOX_EPS = 0.05  # epsilon of margin for selecting stations
 CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
-
-# RI_CACHE_DS_DIR = {}
-# RI_CACHE_DS_DICT_FILE = {}
-# _ri_cache_ds_dict = {}
-# for ri in ['actris', 'icos']:
-#     RI_CACHE_DS_DIR[ri] = CACHE_DIR / f'{ri}_datasets'
-#     RI_CACHE_DS_DIR[ri].mkdir(exist_ok=True)
-#     RI_CACHE_DS_DICT_FILE[ri] = CACHE_DIR / f'{ri}_datasets_cache.yaml'
-#     _ri_cache_ds_dict[ri] = {}
-#     try:
-#         with open(RI_CACHE_DS_DICT_FILE[ri], 'r') as f:
-#             dic = yaml.safe_load(f)
-#     except FileNotFoundError:
-#         continue
-#     _ri_cache_ds_dict[ri] = {url: pathlib.Path(path) for url, path in dic.items()}
 
 
 # for caching purposes
@@ -500,35 +486,8 @@ def filter_datasets_on_vars(datasets_df, var_codes):
     return datasets_df[mask]
 
 
-# def _to_hashable(x):
-#     """
-#     Convert a structure to a hashable one.
-#     :param x: list of dicts of list of ...
-#     :return: a hashable structure
-#     """
-#     try:
-#         hash(x)
-#         return x
-#     except TypeError:
-#         if isinstance(x, (tuple, list)):
-#             return tuple(_to_hashable(i) for i in x)
-#         elif isinstance(x, dict):
-#             return frozendict({k: _to_hashable(v) for k, v in x.items()})
-#         else:
-#             raise TypeError(type(x))
-
-
-# def _read_dataset(ri, url):
-#     _ri_query_module[ri].
-#     path = str(CACHE_DS_DIR / url.split('/')[-1])
-#     res = requests.get(url)
-#     with open(path, 'wb') as f:
-#         f.write(res.content)
-#     _cache_ds_dict[url] = path
-
-
 def _infer_ts_frequency(da):
-    dt = da.dropna('time')['time'].diff('time').to_series().reset_index(drop=True)
+    dt = da.dropna('time', how='all')['time'].diff('time').to_series().reset_index(drop=True)
     if len(dt) > 0:
         freq = dt.value_counts().sort_index().index[0]
     else:
@@ -536,7 +495,7 @@ def _infer_ts_frequency(da):
     return freq
 
 
-def read_dataset(ri, url, ds_metadata):
+def read_dataset(ri, url, ds_metadata, selector=None):
     if isinstance(url, (list, tuple)):
         ds = None
         for single_url in url:
@@ -551,17 +510,9 @@ def read_dataset(ri, url, ds_metadata):
     if not isinstance(url, str):
         raise ValueError(f'url must be str; got: {url} of type={type(url)}')
 
+    logger().info(f'ri={ri}, url={url}, ds_metadata=\n{ds_metadata}')
+
     ri = ri.lower()
-    # path = _ri_cache_ds_dict[ri].get(url)
-    # if path is None:
-    #     ds, path = _read_dataset(ri, url)
-    #     if ds is not None:
-    #         _ri_cache_ds_dict[ri][url] = path
-    #         with open(RI_CACHE_DS_DICT_FILE[ri], 'a') as f:
-    #             yaml.safe_dump({url: str(path)}, f)
-    #     return ds
-    # else:
-    #     return xr.load_dataset(path)
     if ri == 'actris':
         ds = _ri_query_module_by_ri[ri].read_dataset(url, ds_metadata['ecv_variables_filtered'])
     elif ri == 'icos':
@@ -577,9 +528,14 @@ def read_dataset(ri, url, ds_metadata):
     elif ri == 'iagos':
         data_path = pathlib.Path(pkg_resources.resource_filename('data_access', 'resources/iagos_L3_postprocessed'))
         ds = xr.open_dataset(data_path / url)
-        if 'selector' in ds_metadata and ds_metadata['selector'] is not np.nan and bool(ds_metadata['selector']):
-            dim, *coord = ds_metadata['selector'].split(':')
-            coord = ':'.join(coord)
+        if selector is not None:
+            dim, *coord = selector.split(':')
+            if len(coord) == 1:
+                coord, = coord
+            elif len(coord) == 2 or len(coord) == 3:
+                coord = slice(*coord)
+            else:
+                raise ValueError(f'bad selector={selector}')
             # if ds[dim].dtype is not object/str, need to convert coord to the dtype
             ds = ds.sel({dim: coord})
         std_ecv_to_vcode = {
@@ -606,6 +562,7 @@ def read_dataset(ri, url, ds_metadata):
                 res[v] = da_resampled
             else:
                 res[v] = da
+
     return res
 
 

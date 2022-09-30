@@ -2,6 +2,7 @@
 ATMO-ACCESS time series service
 """
 
+import logging
 import os
 import pathlib
 import pkg_resources
@@ -13,7 +14,10 @@ import datetime
 import json
 import werkzeug.utils
 
-import gunicorn
+from plotly.subplots import make_subplots
+
+
+# import gunicorn
 
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 import dash
@@ -30,6 +34,7 @@ from dash import Dash
 # Local imports
 from log import logger
 import data_access
+import data_processing
 
 
 CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
@@ -57,6 +62,8 @@ APP_TABS_ID = 'app-tabs'    # see: https://dash.plotly.com/dash-core-components/
     # children contains a list of layouts of each tab
 SEARCH_DATASETS_TAB_VALUE = 'search-datasets-tab'
 SELECT_DATASETS_TAB_VALUE = 'select-datasets-tab'
+FILTER_DATA_TAB_VALUE = 'filter-data-tab'
+DATA_ANALYSIS_TAB_VALUE = 'data-analysis-tab'
 
 STATIONS_MAP_ID = 'stations-map'
     # 'selectedData' contains a dictionary
@@ -72,7 +79,7 @@ SELECTED_STATIONS_DROPDOWN_ID = 'selected-stations-dropdown'
     # 'options' contains a list of dictionaries {'label' -> station label, 'value' -> index of the station in the global dataframe stations (see below)}
     # 'value' contains a list of indices of stations selected using the dropdown
 SEARCH_DATASETS_BUTTON_ID = 'search-datasets-button'
-    # 'n_click' contains a number of click at the button
+    # 'n_click' contains a number of clicks at the button
 LAT_MAX_ID = 'lat-max'
 LAT_MIN_ID = 'lat-min'
 LON_MAX_ID = 'lon-max'
@@ -84,14 +91,22 @@ GANTT_GRAPH_ID = 'gantt-graph'
     # 'figure' contains a Plotly figure object
 DATASETS_STORE_ID = 'datasets-store'
     # 'data' stores datasets metadata in JSON, as provided by the method pd.DataFrame.to_json(orient='split', date_format='iso')
-DATASET_MD_STORE_ID = 'dataset-md-store'
-    # 'data' stores a chosen dataset metadata in JSON, as provided by the method pd.Series.to_json(orient='index', date_format='iso')
+SELECT_DATASETS_REQUEST_ID = 'select-datasets-request'
+    # 'data' stores a JSON representation of a request executed
 DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID = 'datasets-table-checklist-all-none-switch'
 DATASETS_TABLE_ID = 'datasets-table'
     # 'columns' contains list of dictionaries {'name' -> column name, 'id' -> column id}
     # 'data' contains a list of records as provided by the method pd.DataFrame.to_dict(orient='records')
 QUICKLOOK_POPUP_ID = 'quicklook-popup'
     # 'children' contains a layout of the popup
+SELECT_DATASETS_BUTTON_ID = 'select-datasets-button'
+    # 'n_click' contains a number of clicks at the button
+TIME_FILTER_SLIDER_ID = 'time-filter-slider'
+    # 'min', 'max', 'step', 'value' (pair), 'marks' (dict)
+TIME_HISTOGRAM_GRAPH_ID = 'time-histogram-graph'
+    # 'figure' contains a Plotly figure object
+SCATTER_GRAPH_ID = 'scatter-graph'
+    # 'figure' contains a Plotly figure object
 
 # Atmo-Access logo url
 ATMO_ACCESS_LOGO_URL = \
@@ -268,7 +283,7 @@ def get_dashboard_layout():
     # without displaying the data
     stores = [
         dcc.Store(id=DATASETS_STORE_ID),
-        dcc.Store(id=DATASET_MD_STORE_ID),
+        dcc.Store(id=SELECT_DATASETS_REQUEST_ID),
     ]
 
     # logo and application title
@@ -355,7 +370,7 @@ def get_dashboard_layout():
                     value='compact',
                     inline=True)),
             html.Div(id='select-datasets-left-right-subpanel-div', className='three columns', children=
-                dbc.Button(id='foo', n_clicks=0,
+                dbc.Button(id=SELECT_DATASETS_BUTTON_ID, n_clicks=0,
                        color='primary', type='submit',
                        style={'font-weight': 'bold'},
                        children='Select datasets'))
@@ -395,12 +410,45 @@ def get_dashboard_layout():
         ]),
     ]))
 
+    filter_data_tab = dcc.Tab(
+        label='Filter data',
+        value=FILTER_DATA_TAB_VALUE,
+        children=html.Div(
+            style={'margin': '20px'},
+            children=[
+                # html.Div(
+                #     id='filter-datasets-time-filter',
+                #     className='six columns',
+                #     children=dcc.Slider(
+                #         id=TIME_FILTER_SLIDER_ID,
+                #         min=0, max=10, step=1, value=5, marks=None
+                #     )
+                # ),
+                html.Div(
+                    id='filter-datasets-time-graph',
+                    className='six columns',
+                    children=dcc.Graph(
+                        id=TIME_HISTOGRAM_GRAPH_ID,
+                    )
+                ),
+                html.Div(
+                    id='filter-datasets-scatter-graph',
+                    className='six columns',
+                    children=dcc.Graph(
+                        id=SCATTER_GRAPH_ID,
+                    )
+                ),
+            ]
+        )
+    )
+
     mockup_remaining_tabs = _get_mockup_remaining_tabs()
 
     app_tabs = dcc.Tabs(id=APP_TABS_ID, value=SEARCH_DATASETS_TAB_VALUE,
                         children=[
                             stations_vars_tab,
                             select_datasets_tab,
+                            filter_data_tab,
                             *mockup_remaining_tabs
                         ])
 
@@ -415,9 +463,8 @@ def get_dashboard_layout():
 
 
 def _get_mockup_remaining_tabs():
-    filter_data_tab = dcc.Tab(label='Filter data', value='filter-data-tab')
-    data_analysis_tab = dcc.Tab(label='Data analysis', value='data-analysis-tab')
-    return [filter_data_tab, data_analysis_tab]
+    data_analysis_tab = dcc.Tab(label='Data analysis', value=DATA_ANALYSIS_TAB_VALUE)
+    return [data_analysis_tab]
 
 # End of definition of routines which constructs components of the dashboard
 
@@ -444,8 +491,22 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
 
 
 @app.callback(
-    Output(DATASETS_STORE_ID, 'data'),
     Output(APP_TABS_ID, 'value'),
+    Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
+    Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
+)
+def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks):
+    trigger = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    if trigger == SEARCH_DATASETS_BUTTON_ID:
+        return SELECT_DATASETS_TAB_VALUE
+    elif trigger == SELECT_DATASETS_BUTTON_ID:
+        return FILTER_DATA_TAB_VALUE
+    else:
+        return SEARCH_DATASETS_TAB_VALUE
+
+
+@app.callback(
+    Output(DATASETS_STORE_ID, 'data'),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(VARIABLES_CHECKLIST_ID, 'value'),
     State(LON_MIN_ID, 'value'),
@@ -473,7 +534,7 @@ def search_datasets(
             datasets_json = previous_datasets_json
         else:
             datasets_json = empty_datasets_df.to_json(orient='split', date_format='iso')
-        return datasets_json, SEARCH_DATASETS_TAB_VALUE
+        return datasets_json
 
     datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
     if DEBUG_GET_DATASETS:
@@ -505,9 +566,7 @@ def search_datasets(
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
     datasets_df_filtered['id'] = datasets_df_filtered.index
 
-    new_active_tab = SELECT_DATASETS_TAB_VALUE if n_clicks > 0 else SEARCH_DATASETS_TAB_VALUE  # TODO: is it a right way?
-
-    return datasets_df_filtered.to_json(orient='split', date_format='iso'), new_active_tab
+    return datasets_df_filtered.to_json(orient='split', date_format='iso')
 
 
 def _get_selected_points(selected_stations):
@@ -610,6 +669,53 @@ def _contiguous_periods(start, end, var_codes=None, dt=pd.Timedelta('1D')):
     return pd.DataFrame(res_dict)
 
 
+def _get_scatter_plot(ds):
+    df = ds.to_dataframe()
+    v1, v2, *_ = list(df)
+    df = df[[v1, v2]]
+    v1_unit = ds[v1].attrs.get('units', '???')
+    v2_unit = ds[v2].attrs.get('units', '???')
+    fig = px.scatter(df, x=v1, y=v2, height=600)
+    return fig
+
+
+def _get_line_plot(ds):
+    df = ds.to_dataframe()
+    v1, v2, *_ = list(df)
+    df = df[[v1, v2]]
+    v1_unit = ds[v1].attrs.get('units', '???')
+    v2_unit = ds[v2].attrs.get('units', '???')
+
+    # Create figure with secondary y-axis
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Add traces
+    fig.add_trace(
+        go.Scatter(x=df.index, y=df[v1], name=v1, mode='lines'),
+        secondary_y=False,
+    )
+
+    fig.add_trace(
+        go.Scatter(x=df.index, y=df[v2], name=v2, mode='lines'),
+        secondary_y=True,
+    )
+
+    # Add figure title
+    fig.update_layout(
+        title_text=f'{v1} and {v2}',
+        height=600
+    )
+
+    # Set x-axis title
+    fig.update_xaxes(title_text="time")
+
+    # Set y-axes titles
+    fig.update_yaxes(title_text=f'{v1} ({v1_unit})', secondary_y=False)
+    fig.update_yaxes(title_text=f'{v2} ({v2_unit})', secondary_y=True)
+
+    return fig
+
+
 def _get_timeline_by_station(datasets_df):
     df = datasets_df\
         .groupby(['platform_id_RI', 'station_fullname', 'RI'])\
@@ -666,6 +772,7 @@ def _get_timeline_by_station_and_vars(datasets_df):
     Output(GANTT_GRAPH_ID, 'selectedData'),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
+    prevent_initial_call=True,
 )
 def get_gantt_figure(gantt_view_type, datasets_json):
     selectedData = {'points': []}
@@ -700,6 +807,7 @@ def get_gantt_figure(gantt_view_type, datasets_json):
     Input(DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
+    prevent_initial_call=True,
 )
 def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_none_switch,
                       datasets_json, previously_selected_row_ids):
@@ -820,7 +928,7 @@ def _plot_vars(ds, v1, v2=None):
 
 @app.callback(
     Output(QUICKLOOK_POPUP_ID, 'children'),
-    Output(DATASET_MD_STORE_ID, 'data'),
+    #Output(DATASET_MD_STORE_ID, 'data'),
     Input(DATASETS_TABLE_ID, 'active_cell'),
     State(DATASETS_STORE_ID, 'data'),
     prevent_initial_call=True,
@@ -837,10 +945,21 @@ def popup_graphs(active_cell, datasets_json):
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     ds_md = datasets_df.loc[active_cell['row_id']]
 
+    if 'selector' in ds_md and isinstance(ds_md['selector'], str) and len(ds_md['selector']) > 0:
+        selector = ds_md['selector']
+    else:
+        selector = None
+
+    print('selector=', selector)
     try:
-        da_by_var = data_access.read_dataset(ds_md['RI'], ds_md['url'], ds_md)
-        for v, da in da_by_var.items():
-            da.to_netcdf(CACHE_DIR / 'tmp' / f'{v}.nc')
+        ri = ds_md['RI']
+        url = ds_md['url']
+        selector = ds_md['selector'] if 'selector' in ds_md else None
+        req = data_processing.ReadDataRequest(ri, url, ds_md, selector=selector)
+        da_by_var = req.compute()
+        # da_by_var = data_access.read_dataset(ds_md['RI'], ds_md['url'], ds_md)
+        # for v, da in da_by_var.items():
+        #     da.to_netcdf(CACHE_DIR / 'tmp' / f'{v}.nc')
         ds_exc = None
     except Exception as e:
         da_by_var = None
@@ -877,7 +996,7 @@ def popup_graphs(active_cell, datasets_json):
         is_open=True,
     )
 
-    return popup, ds_md.to_json(orient='index', date_format='iso')
+    return popup #, ds_md.to_json(orient='index', date_format='iso')
 
 
 # @app.callback(
@@ -896,10 +1015,43 @@ def download_csv(n_clicks, ds_md_json):
     except Exception as e:
         logger().exception(f'Failed to download the dataset {ds_md_json}', exc_info=e)
 
+
+@app.callback(
+    Output(SELECT_DATASETS_REQUEST_ID, 'data'),
+    Output(TIME_HISTOGRAM_GRAPH_ID, 'figure'),
+    Output(SCATTER_GRAPH_ID, 'figure'),
+    Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
+    State(DATASETS_STORE_ID, 'data'),
+    State(DATASETS_TABLE_ID, 'selected_row_ids'),
+    prevent_initial_call=True,
+)
+def select_datasets(n_clicks, datasets_json, selected_row_ids):
+    if datasets_json is None or selected_row_ids is None:
+        return None
+
+    datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+    ds_md = datasets_df.loc[selected_row_ids]
+    read_dataset_requests = []
+    for idx, ds_metadata in ds_md.iterrows():
+        ri = ds_metadata['RI']
+        url = ds_metadata['url']
+        selector = ds_metadata['selector'] if 'selector' in ds_metadata else None
+        req = data_processing.ReadDataRequest(ri, url, ds_metadata, selector=selector)
+        # req.compute()  ###
+        read_dataset_requests.append(req)
+
+    req = data_processing.MergeDatasetsRequest(read_dataset_requests)
+    # req.compute()  # TODO: do it lazy ???
+    ds = req.compute()
+    line_plot = _get_line_plot(ds)
+    scatter_plot = _get_scatter_plot(ds)
+    return req.to_dict(), line_plot, scatter_plot
+
+
 # End of callback definitions
 
 
 # Launch the Dash application.
 # app_conf['debug'] = False
 if __name__ == "__main__":
-    app.run_server(debug=False, host='0.0.0.0', port=8050)
+    app.run_server(debug=True, host='0.0.0.0', port=8050)
