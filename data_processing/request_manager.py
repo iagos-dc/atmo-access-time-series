@@ -106,31 +106,10 @@ class Request(abc.ABC):
 
     @request_cache
     def compute(self):
-        print(f'compute {str(self)}')
-        # args_computed = {k: v.compute() for k, v in self.args}
-        # aux_args_computed = {k: v.compute() for k, v in self.aux_args.items()}
-        return self.execute() #**args_computed, **aux_args_computed)
+        return self.execute()
 
     def __str__(self):
         return str(self.to_dict())
-
-    # @staticmethod
-    # def from_obj(obj):
-    #     """
-    #     Constructs an instance of Request class
-    #     :param obj: a tree structure of request(s); if a node of the tree is a dictionary with keys
-    #     'action', 'args' and 'aux_args', then it is understood as a request; otherwise, it is interpreted as a value
-    #     :return: an instance of Request class
-    #     """
-    #     if isinstance(obj, dict) and set(obj) == Request._REQUEST_KEYS:
-    #         args = obj['args']
-    #         return NodeRequest(
-    #             obj['action'],
-    #             tuple((k, Request.from_obj(args[k])) for k in sorted(args)),
-    #             {k: Request.from_obj(v) for k, v in obj['aux_args'].items()}
-    #         )
-    #     else:
-    #         return LeafRequest(obj)
 
 
 class ReadDataRequest(Request):
@@ -140,18 +119,12 @@ class ReadDataRequest(Request):
         self.ds_metadata = dict(ds_metadata)
         self.selector = selector
 
-        # super().__init__(
-        #     'read_dataset',
-        #     args=dict(ri=self.ri, url=self.url, selector=self.selector),
-        #     aux_args=dict(ds_metadata=self.ds_metadata)
-        # )
-
     def execute(self):
-        print(f'execute {str(self)}')
+        # print(f'execute {str(self)}')
         return data_access.read_dataset(self.ri, self.url, self.ds_metadata, selector=self.selector)
 
     def get_hashable(self):
-        return ('read_dataset', _get_hashable(self.ri), _get_hashable(self.url), _get_hashable(self.selector))
+        return 'read_dataset', _get_hashable(self.ri), _get_hashable(self.url), _get_hashable(self.selector)
 
     def to_dict(self):
         return dict(
@@ -172,13 +145,6 @@ class ReadDataRequest(Request):
         except KeyError:
             raise ValueError(f'bad ReadDataRequest: d={str(d)}')
         return ReadDataRequest(ri, url, ds_metadata, selector=selector)
-
-    # def __str__(self):
-    #     args_str = [f'{k}={v}' for k, v in self.args]
-    #     args_str = ', '.join(args_str)
-    #     aux_args_str = [f'{k}={v}' for k, v in self.aux_args.items()]
-    #     aux_args_str = ', '.join(aux_args_str)
-    #     return f'{self.action}({args_str}; {aux_args_str})' if len(aux_args_str) > 0 else f'{self.action}({args_str})'
 
 
 class MergeDatasetsRequest(Request):
@@ -230,67 +196,3 @@ def request_from_dict(d):
         return MergeDatasetsRequest.from_dict(d)
     else:
         raise NotImplementedError(f'd={d}')
-
-
-# def request(action, args=None, aux_args=None):
-#     if args is None:
-#         args = {}
-#     if aux_args is None:
-#         aux_args = {}
-#     return Request.from_obj({
-#         'action': action,
-#         'args': args,
-#         'aux_args': aux_args
-#     })
-#
-#
-# class NodeRequest(Request):
-#     def __init__(self, action, args, aux_args):
-#         self.action = action
-#         self.args = toolz.valmap(lambda v: v if isinstance(v, Request) else LeafRequest(v), args)
-#         self.aux_args = toolz.valmap(lambda v: v if isinstance(v, Request) else LeafRequest(v), aux_args)
-#
-#     def __hash__(self):
-#         return hash((self.action, self.args))
-#
-#     def __eq__(self, other):
-#         return self.action == other.action and self.args == other.args
-#
-#     @request_cache
-#     def compute(self):
-#         print(f'compute {self}')
-#         args_computed = {k: v.compute() for k, v in self.args}
-#         aux_args_computed = {k: v.compute() for k, v in self.aux_args.items()}
-#         return self.execute(**args_computed, **aux_args_computed)
-#
-#     def __str__(self):
-#         args_str = [f'{k}={v}' for k, v in self.args]
-#         args_str = ', '.join(args_str)
-#         aux_args_str = [f'{k}={v}' for k, v in self.aux_args.items()]
-#         aux_args_str = ', '.join(aux_args_str)
-#         return f'{self.action}({args_str}; {aux_args_str})' if len(aux_args_str) > 0 else f'{self.action}({args_str})'
-#
-#
-# class LeafRequest(Request):
-#     def __init__(self, obj):
-#         self.obj = obj
-#         self.__hash__()  # to check upfront if the request is hashable
-#
-#     @functools.cached_property
-#     def hashable_obj(self):
-#         return _get_hashable(self.obj)
-#
-#     def __hash__(self):
-#         return hash(self.hashable_obj)
-#
-#     def __eq__(self, other):
-#         return self.hashable_obj == other.hashable_obj
-#
-#     def execute(self):
-#         return self.obj
-#
-#     def compute(self):
-#         return self.execute()
-#
-#     def __str__(self):
-#         return str(self.obj)

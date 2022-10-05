@@ -162,7 +162,8 @@ def get_stations():
     For each ACTRIS, IAGOS and ICOS station (for the moment it is ICOS only).
     :return: pandas Dataframe with stations data; it has the following columns:
     'uri', 'short_name', 'long_name', 'country', 'latitude', 'longitude', 'ground_elevation', 'RI', 'short_name_RI',
-    'theme', 'idx'
+    'theme', 'idx',
+    'longitude_min', 'longitude_max', 'latitude_min', 'latitude_max', 'is_region'
     A sample record is:
         'uri': 'http://meta.icos-cp.eu/resources/stations/AS_BIR',
         'short_name': 'BIR',
@@ -173,8 +174,13 @@ def get_stations():
         'ground_elevation': 219.0,
         'RI': 'ICOS',
         'short_name_RI': 'BIR (ICOS)',
-        'theme': 'AS'
-        'idx': 2
+        'theme': 'AS',
+        'idx': 2,
+        'longitude_min': NaN,
+        'longitude_max': NaN,
+        'latitude_min': NaN,
+        'latitude_max': NaN,
+        'is_region': False
     """
     global _stations
     if _stations is None:
@@ -235,7 +241,7 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
     :param lon_max: float or None
     :param lat_min: float or None
     :param lat_max: float or None
-    :return: pandas.DataFrame with columns: 'title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes',
+    :return: pandas.DataFrame with columns: 'title', 'url', 'ecv_variables', 'platform_id', 'RI', 'selector', 'var_codes',
      'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes_filtered',
      'time_period_start', 'time_period_end', 'platform_id_RI';
     e.g. for the call get_datasets(['Pressure (surface)', 'Temperature (near surface)'] one gets a dataframe with an example row like:
@@ -244,6 +250,7 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
          'ecv_variables': ['Pressure (surface)', 'Surface Wind Speed and direction', 'Temperature (near surface)', 'Water Vapour (surface)'],
          'platform_id': 'GAT',
          'RI': 'ICOS',
+         'selector': NaN,
          'var_codes': ['AP', 'AT', 'RH', 'WSD'],
          'ecv_variables_filtered': ['Pressure (surface)', 'Temperature (near surface)'],
          'std_ecv_variables_filtered': ['Pressure (surface)', 'Temperature (near surface)'],
@@ -253,7 +260,8 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
          'platform_id_RI': 'GAT (ICOS)'
     """
     if variables is None:
-        variables = []
+        # take all variables
+        variables = sorted(get_vars_long()['std_ECV_name'].unique())
     else:
         variables = list(variables)
     if None in [lon_min, lon_max, lat_min, lat_max]:
@@ -557,7 +565,8 @@ def read_dataset(ri, url, ds_metadata, selector=None):
                 freq = f'{int(freq.total_seconds())}s'
             da.attrs['_aats_freq'] = freq
             if freq != '0s':
-                da_resampled = da.resample({'time': freq}).asfreq()
+                # da_resampled = da.resample({'time': freq}).asfreq()
+                da_resampled = da.resample({'time': freq}).interpolate()
                 da_resampled.attrs = dict(da.attrs)
                 res[v] = da_resampled
             else:
@@ -567,3 +576,13 @@ def read_dataset(ri, url, ds_metadata, selector=None):
 
 
 _GET_DATASETS_BY_RI.update(zip(_RIS, (_get_actris_datasets, _get_iagos_datasets, _get_icos_datasets)))
+
+
+####################
+#
+# data_access strategy:
+# - infer_freq: should be done for each variable (it's done like that now) and each slice wrt other dimension(s) (not yet) ?
+# - do not perform resampling to align with freq of each individual variable;
+# - perform resampling to align all time-series to a common time index (by default, the most coarse time index; resampling by mean aggregation ?)
+# - drop variables with NaN's only
+# -

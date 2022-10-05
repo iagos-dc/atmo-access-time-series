@@ -19,6 +19,8 @@ from icoscp.station import station
 from icoscp.cpb.dobj import Dobj
 from icoscp.sparql.runsparql import RunSparql
 
+from data_access import helper
+
 
 # all stations info
 def get_list_platforms():
@@ -279,9 +281,30 @@ def __sparql_data():
     
     return sparql
 
+
 def read_dataset(pid):
-    data = Dobj(pid).data
-    return data.to_xarray()
+    dobj = Dobj(pid)
+    ds = dobj.data.to_xarray()
+
+    dobj_station = getattr(dobj, 'station', None)
+    dobj_meta = getattr(dobj, 'meta', None)
+    ds.attrs = {
+        'title': helper.getkeyvals(dobj_meta, 'references', 'title'),
+        'station_id': helper.getkeyvals(dobj_station, 'id'),
+        'station_name': helper.getkeyvals(dobj_station, 'org', 'name'),
+        'station_lon': getattr(dobj, 'lon', None),
+        'station_lat': getattr(dobj, 'lat', None),
+        'station_alt': getattr(dobj, 'alt', None),
+        'sampling_height': helper.getkeyvals(dobj_meta, 'specificInfo', 'acquisition', 'samplingHeight')
+    }
+
+    dobj_variables = getattr(dobj, 'variables', None)
+    if dobj_variables is not None:
+        vars_metadata = dobj_variables.set_index('name').to_dict(orient='index')
+        for var, metadata in vars_metadata.items():
+            if var in ds:
+                ds[var].attrs = metadata
+    return ds
     
     
 if __name__ == "__main__":
