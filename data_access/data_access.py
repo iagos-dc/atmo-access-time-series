@@ -442,6 +442,10 @@ def _get_icos_datasets(variables, bbox):
     if not datasets:
         return None
     datasets_df = pd.DataFrame.from_dict(datasets)
+
+    # fix title for ICOS datasets: remove time span, which is after last comma
+    datasets_df['title'] = datasets_df['title'].map(lambda s: ','.join(s.split(',')[:-1]))
+
     datasets_df['RI'] = 'ICOS'
     return datasets_df
 
@@ -566,13 +570,15 @@ def read_dataset(ri, url, ds_metadata, selector=None):
             da.attrs['_aats_freq'] = freq
             if freq != '0s':
                 # da_resampled = da.resample({'time': freq}).asfreq()
-                da_resampled = da.resample({'time': freq}).interpolate()
-                da_resampled.attrs = dict(da.attrs)
-                res[v] = da_resampled
+                # da_resampled = da.resample({'time': freq}).interpolate()
+                # da_resampled.attrs = dict(da.attrs)
+                # res[v] = da_resampled
+                res[v] = da
             else:
                 res[v] = da
 
-    return res
+    #return res
+    return ds
 
 
 _GET_DATASETS_BY_RI.update(zip(_RIS, (_get_actris_datasets, _get_iagos_datasets, _get_icos_datasets)))

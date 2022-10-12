@@ -1,7 +1,11 @@
 import abc
 import itertools
 import functools
+import hashlib
 from mmappickle import mmapdict
+import icoscp.cpb.dobj
+
+from log import logger
 
 import data_access
 from .merge_datasets import merge_datasets
@@ -37,7 +41,6 @@ def _get_hashable(obj):
     elif isinstance(obj, Request):
         return obj.get_hashable()
     else:
-        hash(obj)
         return obj
 
 
@@ -48,18 +51,18 @@ def get_request_id(req):
     :param req: a hashable object
     :return: (str, bool): (id, is_id_new)
     """
-    i = hash(req)
-    i_str = str(i)
+    i = req.deterministic_hash()
     while True:
         try:
-            req_in_map = req_map[i_str]
+            req_in_map = req_map[i]
         except KeyError:
-            return i_str, True
+            return i, True
         if req_in_map == req:
-            return i_str, False
+            return i, False
         else:
-            i += 1
-            i_str = str(i)
+            logger().warning(f'deterministic_hash collision: req={str(req)} and req_in_map={str(req_in_map)} '
+                             f'have the same hash={i}')
+            i = hex(int(i, 16) + 1)[2:]
 
 
 # TODO: make it thread/multiprocess safe
@@ -68,7 +71,7 @@ def request_cache(func):
     def _(req):
         try:
             i, is_id_new = get_request_id(req)
-            if i in res_map:
+            if not is_id_new:
                 res = res_map[i]
             else:
                 res = func(req)
@@ -98,6 +101,9 @@ class Request(abc.ABC):
     def to_dict(self):
         pass
 
+    def deterministic_hash(self):
+        return hashlib.sha256(bytes(str(self.get_hashable()), encoding='utf-8')).hexdigest()
+
     def __hash__(self):
         return hash(self.get_hashable())
 
@@ -110,6 +116,31 @@ class Request(abc.ABC):
 
     def __str__(self):
         return str(self.to_dict())
+
+
+class GetICOSDatasetTitleRequest(Request):
+    def __init__(self, dobj):
+        self.dobj = dobj
+
+    def execute(self):
+        return icoscp.cpb.dobj.Dobj(self.dobj).meta['references']['title']
+
+    def get_hashable(self):
+        return 'get_ICOS_dataset_title', _get_hashable(self.dobj)
+
+    def to_dict(self):
+        return dict(
+            _action='get_ICOS_dataset_title',
+            dobj=self.dobj,
+        )
+
+    @staticmethod
+    def from_dict(d):
+        try:
+            dobj = d['dobj']
+        except KeyError:
+            raise ValueError(f'bad GetICOSDatasetTitleRequest: d={str(d)}')
+        return GetICOSDatasetTitleRequest(dobj)
 
 
 class ReadDataRequest(Request):
@@ -190,7 +221,9 @@ def request_from_dict(d):
         action = d['_action']
     except KeyError:
         raise ValueError(f'd does not represent a request; d={str(d)}')
-    if action == 'read_dataset':
+    if action == 'get_ICOS_dataset_title':
+        return GetICOSDatasetTitleRequest.from_dict(d)
+    elif action == 'read_dataset':
         return ReadDataRequest.from_dict(d)
     elif action == 'merge_datasets':
         return MergeDatasetsRequest.from_dict(d)
