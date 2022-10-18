@@ -2,8 +2,6 @@
 ATMO-ACCESS time series service
 """
 
-import logging
-import os
 import pathlib
 import pkg_resources
 import numpy as np
@@ -13,9 +11,6 @@ import plotly.graph_objects as go
 import datetime
 import json
 import werkzeug.utils
-
-from plotly.subplots import make_subplots
-
 
 # import gunicorn
 
@@ -35,7 +30,8 @@ from dash import Dash
 from log import logger
 import data_access
 import data_processing
-
+from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX, _get_scatter_plot, _get_line_plot, \
+    _get_timeline_by_station, _get_timeline_by_station_and_vars, _plot_vars, get_avail_data_by_var
 
 CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
 DEBUG_GET_DATASETS = False
@@ -103,6 +99,11 @@ SELECT_DATASETS_BUTTON_ID = 'select-datasets-button'
     # 'n_click' contains a number of clicks at the button
 TIME_FILTER_SLIDER_ID = 'time-filter-slider'
     # 'min', 'max', 'step', 'value' (pair), 'marks' (dict)
+AVAIL_DATA_GRAPH_ID = 'avail-data-graph'
+    # 'figure' contains a Plotly figure object
+VAR_HIST_GRAPH_1_ID = 'var-hists-graph-1'
+VAR_HIST_GRAPH_2_ID = 'var-hists-graph-2'
+VAR_HIST_GRAPH_3_ID = 'var-hists-graph-3'
 TIME_HISTOGRAM_GRAPH_ID = 'time-histogram-graph'
     # 'figure' contains a Plotly figure object
 SCATTER_GRAPH_ID = 'scatter-graph'
@@ -111,11 +112,6 @@ SCATTER_GRAPH_ID = 'scatter-graph'
 # Atmo-Access logo url
 ATMO_ACCESS_LOGO_URL = \
     'https://www7.obs-mip.fr/wp-content-aeris/uploads/sites/82/2021/03/ATMO-ACCESS-Logo-final_horizontal-payoff-grey-blue.png'
-
-# Color codes
-ACTRIS_COLOR_HEX = '#00adb7'
-IAGOS_COLOR_HEX = '#456096'
-ICOS_COLOR_HEX = '#ec165c'
 
 
 def _get_station_by_shortnameRI(stations):
@@ -170,6 +166,7 @@ def get_variables_checklist():
     return variables_checklist
 
 
+# TODO: if want to move to utils.charts, need to take care about external variables: stations and STATIONS_MAP_ID
 def get_stations_map():
     """
     Provide a Dash component containing a map with stations
@@ -426,18 +423,39 @@ def get_dashboard_layout():
                 # ),
                 html.Div(
                     id='filter-datasets-time-graph',
-                    className='six columns',
+                    className='twelve columns',
                     children=dcc.Graph(
-                        id=TIME_HISTOGRAM_GRAPH_ID,
+                        id=AVAIL_DATA_GRAPH_ID,
                     )
                 ),
                 html.Div(
-                    id='filter-datasets-scatter-graph',
-                    className='six columns',
+                    id='filter-var-1-graph',
+                    className='twelve columns',
                     children=dcc.Graph(
-                        id=SCATTER_GRAPH_ID,
+                        id=VAR_HIST_GRAPH_1_ID,
                     )
                 ),
+                html.Div(
+                    id='filter-var-2-graph',
+                    className='twelve columns',
+                    children=dcc.Graph(
+                        id=VAR_HIST_GRAPH_2_ID,
+                    )
+                ),
+                html.Div(
+                    id='filter-var-3-graph',
+                    className='twelve columns',
+                    children=dcc.Graph(
+                        id=VAR_HIST_GRAPH_3_ID,
+                    )
+                ),
+                # html.Div(
+                #     id='filter-datasets-scatter-graph',
+                #     className='six columns',
+                #     children=dcc.Graph(
+                #         id=SCATTER_GRAPH_ID,
+                #     )
+                # ),
             ]
         )
     )
@@ -627,146 +645,6 @@ def get_selected_stations_bbox_and_dropdown(selected_stations):
     return bbox + [selected_stations_dropdown_options, selected_stations_dropdown_value]
 
 
-def _contiguous_periods(start, end, var_codes=None, dt=pd.Timedelta('1D')):
-    """
-    Merge together periods which overlap, are adjacent or nearly adjacent (up to dt). The merged periods are returned
-    with:
-    - start and end time ('time_period_start', 'time_period_end'),
-    - list of indices of datasets which enters into a given period ('indices'),
-    - number of the datasets (the length of the above list) ('datasets'),
-    - codes of variables available within a given period, if the parameter var_codes is provided.
-    :param start: pandas.Series of Timestamps with periods' start
-    :param end: pandas.Series of Timestamps with periods' end
-    :param var_codes: pandas.Series of strings or None, optional; if given, must contain variable codes separated by comma
-    :param dt: pandas.Timedelta
-    :return: pandas.DataFrame with columns 'time_period_start', 'time_period_end', 'indices', 'datasets' and 'var_codes'
-    """
-    s, e, idx = [], [], []
-    df_dict = {'s': start, 'e': end}
-    if var_codes is not None:
-        dat = []
-        df_dict['var_codes'] = var_codes
-    df = pd.DataFrame(df_dict).sort_values(by='s', ignore_index=False)
-    df['e'] = df['e'].cummax()
-    if len(df) > 0:
-        delims, = np.nonzero((df['e'] + dt).values[:-1] < df['s'].values[1:])
-        delims = np.concatenate(([0], delims + 1, [len(df)]))
-        for i, j in zip(delims[:-1], delims[1:]):
-            s.append(df['s'].iloc[i])
-            e.append(df['e'].iloc[j - 1])
-            idx.append(df.index[i:j])
-            if var_codes is not None:
-                # concatenate all var_codes; [:-1] is to suppress the last comma
-                all_var_codes = (df['var_codes'].iloc[i:j] + ', ').sum()[:-2]
-                # remove duplicates from all_var_codes...
-                all_var_codes = np.sort(np.unique(all_var_codes.split(', ')))
-                # ...and form a single string with codes separated by comma
-                all_var_codes = ', '.join(all_var_codes)
-                dat.append(all_var_codes)
-    res_dict = {'time_period_start': s, 'time_period_end': e, 'indices': idx, 'datasets': [len(i) for i in idx]}
-    if var_codes is not None:
-        res_dict['var_codes'] = dat
-    return pd.DataFrame(res_dict)
-
-
-def _get_scatter_plot(ds):
-    df = ds.to_dataframe()
-    v1, v2, *_ = list(df)
-    df = df[[v1, v2]]
-    v1_unit = ds[v1].attrs.get('units', '???')
-    v2_unit = ds[v2].attrs.get('units', '???')
-    fig = px.scatter(df, x=v1, y=v2, height=600)
-    return fig
-
-
-def _get_line_plot(ds):
-    df = ds.to_dataframe()
-    v1, v2, *_ = list(df)
-    df = df[[v1, v2]]
-    v1_unit = ds[v1].attrs.get('units', '???')
-    v2_unit = ds[v2].attrs.get('units', '???')
-
-    # Create figure with secondary y-axis
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-    # Add traces
-    fig.add_trace(
-        go.Scatter(x=df.index, y=df[v1], name=v1, mode='lines'),
-        secondary_y=False,
-    )
-
-    fig.add_trace(
-        go.Scatter(x=df.index, y=df[v2], name=v2, mode='lines'),
-        secondary_y=True,
-    )
-
-    # Add figure title
-    fig.update_layout(
-        title_text=f'{v1} and {v2}',
-        height=600
-    )
-
-    # Set x-axis title
-    fig.update_xaxes(title_text="time")
-
-    # Set y-axes titles
-    fig.update_yaxes(title_text=f'{v1} ({v1_unit})', secondary_y=False)
-    fig.update_yaxes(title_text=f'{v2} ({v2_unit})', secondary_y=True)
-
-    return fig
-
-
-def _get_timeline_by_station(datasets_df):
-    df = datasets_df\
-        .groupby(['platform_id_RI', 'station_fullname', 'RI'])\
-        .apply(lambda x: _contiguous_periods(x['time_period_start'], x['time_period_end'], x['var_codes_filtered']))\
-        .reset_index()
-    df = df.sort_values('platform_id_RI')
-    no_platforms = len(df['platform_id_RI'].unique())
-    height = 100 + max(100, 50 + 30 * no_platforms)
-    gantt = px.timeline(
-        df, x_start='time_period_start', x_end='time_period_end', y='platform_id_RI', color='RI',
-        hover_name='var_codes',
-        hover_data={'station_fullname': True, 'platform_id_RI': True, 'datasets': True, 'RI': False},
-        custom_data=['indices'],
-        category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
-        color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
-        height=height
-    )
-    gantt.update_layout(
-        clickmode='event+select',
-        selectdirection='h',
-        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.04, 'xanchor': 'left', 'x': 0},
-    )
-    return gantt
-
-
-def _get_timeline_by_station_and_vars(datasets_df):
-    df = datasets_df\
-        .groupby(['platform_id_RI', 'station_fullname', 'var_codes_filtered'])\
-        .apply(lambda x: _contiguous_periods(x['time_period_start'], x['time_period_end']))\
-        .reset_index()
-    df = df.sort_values('platform_id_RI')
-    facet_col_wrap = 4
-    no_platforms = len(df['platform_id_RI'].unique())
-    no_var_codes_filtered = len(df['var_codes_filtered'].unique())
-    no_facet_rows = (no_var_codes_filtered + facet_col_wrap - 1) // facet_col_wrap
-    height = 100 + max(100, 50 + 25 * no_platforms) * no_facet_rows
-    gantt = px.timeline(
-        df, x_start='time_period_start', x_end='time_period_end', y='platform_id_RI', color='var_codes_filtered',
-        hover_name='station_fullname',
-        hover_data={'station_fullname': True, 'platform_id_RI': True, 'var_codes_filtered': True, 'datasets': True},
-        custom_data=['indices'],
-        height=height, facet_col='var_codes_filtered', facet_col_wrap=facet_col_wrap,
-    )
-    gantt.update_layout(
-        clickmode='event+select',
-        selectdirection='h',
-        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.06, 'xanchor': 'left', 'x': 0},
-    )
-    return gantt
-
-
 @app.callback(
     Output(GANTT_GRAPH_ID, 'figure'),
     Output(GANTT_GRAPH_ID, 'selectedData'),
@@ -870,62 +748,6 @@ def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_no
 # _active_cell = None
 
 
-def _plot_vars(ds, v1, v2=None):
-    vars_long = data_access.get_vars_long()
-    vs = [v1, v2] if v2 is not None else [v1]
-    v_names = []
-    for v in vs:
-        try:
-            v_name = vars_long.loc[vars_long['variable_name'] == v]['std_ECV_name'].iloc[0] + f' ({v})'
-        except:
-            v_name = v
-        v_names.append(v_name)
-    fig = go.Figure()
-    for i, v in enumerate(vs):
-        da = ds[v]
-        fig.add_trace(go.Scatter(
-            x=da['time'].values,
-            y=da.values,
-            name=v,
-            yaxis=f'y{i + 1}'
-        ))
-
-    fig.update_layout(
-        xaxis=dict(
-            domain=[0.0, 0.95]
-        ),
-        yaxis1=dict(
-            title=v_names[0],
-            titlefont=dict(
-                color="#1f77b4"
-            ),
-            tickfont=dict(
-                color="#1f77b4"
-            ),
-            anchor='x',
-            side='left',
-        ),
-    )
-    if v2 is not None:
-        fig.update_layout(
-            yaxis2=dict(
-                title=v_names[1],
-                titlefont=dict(
-                    color="#ff7f0e"
-                ),
-                tickfont=dict(
-                    color="#ff7f0e"
-                ),
-                anchor="x",
-                overlaying="y1",
-                side="right",
-                # position=0.15
-            ),
-        )
-
-    return fig
-
-
 @app.callback(
     Output(QUICKLOOK_POPUP_ID, 'children'),
     #Output(DATASET_MD_STORE_ID, 'data'),
@@ -1018,8 +840,10 @@ def download_csv(n_clicks, ds_md_json):
 
 @app.callback(
     Output(SELECT_DATASETS_REQUEST_ID, 'data'),
-    Output(TIME_HISTOGRAM_GRAPH_ID, 'figure'),
-    Output(SCATTER_GRAPH_ID, 'figure'),
+    Output(AVAIL_DATA_GRAPH_ID, 'figure'),
+    Output(VAR_HIST_GRAPH_1_ID, 'figure'),
+    Output(VAR_HIST_GRAPH_2_ID, 'figure'),
+    Output(VAR_HIST_GRAPH_3_ID, 'figure'),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
@@ -1041,11 +865,58 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
         read_dataset_requests.append(req)
 
     req = data_processing.MergeDatasetsRequest(read_dataset_requests)
-    # req.compute()  # TODO: do it lazy ???
     ds = req.compute()
-    line_plot = _get_line_plot(ds)
-    scatter_plot = _get_scatter_plot(ds)
-    return req.to_dict(), line_plot, scatter_plot
+    avail_data_by_var_plot = get_avail_data_by_var(ds)
+    df = ds.to_dataframe()
+    hists = []
+    for i, v in enumerate(list(df)[:3]):
+        *v_label, ri = v.split('_')
+        v_label = '_'.join(v_label)
+        hist_fig = px.histogram(
+            df, x=v, nbins=100,
+            title=f'{v_label} ({ri})',
+            labels={v: f'{v_label} ({ri})'},
+        )
+        hist_fig.update_layout(
+            clickmode='event',
+            selectdirection='h',
+        )
+        hists.append(hist_fig)
+    if len(hists) < 3:
+        hists.extend((None, ) * (3 - len(hists)))
+    return req.to_dict(), avail_data_by_var_plot, hists[0], hists[1], hists[2]
+
+
+# @app.callback(
+#     Output(SELECT_DATASETS_REQUEST_ID, 'data'),
+#     Output(TIME_HISTOGRAM_GRAPH_ID, 'figure'),
+#     Output(SCATTER_GRAPH_ID, 'figure'),
+#     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
+#     State(DATASETS_STORE_ID, 'data'),
+#     State(DATASETS_TABLE_ID, 'selected_row_ids'),
+#     prevent_initial_call=True,
+# )
+# def select_datasets(n_clicks, datasets_json, selected_row_ids):
+#     if datasets_json is None or selected_row_ids is None:
+#         return None
+#
+#     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+#     ds_md = datasets_df.loc[selected_row_ids]
+#     read_dataset_requests = []
+#     for idx, ds_metadata in ds_md.iterrows():
+#         ri = ds_metadata['RI']
+#         url = ds_metadata['url']
+#         selector = ds_metadata['selector'] if 'selector' in ds_metadata else None
+#         req = data_processing.ReadDataRequest(ri, url, ds_metadata, selector=selector)
+#         # req.compute()  ###
+#         read_dataset_requests.append(req)
+#
+#     req = data_processing.MergeDatasetsRequest(read_dataset_requests)
+#     # req.compute()  # TODO: do it lazy ???
+#     ds = req.compute()
+#     line_plot = _get_line_plot(ds)
+#     scatter_plot = _get_scatter_plot(ds)
+#     return req.to_dict(), line_plot, scatter_plot
 
 
 # End of callback definitions

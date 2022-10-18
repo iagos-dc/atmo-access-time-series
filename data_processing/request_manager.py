@@ -15,6 +15,7 @@ def _get_max_id(m):
     return max(itertools.chain([0], (int(k, base=16) for k in m.keys())))
 
 
+# TODO: switch into diskcache ??? https://grantjenks.com/docs/diskcache/tutorial.html
 _REQUESTS_MMAPDICT_URL = '/home/wolp/PycharmProjects/atmo-access-time-series/data_access/cache/requests.tmp'
 _RESULTS_MMAPDICT_URL = '/home/wolp/PycharmProjects/atmo-access-time-series/data_access/cache/results.tmp'
 

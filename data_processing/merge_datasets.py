@@ -70,7 +70,7 @@ def interpolate(ds, coords, subset=None, interp_nondim_coords=False, method='lin
     return ds_to_interpolate.interp(coords, assume_sorted=True, method=method, kwargs=kwargs)
 
 
-def merge_datasets(dss):
+def merge_datasets_old(dss):
     freqs_tmin_tmax = [
         (da.attrs['_aats_freq'], da['time'].values.min(), da['time'].values.max())
         for ri, da_by_var in dss for da in da_by_var.values()
@@ -90,3 +90,44 @@ def merge_datasets(dss):
             da_by_ri_var[v_ri] = da_interpolated  # TODO: can cause override the dictionary da_by_ri_var...; apply xr.concat in such a case?
 
     return xr.merge(da_by_ri_var.values())
+
+
+def merge_datasets(dss):
+    """
+
+    :param dss: list of (string indicating RI, xarray.Dataset)
+    :return:
+    """
+    freqs_tmin_tmax = [
+        (da.attrs['_aats_freq'], da['time'].values.min(), da['time'].values.max())
+        for ri, ds in dss for v, da in ds.data_vars.items()
+    ]
+    freqs, tmin, tmax = zip(*freqs_tmin_tmax)
+    freqs = [
+        pd.Timedelta(int(f[:-1]), unit=f[-1]) if f[-1] != 'M' else pd.Timedelta(30 * int(f[:-1]), unit='D')
+        for f in freqs
+    ]
+    freq = min(f for f in freqs if f > pd.Timedelta(0))
+    t_min = min(tmin)
+    t_max = max(tmax)
+    t = pd.date_range(t_min, t_max, freq=freq)
+
+    da_by_ri_var = {}
+    for ri, ds in dss:
+        for v, da in ds.data_vars.items():
+            da_interpolated = interpolate(da, {'time': t}, method='nearest')
+            da_interpolated['time'].attrs = {
+                'standard_name': 'time',
+                'long_name': 'time',
+            }
+            v_ri = f'{v}_{ri}'
+            da_interpolated.name = v_ri
+            attrs = dict(ds.attrs)
+            attrs.update(da.attrs)
+            da_interpolated.attrs = attrs
+            da_by_ri_var[v_ri] = da_interpolated  # TODO: can cause override the dictionary da_by_ri_var...; apply xr.concat in such a case?
+
+    ds = xr.merge(da_by_ri_var.values())
+    # clear global attributes
+    ds.attrs = {}
+    return ds
