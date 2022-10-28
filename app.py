@@ -19,7 +19,7 @@ import dash
 from dash import dcc
 from dash import html
 from dash import dash_table
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output, State, MATCH, ALL
 import dash_bootstrap_components as dbc
 
 # Provides a version of Dash application which can be run in Jupyter notebook/lab
@@ -97,15 +97,9 @@ QUICKLOOK_POPUP_ID = 'quicklook-popup'
     # 'children' contains a layout of the popup
 SELECT_DATASETS_BUTTON_ID = 'select-datasets-button'
     # 'n_click' contains a number of clicks at the button
-TIME_FILTER_SLIDER_ID = 'time-filter-slider'
-    # 'min', 'max', 'step', 'value' (pair), 'marks' (dict)
 AVAIL_DATA_GRAPH_ID = 'avail-data-graph'
     # 'figure' contains a Plotly figure object
-VAR_HIST_GRAPH_1_ID = 'var-hists-graph-1'
-VAR_HIST_GRAPH_2_ID = 'var-hists-graph-2'
-VAR_HIST_GRAPH_3_ID = 'var-hists-graph-3'
-TIME_HISTOGRAM_GRAPH_ID = 'time-histogram-graph'
-    # 'figure' contains a Plotly figure object
+VAR_HIST_GRAPHS_CONTAINER_ID = 'var-hist-graphs-container'
 SCATTER_GRAPH_ID = 'scatter-graph'
     # 'figure' contains a Plotly figure object
 
@@ -413,14 +407,6 @@ def get_dashboard_layout():
         children=html.Div(
             style={'margin': '20px'},
             children=[
-                # html.Div(
-                #     id='filter-datasets-time-filter',
-                #     className='six columns',
-                #     children=dcc.Slider(
-                #         id=TIME_FILTER_SLIDER_ID,
-                #         min=0, max=10, step=1, value=5, marks=None
-                #     )
-                # ),
                 html.Div(
                     id='filter-datasets-time-graph',
                     className='twelve columns',
@@ -429,33 +415,10 @@ def get_dashboard_layout():
                     )
                 ),
                 html.Div(
-                    id='filter-var-1-graph',
+                    id=VAR_HIST_GRAPHS_CONTAINER_ID,
                     className='twelve columns',
-                    children=dcc.Graph(
-                        id=VAR_HIST_GRAPH_1_ID,
-                    )
+                    children=[],
                 ),
-                html.Div(
-                    id='filter-var-2-graph',
-                    className='twelve columns',
-                    children=dcc.Graph(
-                        id=VAR_HIST_GRAPH_2_ID,
-                    )
-                ),
-                html.Div(
-                    id='filter-var-3-graph',
-                    className='twelve columns',
-                    children=dcc.Graph(
-                        id=VAR_HIST_GRAPH_3_ID,
-                    )
-                ),
-                # html.Div(
-                #     id='filter-datasets-scatter-graph',
-                #     className='six columns',
-                #     children=dcc.Graph(
-                #         id=SCATTER_GRAPH_ID,
-                #     )
-                # ),
             ]
         )
     )
@@ -840,10 +803,10 @@ def download_csv(n_clicks, ds_md_json):
 
 @app.callback(
     Output(SELECT_DATASETS_REQUEST_ID, 'data'),
-    Output(AVAIL_DATA_GRAPH_ID, 'figure'),
-    Output(VAR_HIST_GRAPH_1_ID, 'figure'),
-    Output(VAR_HIST_GRAPH_2_ID, 'figure'),
-    Output(VAR_HIST_GRAPH_3_ID, 'figure'),
+    # Output(AVAIL_DATA_GRAPH_ID, 'figure'),
+    # Output(VAR_HIST_GRAPH_1_ID, 'figure'),
+    # Output(VAR_HIST_GRAPH_2_ID, 'figure'),
+    # Output(VAR_HIST_GRAPH_3_ID, 'figure'),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
@@ -865,26 +828,63 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
         read_dataset_requests.append(req)
 
     req = data_processing.MergeDatasetsRequest(read_dataset_requests)
-    ds = req.compute()
-    avail_data_by_var_plot = get_avail_data_by_var(ds)
-    df = ds.to_dataframe()
-    hists = []
-    for i, v in enumerate(list(df)[:3]):
-        *v_label, ri = v.split('_')
-        v_label = '_'.join(v_label)
-        hist_fig = px.histogram(
-            df, x=v, nbins=100,
-            title=f'{v_label} ({ri})',
-            labels={v: f'{v_label} ({ri})'},
-        )
-        hist_fig.update_layout(
-            clickmode='event',
-            selectdirection='h',
-        )
-        hists.append(hist_fig)
-    if len(hists) < 3:
-        hists.extend((None, ) * (3 - len(hists)))
-    return req.to_dict(), avail_data_by_var_plot, hists[0], hists[1], hists[2]
+    # TODO: do it asynchronously? will it work with dash/flask? look at options of @app.callback decorator (background=True, ???)
+    req.compute()
+    # ds = req.compute()
+    # avail_data_by_var_plot = get_avail_data_by_var(ds)
+    # df = ds.to_dataframe()
+    # hists = []
+    # for i, v in enumerate(list(df)[:3]):
+    #     *v_label, ri = v.split('_')
+    #     v_label = '_'.join(v_label)
+    #     hist_fig = px.histogram(
+    #         df, x=v, nbins=100,
+    #         title=f'{v_label} ({ri})',
+    #         labels={v: f'{v_label} ({ri})'},
+    #     )
+    #     hist_fig.update_layout(
+    #         clickmode='event',
+    #         selectdirection='h',
+    #     )
+    #     hists.append(hist_fig)
+    # if len(hists) < 3:
+    #     hists.extend((None, ) * (3 - len(hists)))
+    # return req.to_dict(), avail_data_by_var_plot, hists[0], hists[1], hists[2]
+    return req.to_dict()
+
+
+@app.callback(
+    Output(AVAIL_DATA_GRAPH_ID, 'figure'),
+    Output(VAR_HIST_GRAPHS_CONTAINER_ID, 'children'),
+    Input(SELECT_DATASETS_REQUEST_ID, 'data'),
+    prevent_initial_call=True,
+)
+def get_data_histograms(select_datasets_request):
+    if select_datasets_request is not None:
+        req = data_processing.MergeDatasetsRequest.from_dict(select_datasets_request)
+        ds = req.compute()
+        avail_data_by_var_plot = get_avail_data_by_var(ds)
+        df = ds.to_dataframe()
+        hists = []
+        for i, v in enumerate(list(df)):
+            *v_label, ri = v.split('_')
+            v_label = '_'.join(v_label)
+            hist_fig = px.histogram(
+                df, x=v, nbins=100,
+                title=f'{v_label} ({ri})',
+                labels={v: f'{v_label} ({ri})'},
+            )
+            hist_fig.update_layout(
+                clickmode='event',
+                selectdirection='h',
+            )
+            hists.append(dcc.Graph(
+                id={'type': VAR_HIST_GRAPHS_CONTAINER_ID, 'index': i},
+                figure=hist_fig,
+            ))
+        return avail_data_by_var_plot, hists
+    else:
+        return None, None
 
 
 # @app.callback(

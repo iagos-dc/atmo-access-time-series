@@ -2,6 +2,7 @@ import abc
 import itertools
 import functools
 import hashlib
+import json
 from mmappickle import mmapdict
 import icoscp.cpb.dobj
 
@@ -102,6 +103,16 @@ class Request(abc.ABC):
     def to_dict(self):
         pass
 
+    @classmethod
+    @abc.abstractmethod
+    def from_dict(cls, d):
+        pass
+
+    @classmethod
+    def from_json(cls, js):
+        d = json.loads(js)
+        return cls.from_dict(d)
+
     def deterministic_hash(self):
         return hashlib.sha256(bytes(str(self.get_hashable()), encoding='utf-8')).hexdigest()
 
@@ -135,8 +146,8 @@ class GetICOSDatasetTitleRequest(Request):
             dobj=self.dobj,
         )
 
-    @staticmethod
-    def from_dict(d):
+    @classmethod
+    def from_dict(cls, d):
         try:
             dobj = d['dobj']
         except KeyError:
@@ -167,8 +178,8 @@ class ReadDataRequest(Request):
             selector=self.selector,
         )
 
-    @staticmethod
-    def from_dict(d):
+    @classmethod
+    def from_dict(cls, d):
         try:
             ri = d['ri']
             url = d['url']
@@ -203,8 +214,8 @@ class MergeDatasetsRequest(Request):
             ),
         )
 
-    @staticmethod
-    def from_dict(d):
+    @classmethod
+    def from_dict(cls, d):
         try:
             read_dataset_requests_as_dict = d['read_dataset_requests']
         except KeyError:
