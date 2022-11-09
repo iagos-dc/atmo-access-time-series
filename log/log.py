@@ -9,8 +9,17 @@ _logger = None
 _streamHandler = logging.StreamHandler()
 
 
+_callback_args_by_time = None
+
+
 def logger():
     return _logger
+
+
+def callback_args_by_time():
+    if _callback_args_by_time is None:
+        raise RuntimeError('_callback_args_by_time is None !!!')
+    return _callback_args_by_time
 
 
 def log_args(func):
@@ -19,9 +28,72 @@ def log_args(func):
         args_str = ', '.join(f'{arg}' for arg in args)
         kwargs_str = ', '.join([f'{k}={v}' for k, v in kwargs.items()])
         params_str = ', '.join([s for s in (args_str, kwargs_str) if s])
-        logger().info(f'{func.__module__}.{func.__name__}({params_str})')
+        logger().info(f'{func.__module__}.{func.__qualname__}({params_str})')
         return func(*args, **kwargs)
     return log_args_wrapper
+
+
+def log_callback(log_callback_context=True):
+    def _log_callback(func):
+        @functools.wraps(func)
+        def log_callback_wrapper(*args, **kwargs):
+            #args_as_json = [json.dumps(arg) for arg in args]
+            #kwargs_as_json = {kw: json.dumps(arg) for kw, arg in kwargs.items()}
+            d = {
+                'module': func.__module__,
+                'name': func.__qualname__,
+                'args': args,
+                'kwargs': kwargs,
+            }
+            if log_callback_context:
+                from dash import ctx
+                d['ctx'] = (ctx.triggered_id, ctx.triggered_prop_ids)
+
+            import pandas as pd
+            timenow = pd.Timestamp.now()
+            #while str(timenow) in callback_args_by_time().keys():
+            while str(timenow) in callback_args_by_time():
+                timenow += pd.Timedelta(1, 'us')
+            callback_args_by_time()[str(timenow)] = d
+            return func(*args, **kwargs)
+        return log_callback_wrapper
+    return _log_callback
+
+
+def log_callback_with_ret_value(log_callback_context=True):
+    def _log_callback(func):
+        @functools.wraps(func)
+        def log_callback_wrapper(*args, **kwargs):
+            #args_as_json = [json.dumps(arg) for arg in args]
+            #kwargs_as_json = {kw: json.dumps(arg) for kw, arg in kwargs.items()}
+            d = {
+                'module': func.__module__,
+                'name': func.__qualname__,
+                'args': args,
+                'kwargs': kwargs,
+            }
+            if log_callback_context:
+                from dash import ctx
+                d['ctx'] = (ctx.triggered_id, ctx.triggered_prop_ids)
+
+            import pandas as pd
+            timenow = pd.Timestamp.now()
+            #while str(timenow) in callback_args_by_time().keys():
+            while str(timenow) in callback_args_by_time():
+                timenow += pd.Timedelta(1, 'us')
+
+            try:
+                ret_val = func(*args, **kwargs)
+                d['ret_val'] = ret_val
+                return ret_val
+            except Exception as e:
+                d['exception'] = str(e)
+                raise e
+            finally:
+                callback_args_by_time()[str(timenow)] = d
+
+        return log_callback_wrapper
+    return _log_callback
 
 
 def log_exectime(func):
@@ -69,6 +141,14 @@ def start_logging(log_filename=None, logging_level=logging.WARNING):
         '%(asctime)s - %(levelname)s - in %(pathname)s:%(funcName)s (line %(lineno)d): %(message)s')
     handler.setFormatter(formatter)
     logger().addHandler(handler)
+
+
+def start_logging_callbacks(log_filename):
+    global _callback_args_by_time
+    #from mmappickle import mmapdict
+    #_callback_args_by_time = mmapdict(log_filename)
+    import diskcache
+    _callback_args_by_time = diskcache.Cache(log_filename)
 
 
 logfile = pkg_resources.resource_filename('log', 'log.txt')
