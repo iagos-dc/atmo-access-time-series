@@ -27,26 +27,6 @@ app = Dash(
 fig = charts.get_histogram(ds.O3_mean_IAGOS, 'O3')
 
 
-graph_with_horizontal_selection_AIO = GraphWithHorizontalSelectionAIO(
-    'foo',
-    'scalar',
-    x_min=x_min,
-    x_max=x_max,
-    x_label='CO',
-    title='Time interval selected:',
-    #figure=charts.get_avail_data_by_var(ds),
-    #figure=fig,
-    #x_min=min(x).strftime('%Y-%m-%d %H:%M'),
-    #x_max=max(x).strftime('%Y-%m-%d %H:%M'),
-)
-
-# @app.callback(
-#     Output('output', 'children'),
-#     Input('input', 'value'),
-# )
-# def _(i):
-#     return i
-
 log_axis_switches = dbc.Checklist(
     options=[
         {'label': 'x-axis in log-scale', 'value': 'log_x'},
@@ -56,8 +36,23 @@ log_axis_switches = dbc.Checklist(
     id='log_scale_switch',
     inline=True,
     switch=True,
-    #size='sm',
-    #className='mb-3',
+    # size='sm',
+    # className='mb-3',
+)
+
+
+graph_with_horizontal_selection_AIO = GraphWithHorizontalSelectionAIO(
+    'foo',
+    'scalar',
+    x_min=x_min,
+    x_max=x_max,
+    x_label='O3',
+    title='Time interval selected:',
+    extra_dash_components=log_axis_switches
+    #figure=charts.get_avail_data_by_var(ds),
+    #figure=fig,
+    #x_min=min(x).strftime('%Y-%m-%d %H:%M'),
+    #x_max=max(x).strftime('%Y-%m-%d %H:%M'),
 )
 
 
@@ -72,7 +67,7 @@ def log_scale_switch_callback(switches):
     log_y = 'log_y' in switches
     new_fig = charts.get_histogram(ds.O3_mean_IAGOS, 'O3', log_x=log_x, log_y=log_y)
     figure_data = {
-        'fig': new_fig['data'],
+        'fig': new_fig,
         'rng': [x_min, x_max],
     }
     return figure_data
@@ -83,7 +78,6 @@ app.layout = html.Div(
         dbc.Card(
             children=[
                 graph_with_horizontal_selection_AIO,
-                log_axis_switches,
             ],
             body=True,
         )

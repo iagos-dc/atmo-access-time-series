@@ -46,11 +46,12 @@ foo_container_id = _component_id('foo_asd')
 )
 @log_callback_with_ret_value()
 def update_graph_figure(fig_data, selected_range, fig):
+    # TODO: since fig is now a figure, apply update_layout methods properly!
     if fig is None:
         fig = go.Figure()
 
     if fig_data is not None:
-        fig['data'] = fig_data['fig']
+        fig = figure_update_layout(go.Figure(fig_data['fig']))
 
     fig['layout'].pop('shapes', None)
     fig['layout'].pop('selections', None)
@@ -174,6 +175,21 @@ def figure_update_layout(figure):
     return figure
 
 
+def figure_dict_update_layout(figure_dict):
+    if figure_dict is None:
+        return None
+    try:
+        layout = figure_dict['layout']
+    except KeyError:
+        return figure_dict
+    layout.update(
+        dragmode='select',
+        selectdirection='h',
+        yaxis={'fixedrange': True}
+    )
+    return figure_dict
+
+
 def graph(aio_id, figure=Component.UNDEFINED):
     if figure is not Component.UNDEFINED:
         figure = figure_update_layout(figure)
@@ -227,30 +243,29 @@ def interval_inputs(aio_id, x_axis_type, x_label=None):
         )
 
 
+def interval_controls_container(aio_id, x_axis_type, x_label=None, extra_dash_components=None):
+    if extra_dash_components is None:
+        extra_dash_components = []
+    if not isinstance(extra_dash_components, (list, tuple)):
+        extra_dash_components = [extra_dash_components]
 
-def interval_controls_container(aio_id, x_axis_type, x_label=None):
     return [
-        dbc.ListGroup(
+        dbc.Row(dbc.Col(interval_inputs(aio_id, x_axis_type, x_label=x_label))),
+        dbc.Row(
             [
-                interval_inputs(aio_id, x_axis_type, x_label=x_label), #, 0),
-            ],
-        ),
-        #dbc.Row(
-        #    dbc.Col(
-        #        dbc.Button(
-        #            #children='Add new interval',
-        #            html.I(className='fa-solid fa-plus'),
-        #            id=self.ids.new_interval_button(aio_ids),
-        #            n_clicks=0,
-        #            color='primary', type='submit', style={'font-weight': 'bold'},
-        #        ),
-        #        width='auto'
-        #    ),
-        #    justify='end',
-        #),
-        dbc.Button(
-            children='Reset selection',
-            id=reset_selection_button_id(aio_id)
+                dbc.Col(
+                    dbc.Button(
+                        children='Reset selection',
+                        id=reset_selection_button_id(aio_id)
+                    ),
+                    width='auto',
+                    align='center',
+                ),
+            ] +
+            [
+                dbc.Col(extra_dash_component, width='auto', align='center')
+                for extra_dash_component in extra_dash_components],
+            justify='between'
         ),
     ]
 
@@ -264,7 +279,18 @@ def figure_data_store(aio_id, data=None):
 
 
 class GraphWithHorizontalSelectionAIO(html.Div):
-    def __init__(self, aio_id, x_axis_type, x_min=None, x_max=None, x_label=None, title=None, figure=Component.UNDEFINED, **kwargs):
+    def __init__(
+            self,
+            aio_id,
+            x_axis_type,
+            x_min=None,
+            x_max=None,
+            x_label=None,
+            title=None,
+            figure=Component.UNDEFINED,
+            extra_dash_components=None,
+            **kwargs
+    ):
         if x_axis_type not in ['time', 'scalar']:
             raise ValueError(f"x_axis_type must be 'time' or 'scalar'; got {x_axis_type}")
 
@@ -272,7 +298,7 @@ class GraphWithHorizontalSelectionAIO(html.Div):
         figure_data = None
         if figure is not Component.UNDEFINED:
             figure_data = {
-                'fig': figure['data'],
+                'fig': figure,
                 'rng': [x_min, x_max],
             }
         super().__init__(
@@ -286,14 +312,22 @@ class GraphWithHorizontalSelectionAIO(html.Div):
                         dbc.Row(
                             [
                                 dbc.Col(
-                                    dbc.Card([
-                                        dbc.CardHeader(title if title is not None else 'Interval selected:'),
-                                        dbc.CardBody(
-                                            children=interval_controls_container(aio_id, x_axis_type, x_label=x_label),
-                                        ),
-                                    ])
+                                    [
+                                        dbc.Card([
+                                            dbc.CardHeader(title if title is not None else 'Interval selected:'),
+                                            dbc.CardBody(
+                                                children=interval_controls_container(aio_id, x_axis_type, x_label=x_label, extra_dash_components=extra_dash_components),
+                                            ),
+                                        ]),
+                                    ],
+                                    width=4,
+                                    align='center',
                                 ),
-                                dbc.Col(graph(aio_id, figure=figure), width=8),
+                                dbc.Col(
+                                    graph(aio_id, figure=figure),
+                                    width=8,
+                                    align='center',
+                                ),
                             ],
                             align='start',
                         ),
