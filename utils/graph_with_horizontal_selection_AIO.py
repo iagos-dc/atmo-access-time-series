@@ -31,6 +31,7 @@ def _component_id(component_name):
 
 selected_range_store_id = _component_id('selected_range_store')
 figure_data_store_id = _component_id('figure_data_store')
+variable_label_data_store_id = _component_id('variable_label_data_store')
 graph_id = _component_id('graph')
 from_input_id = _component_id('from_input')
 to_input_id = _component_id('to_input')
@@ -56,9 +57,9 @@ def update_graph_figure(fig_data, selected_range, fig):
     fig['layout'].pop('shapes', None)
     fig['layout'].pop('selections', None)
     x0, x1 = selected_range if selected_range is not None else (None, None)
-    if x0 is None:
+    if x0 is None and fig_data is not None:
         x0 = fig_data['rng'][0]
-    if x1 is None:
+    if x1 is None and fig_data is not None:
         x1 = fig_data['rng'][1]
     if True or (x0 is not None or x1 is not None):
         fig['layout']['shapes'] = [
@@ -200,10 +201,10 @@ def graph(aio_id, figure=Component.UNDEFINED):
     )
 
 
-def time_input_field(aio_id):
+def time_input_field(i):
     placeholder = 'YYYY-MM-DD HH:MM'
     return dbc.Input(
-        id=from_input_id(aio_id),
+        id=i,
         type='text',
         debounce=True,
         placeholder=placeholder,
@@ -283,6 +284,7 @@ class GraphWithHorizontalSelectionAIO(html.Div):
             self,
             aio_id,
             x_axis_type,
+            variable_label=None,
             x_min=None,
             x_max=None,
             x_label=None,
@@ -303,6 +305,7 @@ class GraphWithHorizontalSelectionAIO(html.Div):
             }
         super().__init__(
             children=[
+                dcc.Store(id=variable_label_data_store_id(aio_id), data=variable_label),
                 selected_range_store(aio_id, [None, None]),
                 figure_data_store(aio_id, figure_data),
                 dbc.Container(
