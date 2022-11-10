@@ -74,7 +74,7 @@ def log_callback_with_ret_value(log_callback_context=True):
             }
             if log_callback_context:
                 from dash import ctx
-                d['ctx'] = (ctx.triggered_id, ctx.triggered_prop_ids)
+                d['ctx'] = (ctx.triggered_id, ctx.triggered_prop_ids, ctx.inputs_list, ctx.outputs_list, ctx.states_list, ctx.triggered)
 
             import pandas as pd
             timenow = pd.Timestamp.now()

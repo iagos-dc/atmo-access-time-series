@@ -191,6 +191,48 @@ def get_avail_data_by_var(ds):
     return gantt
 
 
+def get_histogram(da, x_label, bins=20, log_x=False, log_y=False):
+    ar = da.where(da.notnull(), drop=True).values
+    if log_x:
+        ar = np.log(ar[ar > 0])
+
+    h, edges = np.histogram(ar, bins=bins)
+
+    if log_x:
+        edges = np.exp(edges)
+
+    rng = edges[-1] - edges[0]
+    precision = int(np.ceil(np.log10(50 * bins / rng)))
+    if precision < 0:
+        precision = 0
+    fig = go.Figure(data=[
+        go.Bar(
+            name=x_label,
+            y=h,
+            x=edges[:-1],
+            width=np.diff(edges),
+            offset=0,
+            customdata=np.transpose([edges[:-1], edges[1:], h]),
+            hovertemplate='<br>'.join([
+                'obs: %{customdata[2]}',
+                'range: [%{customdata[0]:.' + str(precision) + 'f}, %{customdata[1]:.' + str(precision) + 'f}]',
+            ]),
+        )
+    ])
+    fig.update_layout(
+        title=da.attrs['long_name'],
+        xaxis_title=f"{da.attrs['standard_name']} ({da.attrs['units']})",
+        yaxis_title='# observations',
+    )
+
+    if log_x:
+        fig.update_xaxes(type='log')
+    if log_y:
+        fig.update_yaxes(type='log')
+
+    return fig
+
+
 def _plot_vars(ds, v1, v2=None):
     vars_long = data_access.get_vars_long()
     vs = [v1, v2] if v2 is not None else [v1]
