@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, callback, MATCH, ctx
+from dash import dcc, html, callback, MATCH, ctx, ALL
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -11,7 +11,7 @@ from dash.development.base_component import Component
 from log import start_logging_callbacks, log_callback_with_ret_value
 
 
-start_logging_callbacks('/home/wolp/PycharmProjects/atmo-access-time-series/log/log.mmap')
+#start_logging_callbacks('/home/wolp/PycharmProjects/atmo-access-time-series/log/log.mmap')
 
 
 def _my_explicitize_args(**kwargs):
@@ -31,7 +31,6 @@ def _component_id(component_name):
 
 selected_range_store_id = _component_id('selected_range_store')
 figure_data_store_id = _component_id('figure_data_store')
-variable_label_data_store_id = _component_id('variable_label_data_store')
 graph_id = _component_id('graph')
 from_input_id = _component_id('from_input')
 to_input_id = _component_id('to_input')
@@ -45,7 +44,7 @@ foo_container_id = _component_id('foo_asd')
     Input(selected_range_store_id(MATCH), 'data'),
     State(graph_id(MATCH), 'figure'),
 )
-@log_callback_with_ret_value()
+#@log_callback_with_ret_value()
 def update_graph_figure(fig_data, selected_range, fig):
     # TODO: since fig is now a figure, apply update_layout methods properly!
     if fig is None:
@@ -56,7 +55,12 @@ def update_graph_figure(fig_data, selected_range, fig):
 
     fig['layout'].pop('shapes', None)
     fig['layout'].pop('selections', None)
-    x0, x1 = selected_range if selected_range is not None else (None, None)
+
+    if selected_range is not None:
+        variable_label, x0, x1 = selected_range['variable_label'], selected_range['x_sel_min'], selected_range['x_sel_max']
+    else:
+        raise RuntimeError('we should not be here!!!')
+
     if x0 is None and fig_data is not None:
         x0 = fig_data['rng'][0]
     if x1 is None and fig_data is not None:
@@ -90,14 +94,15 @@ def update_graph_figure(fig_data, selected_range, fig):
     Input(to_input_id(MATCH), 'value'),
     State(selected_range_store_id(MATCH), 'data'),
 )
-@log_callback_with_ret_value()
+#@log_callback_with_ret_value()
 def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clicks, x0, x1, selected_range):
     if ctx.triggered_id is None:
-        return None, None, False, False, [None, None]
+        raise dash.exceptions.PreventUpdate
+        # return None, None, False, False, {'variable_label': selected_range['variable_label'], 'x_sel_min': None, 'x_sel_max': None}
 
     x_axis_type = ctx.outputs_list[0]['id']['aio_id'].split('-')[-1]
     if ctx.triggered_id.subcomponent == 'reset_selection_button':
-        return None, None, False, False, [None, None]
+        return None, None, False, False, {'variable_label': selected_range['variable_label'], 'x_sel_min': None, 'x_sel_max': None}
     elif ctx.triggered_id.subcomponent == 'graph':
         if selected_data_on_fig is not None and 'range' in selected_data_on_fig:
             new_x0, new_x1 = selected_data_on_fig['range']['x']
@@ -106,7 +111,7 @@ def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clic
                 new_x1 = pd.Timestamp(new_x1).strftime('%Y-%m-%d %H:%M')
             return new_x0, new_x1, False, False, update_selected_range(new_x0, new_x1, True, True, selected_range)
         else:
-            raise PreventUpdate
+            return x0, x1, False, False, update_selected_range(x0, x1, True, True, selected_range)
     elif ctx.triggered_id.subcomponent in ['from_input', 'to_input']:
         if x_axis_type == 'time':
             def get_x(x, x_valid):
@@ -132,7 +137,8 @@ def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clic
             else:
                 return False
 
-        return x0, x1, is_invalid(x0_valid), is_invalid(x1_valid), update_selected_range(x0, x1, x0_valid, x1_valid, selected_range)
+        update_sel_range = update_selected_range(x0, x1, x0_valid, x1_valid, selected_range)
+        return x0, x1, is_invalid(x0_valid), is_invalid(x1_valid), update_sel_range
     else:
         raise RuntimeError(f'unknown callback trigger: ctx.triggered_id={ctx.triggered_id}')
 
@@ -149,9 +155,10 @@ def _valid(x):
 
 def update_selected_range(x0, x1, x0_valid, x1_valid, selected_range):
     if selected_range is not None:
-        old_x0, old_x1 = selected_range
+        variable_label, old_x0, old_x1 = selected_range['variable_label'], selected_range['x_sel_min'], selected_range['x_sel_max']
     else:
-        old_x0, old_x1 = None, None
+        raise RuntimeError('we should not be here!')
+        # variable_label, old_x0, old_x1 = None, None, None
 
     if x0_valid is None:
         x0 = None
@@ -163,7 +170,7 @@ def update_selected_range(x0, x1, x0_valid, x1_valid, selected_range):
     elif x1_valid is False:
         x1 = old_x1
 
-    return [x0, x1]
+    return {'variable_label': variable_label, 'x_sel_min': x0, 'x_sel_max': x1}
 
 
 def figure_update_layout(figure):
@@ -271,8 +278,13 @@ def interval_controls_container(aio_id, x_axis_type, x_label=None, extra_dash_co
     ]
 
 
-def selected_range_store(aio_id, data=None):
+def selected_range_store(aio_id, variable_label=None, x_sel_min=None, x_sel_max=None):
+    data = {'variable_label': variable_label, 'x_sel_min': x_sel_min, 'x_sel_max': x_sel_max}
     return dcc.Store(id=selected_range_store_id(aio_id), data=data)
+
+
+# def all_selected_ranges_store(data=None):
+#     return dcc.Store(id=all_selected_ranges_store_id, data=data)
 
 
 def figure_data_store(aio_id, data=None):
@@ -305,8 +317,12 @@ class GraphWithHorizontalSelectionAIO(html.Div):
             }
         super().__init__(
             children=[
-                dcc.Store(id=variable_label_data_store_id(aio_id), data=variable_label),
-                selected_range_store(aio_id, [None, None]),
+                selected_range_store(
+                    aio_id,
+                    variable_label=variable_label,
+                    x_sel_min=None,
+                    x_sel_max=None,
+                ),
                 figure_data_store(aio_id, figure_data),
                 dbc.Container(
                     [

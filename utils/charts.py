@@ -191,12 +191,15 @@ def get_avail_data_by_var(ds):
     return gantt
 
 
-def get_histogram(da, x_label, bins=20, log_x=False, log_y=False):
+def get_histogram(da, x_label, bins=20, x_min=None, x_max=None, log_x=False, log_y=False):
     ar = da.where(da.notnull(), drop=True).values
     if log_x:
         ar = np.log(ar[ar > 0])
+        x_min = np.log(x_min) if x_min is not None and x_min > 0 else None
+        x_max = np.log(x_max) if x_max is not None and x_max > 0 else None
 
-    h, edges = np.histogram(ar, bins=bins)
+    rng = [x_min, x_max] if x_min is not None and x_max is not None else None
+    h, edges = np.histogram(ar, bins=bins, range=rng)
 
     if log_x:
         edges = np.exp(edges)

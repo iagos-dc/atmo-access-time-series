@@ -1,17 +1,18 @@
+import numpy as np
 import pandas as pd
 import xarray as xr
+import toolz
 import plotly.express as px
-from dash import Dash, html, MATCH
+import dash
+from dash import Dash, html, MATCH, ALL, ctx, callback
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from utils.graph_with_horizontal_selection_AIO import GraphWithHorizontalSelectionAIO, figure_data_store_id, variable_label_data_store_id, selected_range_store_id
+from utils.graph_with_horizontal_selection_AIO import GraphWithHorizontalSelectionAIO, figure_data_store_id, selected_range_store_id
 from utils import charts
 
 
 ds = xr.load_dataset('/home/wolp/data/tmp/aats-sample-merged-timeseries.nc')
-x_min = ds.O3_mean_IAGOS.min().item()
-x_max = ds.O3_mean_IAGOS.max().item()
 
 app = Dash(
     __name__,
@@ -30,7 +31,7 @@ def get_log_axis_switches(i):
             {'label': 'y-axis in log-scale', 'value': 'log_y'},
         ],
         value=[],
-        id={'type': 'log_scale_switch', 'aio_id': i},
+        id={'subcomponent': 'log_scale_switch', 'aio_id': i},
         inline=True,
         switch=True,
         # size='sm',
@@ -53,35 +54,120 @@ def get_log_axis_switches(i):
 # )
 
 
-@app.callback(
-    Output(figure_data_store_id(MATCH), 'data'),
-    Input({'type': 'log_scale_switch', 'aio_id': MATCH}, 'value'),
-    State(variable_label_data_store_id(MATCH), 'data'),
+def get_value_by_aio_id(aio_id, ids, values):
+    for i, v in zip(ids, values):
+        if i['aio_id'] == aio_id:
+            return v
+    raise ValueError(f'cannot find aio_id={aio_id} among ids={ids}')
+
+
+def set_value_by_aio_id(aio_id, ids, value):
+    return [value if i['aio_id'] == aio_id else dash.no_update for i in ids]
+
+
+def filter_dataset(ds, rng_by_variable):
+    cond_by_variable = {}
+    for v, rng in rng_by_variable.items():
+        _min, _max = rng
+        if isinstance(_min, str):
+            _min = np.datetime64(_min)
+        if isinstance(_max, str):
+            _max = np.datetime64(_max)
+        cond = ds[v].notnull() | ~ds[v].notnull()
+        if _min is not None: # and not np.isnan(_min):
+            cond &= ds[v] >= _min
+            # cond &= ds[v].isnull() | (ds[v] >= _min)
+        if _max is not None: # and not np.isnan(_max):
+            cond &= ds[v] <= _max
+            # cond &= ds[v].isnull() | (ds[v] <= _max)
+        cond_by_variable[v] = cond
+    if len(cond_by_variable) > 0:
+        cond_iter = iter(cond_by_variable.values())
+        total_cond = next(cond_iter)
+        for cond in cond_iter:
+            total_cond &= cond
+        return ds.where(total_cond, drop=False)
+    else:
+        return ds
+
+
+@callback(
+    Output(figure_data_store_id(ALL), 'data'),
+    Input(selected_range_store_id(ALL), 'data'),
+    Input(selected_range_store_id(ALL), 'id'),
+    Input({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'value'),
+    State(figure_data_store_id(ALL), 'id'),
+    State({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'id'),
 )
-def log_scale_switch_callback(switches, variable_label):
-    if switches is None:
+def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_switches, figure_ids, log_scale_switch_ids):
+    #print(f'figure_ids={figure_ids}')
+    #print(f'selected_ranges={selected_ranges}')
+    #print(f'selected_ranges={selected_range_ids}')
+    #print(f'log_scale_switches={log_scale_switches}')
+    #print(f'log_scale_switch_ids={log_scale_switch_ids}')
+
+    if ctx.triggered_id is None:
         raise PreventUpdate
-    log_x = 'log_x' in switches
-    log_y = 'log_y' in switches
-    x_min = ds[variable_label].min().item()
-    x_max = ds[variable_label].max().item()
-    new_fig = charts.get_histogram(ds[variable_label], variable_label, log_x=log_x, log_y=log_y)
-    figure_data = {
-        'fig': new_fig,
-        'rng': [x_min, x_max],
-    }
-    return figure_data
+
+    selected_range_by_aio_id = dict(zip((i['aio_id'] for i in selected_range_ids), selected_ranges))
+    rng_by_variable = {}
+    for selected_range in selected_range_by_aio_id.values():
+        v, x0, x1 = selected_range['variable_label'], selected_range['x_sel_min'], selected_range['x_sel_max']
+        if v in rng_by_variable:
+            raise RuntimeError(f'variable_label={v} is duplicated among selected_range_ids={selected_range_ids}, selected_ranges={selected_ranges}')
+        rng_by_variable[v] = (x0, x1)
+
+    ds_filtered = filter_dataset(ds, rng_by_variable)
+
+    def get_fig(aio_id):
+        variable_label = selected_range_by_aio_id[aio_id]['variable_label']
+
+        # x_min = ds_filtered[variable_label].min().item()
+        # x_max = ds_filtered[variable_label].max().item()
+        x_min = ds[variable_label].min().item()
+        x_max = ds[variable_label].max().item()
+
+        log_scale_switch = get_value_by_aio_id(aio_id, log_scale_switch_ids, log_scale_switches)
+        log_x = 'log_x' in log_scale_switch
+        log_y = 'log_y' in log_scale_switch
+
+        new_fig = charts.get_histogram(ds_filtered[variable_label], variable_label, x_min=x_min, x_max=x_max, log_x= log_x, log_y=log_y)
+        return {
+            'fig': new_fig,
+            'rng': [x_min, x_max],
+        }
+
+    if ctx.triggered_id.subcomponent == 'selected_range_store':
+        figures_data = []
+        for i in figure_ids:
+            if i['aio_id'] == 'time_filter-time':
+                # figures_data.append(dash.no_update)
+                t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
+                t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
+                new_fig = {
+                    'fig': charts.get_avail_data_by_var(ds_filtered),
+                    'rng': [t_min, t_max],
+                }
+                figures_data.append(new_fig)
+            else:
+                figures_data.append(get_fig(i['aio_id']))
+        return figures_data
+    elif ctx.triggered_id.subcomponent == 'log_scale_switch':
+        aio_id = ctx.triggered_id.aio_id
+        figure_data = get_fig(aio_id)
+        return set_value_by_aio_id(aio_id, figure_ids, figure_data)
 
 
 app.layout = html.Div(
     [
+        # all_selected_ranges_store(),
         dbc.ListGroup(id='list-group'),
         dbc.Button('Go!', id='go_fig_button_id', n_clicks=0, type='submit')
     ]
 )
 
 
-@app.callback(
+@callback(
     Output('list-group', 'children'),
     Input('go_fig_button_id', 'n_clicks'),
 )
@@ -91,6 +177,7 @@ def go_callback(go_fig_buttion_n_clicks):
     time_filter = GraphWithHorizontalSelectionAIO(
         'time_filter',
         'time',
+        variable_label='time',
         x_min=t_min,
         x_max=t_max,
         x_label='time',
@@ -100,6 +187,9 @@ def go_callback(go_fig_buttion_n_clicks):
 
     var_filters = []
     for v, da in ds.data_vars.items():
+        x_min = da.min().item()
+        x_max = da.max().item()
+
         var_filter = GraphWithHorizontalSelectionAIO(
             f'{v}_filter',
             'scalar',
@@ -108,6 +198,7 @@ def go_callback(go_fig_buttion_n_clicks):
             x_max=x_max,
             x_label=v,
             title=f'{v} interval selected:',
+            figure=charts.get_histogram(da, v, x_min=x_min, x_max=x_max),
             extra_dash_components=get_log_axis_switches(f'{v}_filter-scalar')
         )
         var_filters.append(var_filter)
