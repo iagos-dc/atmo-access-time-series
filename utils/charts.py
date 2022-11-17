@@ -263,7 +263,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, color_mapping=None):
             colorscale=colorscale,
             customdata=100 * availability_data,   # availability in %
             hovertemplate='%{x}: %{customdata:.0f}%',
-            name='foo',
+            name='',
             showscale=False,
             xgap=1,
             ygap=5,
@@ -273,7 +273,15 @@ def get_avail_data_by_var_heatmap(ds, granularity, color_mapping=None):
         return heatmap
 
     ds_avail = get_data_avail_with_freq(ds, granularity)
-    fig = go.Figure(get_heatmap(ds_avail, color_mapping))
+
+    n_vars = max(len(ds_avail.data_vars), 1)
+    layout_dict = {
+        'autosize': True,
+        'height': 120 + 40 * n_vars,
+        'margin': {'b': 80, 't': 40},
+    }
+
+    fig = go.Figure(data=get_heatmap(ds_avail, color_mapping), layout=layout_dict)
     if granularity == 'year':
         dtick = 'M12'
         tickformat = '%Y'
@@ -285,6 +293,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, color_mapping=None):
         dtick=dtick,
         tickformat=tickformat,
         ticklabelmode='period',
+        title='time',
     )
     # print(ds_avail['time'])
     return fig

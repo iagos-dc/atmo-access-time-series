@@ -68,8 +68,9 @@ def update_graph_figure(fig_data, selected_range, fig):
     if True or (x0 is not None or x1 is not None):
         fig['layout']['shapes'] = [
             {
-                'fillcolor': 'blue',
-                'opacity': 0.1,
+                'line': {'color': 'red', 'width': 2},
+                #'fillcolor': 'blue',
+                #'opacity': 0.1,
                 'type': 'rect',
                 'x0': x0,
                 'x1': x1,
