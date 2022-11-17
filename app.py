@@ -31,7 +31,7 @@ from log import logger
 import data_access
 import data_processing
 from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX, _get_scatter_plot, _get_line_plot, \
-    _get_timeline_by_station, _get_timeline_by_station_and_vars, _plot_vars, get_avail_data_by_var
+    _get_timeline_by_station, _get_timeline_by_station_and_vars, _plot_vars, get_avail_data_by_var_gantt
 
 CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
 DEBUG_GET_DATASETS = False
@@ -863,7 +863,7 @@ def get_data_histograms(select_datasets_request):
     if select_datasets_request is not None:
         req = data_processing.MergeDatasetsRequest.from_dict(select_datasets_request)
         ds = req.compute()
-        avail_data_by_var_plot = get_avail_data_by_var(ds)
+        avail_data_by_var_plot = get_avail_data_by_var_gantt(ds)
         df = ds.to_dataframe()
         hists = []
         for i, v in enumerate(list(df)):

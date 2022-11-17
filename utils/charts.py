@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import xarray as xr
 from plotly import express as px, graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -151,7 +152,7 @@ def _get_timeline_by_station_and_vars(datasets_df):
     return gantt
 
 
-def get_avail_data_by_var(ds):
+def get_avail_data_by_var_gantt(ds):
     dfs = []
     for v, da in ds.data_vars.items():
         *v_label, ri = v.split('_')
@@ -191,7 +192,169 @@ def get_avail_data_by_var(ds):
     return gantt
 
 
-def get_histogram(da, x_label, bins=20, x_min=None, x_max=None, log_x=False, log_y=False):
+def colors():
+    import plotly.colors
+    list_of_rgb_triples = [plotly.colors.hex_to_rgb(hex_color) for hex_color in px.colors.qualitative.Dark24]
+    return list_of_rgb_triples
+
+
+def get_color_mapping(variables):
+    return dict(zip(variables, colors()))
+
+
+def get_avail_data_by_var_heatmap(ds, granularity, color_mapping=None):
+    if color_mapping is None:
+        color_mapping = get_color_mapping(ds.data_vars)
+
+    def get_data_avail_with_freq(ds, granularity):
+        if granularity == 'year':
+            freq = 'YS'
+        elif granularity == 'season':
+            freq = 'QS-DEC'
+        elif granularity == 'month':
+            freq = 'MS'
+        else:
+            raise ValueError(f'unknown granularity={granularity}')
+        ds_avail = ds.notnull().resample({'time': freq}).mean()
+        t = ds_avail['time']
+        if granularity == 'year':
+            t2 = t.dt.year
+        elif granularity == 'season':
+            season = t.dt.month.to_series().map({12: 'DJF', 3: 'MAM', 6: 'JJA', 9: 'SON'})
+            t2 = t.dt.year.astype(str).str.cat('-', xr.DataArray(season))
+        elif granularity == 'month':
+            month = t.dt.month.to_series().map({m: str(m).zfill(2) for m in range(1, 13)})
+            t2 = t.dt.year.astype(str).str.cat('-', xr.DataArray(month))
+        else:
+            raise ValueError(f'unknown granularity={granularity}')
+        ds_avail['time_period'] = t2
+        return ds_avail.set_coords('time_period')
+
+    def get_heatmap(ds_avail, color_mapping):
+        n_vars = len(list(ds_avail.data_vars))
+        availability_data = np.stack([ds_avail[v].values for i, v in enumerate(ds_avail.data_vars)])
+        z_data = availability_data + 2 * np.arange(n_vars).reshape((n_vars, 1))
+            # this hook is because we want apply different color scale to each row of availability_data...
+        # and here come the color scales:
+        colorscale = [
+            [[2*i / (2*n_vars), f'rgba{color_mapping[v] + (0,)}'], [(2*i+1) / (2*n_vars), f'rgba{color_mapping[v] + (255,)}']]
+            for i, v in enumerate(ds_avail.data_vars)
+        ]
+        colorscale = sum(colorscale, start=[])
+        colorscale.append([1., 'rgba(255, 255, 255, 255)'])  # must define whatever color for z / zmax = 1.
+        xperiod0 = None
+        if granularity == 'year':
+            xperiod = 'M12'
+        elif granularity == 'season':
+            xperiod = 'M3'
+            xperiod0 = ds_avail['time'].values[0]
+        elif granularity == 'month':
+            xperiod = 'M1'
+        else:
+            raise ValueError(granularity)
+        heatmap = go.Heatmap(
+            z=z_data,
+            #x=ds_avail['time_period'],
+            x=ds_avail['time'].values,
+            xperiod=xperiod,
+            xperiod0=xperiod0,
+            #xperiodalignment='end',
+            y=list(ds_avail.data_vars),
+            colorscale=colorscale,
+            customdata=100 * availability_data,   # availability in %
+            hovertemplate='%{x}: %{customdata:.0f}%',
+            name='foo',
+            showscale=False,
+            xgap=1,
+            ygap=5,
+            zmin=0,
+            zmax=2*n_vars,
+        )
+        return heatmap
+
+    ds_avail = get_data_avail_with_freq(ds, granularity)
+    fig = go.Figure(get_heatmap(ds_avail, color_mapping))
+    if granularity == 'year':
+        dtick = 'M12'
+        tickformat = '%Y'
+    else:
+        dtick = 'M3'
+        tickformat = '%b %Y'
+    fig.update_xaxes(
+        type='date',
+        dtick=dtick,
+        tickformat=tickformat,
+        ticklabelmode='period',
+    )
+    # print(ds_avail['time'])
+    return fig
+
+
+def get_avail_data_by_var_heatmap_old(ds, granularity, color_mapping=None):
+    if color_mapping is None:
+        color_mapping = get_color_mapping(ds.data_vars)
+
+    def get_data_avail_with_freq(ds, granularity):
+        if granularity == 'year':
+            freq = 'YS'
+        elif granularity == 'season':
+            freq = 'QS-DEC'
+        elif granularity == 'month':
+            freq = 'MS'
+        else:
+            raise ValueError(f'unknown granularity={granularity}')
+        ds_avail = ds.notnull().resample({'time': freq}).mean()
+        t = ds_avail['time']
+        if granularity == 'year':
+            t2 = t.dt.year
+        elif granularity == 'season':
+            season = t.dt.month.to_series().map({12: 'DJF', 3: 'MAM', 6: 'JJA', 9: 'SON'})
+            t2 = t.dt.year.astype(str).str.cat('-', xr.DataArray(season))
+        elif granularity == 'month':
+            month = t.dt.month.to_series().map({m: str(m).zfill(2) for m in range(1, 13)})
+            t2 = t.dt.year.astype(str).str.cat('-', xr.DataArray(month))
+        else:
+            raise ValueError(f'unknown granularity={granularity}')
+        ds_avail['time2'] = t2
+        return ds_avail.set_coords('time2')
+
+    def get_heatmap(ds_avail, v, color):
+        heatmap = go.Heatmap(
+            z=np.expand_dims(ds_avail[v].values, 0),
+            x=ds_avail['time2'],
+            y=[v],
+            colorscale=[[0., f'rgba{color + (0, )}'], [1., f'rgba{color + (255, )}']],
+            hovertemplate='%{x}: %{z}',
+            name=v,
+            showscale=False,
+            xgap=1,
+        )
+        return heatmap
+
+    ds_avail = get_data_avail_with_freq(ds, granularity)
+    traces = [get_heatmap(ds_avail, v, color) for v, color in color_mapping.items()]
+    for i, trace in enumerate(reversed(traces)):
+        if i > 0:
+            trace.update(yaxis=f'y{i+1}')
+
+    n_vars = max(len(traces), 1)
+    dy = 1 / n_vars
+    ys = np.linspace(0, 1, n_vars + 1)
+    layout_dict = {
+        'autosize': False,
+        'height': 100 + 40 * n_vars,
+        'margin': {'b': 80, 't': 40},
+    }
+    for i, y1, y2 in zip(range(1, n_vars + 1), ys[:-1], ys[1:]):
+        yaxis = 'yaxis' if i == 1 else f'yaxis{i}'
+        layout_dict[yaxis] = {'domain': [y1 + 0.05 * dy, y2 - 0.05 * dy]}
+    layout = go.Layout(layout_dict)
+    fig = go.Figure(data=traces, layout=layout)
+    fig.update_xaxes(title='time')
+    return fig
+
+
+def get_histogram(da, x_label, bins=20, color=None, x_min=None, x_max=None, log_x=False, log_y=False):
     ar = da.where(da.notnull(), drop=True).values
     if log_x:
         ar = np.log(ar[ar > 0])
@@ -220,6 +383,7 @@ def get_histogram(da, x_label, bins=20, x_min=None, x_max=None, log_x=False, log
                 'obs: %{customdata[2]}',
                 'range: [%{customdata[0]:.' + str(precision) + 'f}, %{customdata[1]:.' + str(precision) + 'f}]',
             ]),
+            marker={'color': f'rgb{color}' if isinstance(color, tuple) and len(color) == 3 else color}
         )
     ])
     fig.update_layout(

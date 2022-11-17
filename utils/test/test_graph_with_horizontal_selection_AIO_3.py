@@ -39,6 +39,20 @@ def get_log_axis_switches(i):
     )
 
 
+def get_time_granularity_radio():
+    return dbc.RadioItems(
+        options=[
+            {"label": "year", "value": 'year'},
+            {"label": "season", "value": 'season'},
+            {"label": "month", "value": 'month'},
+        ],
+        value='year',
+        #id='time_granularity_radio',
+        id={'subcomponent2': 'time_granularity_radio', 'foo': 'bar'},
+        inline=True,
+    ),
+
+
 # graph_with_horizontal_selection_AIO = GraphWithHorizontalSelectionAIO(
 #     'foo',
 #     'scalar',
@@ -96,16 +110,16 @@ def filter_dataset(ds, rng_by_variable):
     Input(selected_range_store_id(ALL), 'data'),
     Input(selected_range_store_id(ALL), 'id'),
     Input({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'value'),
+    Input({'subcomponent2': 'time_granularity_radio', 'foo': ALL}, 'value'),
     State(figure_data_store_id(ALL), 'id'),
     State({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'id'),
 )
-def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_switches, figure_ids, log_scale_switch_ids):
+def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_switches, time_granularity, figure_ids, log_scale_switch_ids):
     #print(f'figure_ids={figure_ids}')
     #print(f'selected_ranges={selected_ranges}')
     #print(f'selected_ranges={selected_range_ids}')
     #print(f'log_scale_switches={log_scale_switches}')
     #print(f'log_scale_switch_ids={log_scale_switch_ids}')
-
     if ctx.triggered_id is None:
         raise PreventUpdate
 
@@ -118,6 +132,7 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
         rng_by_variable[v] = (x0, x1)
 
     ds_filtered = filter_dataset(ds, rng_by_variable)
+    color_mapping = charts.get_color_mapping(ds.data_vars)
 
     def get_fig(aio_id):
         variable_label = selected_range_by_aio_id[aio_id]['variable_label']
@@ -131,13 +146,13 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
         log_x = 'log_x' in log_scale_switch
         log_y = 'log_y' in log_scale_switch
 
-        new_fig = charts.get_histogram(ds_filtered[variable_label], variable_label, x_min=x_min, x_max=x_max, log_x= log_x, log_y=log_y)
+        new_fig = charts.get_histogram(ds_filtered[variable_label], variable_label, color=color_mapping[variable_label], x_min=x_min, x_max=x_max, log_x= log_x, log_y=log_y)
         return {
             'fig': new_fig,
             'rng': [x_min, x_max],
         }
 
-    if ctx.triggered_id.subcomponent == 'selected_range_store':
+    if ctx.triggered_id.get('subcomponent') == 'selected_range_store':
         figures_data = []
         for i in figure_ids:
             if i['aio_id'] == 'time_filter-time':
@@ -145,17 +160,28 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
                 t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
                 t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
                 new_fig = {
-                    'fig': charts.get_avail_data_by_var(ds_filtered),
+                    # 'fig': charts.get_avail_data_by_var_gantt(ds_filtered),
+                    'fig': charts.get_avail_data_by_var_heatmap(ds_filtered, time_granularity[0], color_mapping=color_mapping),
                     'rng': [t_min, t_max],
                 }
                 figures_data.append(new_fig)
             else:
                 figures_data.append(get_fig(i['aio_id']))
         return figures_data
-    elif ctx.triggered_id.subcomponent == 'log_scale_switch':
+    elif ctx.triggered_id.get('subcomponent') == 'log_scale_switch':
         aio_id = ctx.triggered_id.aio_id
         figure_data = get_fig(aio_id)
         return set_value_by_aio_id(aio_id, figure_ids, figure_data)
+    elif ctx.triggered_id.get('subcomponent2') == 'time_granularity_radio':
+        t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
+        t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
+        new_fig = {
+            'fig': charts.get_avail_data_by_var_heatmap(ds_filtered, time_granularity[0], color_mapping=color_mapping),
+            'rng': [t_min, t_max],
+        }
+        return set_value_by_aio_id('time_filter-time', figure_ids, new_fig)
+    else:
+        raise RuntimeError(f'unknown trigger: {ctx.triggered_id}')
 
 
 app.layout = html.Div(
@@ -172,6 +198,8 @@ app.layout = html.Div(
     Input('go_fig_button_id', 'n_clicks'),
 )
 def go_callback(go_fig_buttion_n_clicks):
+    color_mapping = charts.get_color_mapping(ds.data_vars)
+
     t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
     t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
     time_filter = GraphWithHorizontalSelectionAIO(
@@ -182,7 +210,9 @@ def go_callback(go_fig_buttion_n_clicks):
         x_max=t_max,
         x_label='time',
         title='Time interval selected:',
-        figure=charts.get_avail_data_by_var(ds),
+        #figure=charts.get_avail_data_by_var_gantt(ds),
+        figure=charts.get_avail_data_by_var_heatmap(ds, 'year', color_mapping=color_mapping),
+        extra_dash_components=get_time_granularity_radio(),
     )
 
     var_filters = []
@@ -198,8 +228,8 @@ def go_callback(go_fig_buttion_n_clicks):
             x_max=x_max,
             x_label=v,
             title=f'{v} interval selected:',
-            figure=charts.get_histogram(da, v, x_min=x_min, x_max=x_max),
-            extra_dash_components=get_log_axis_switches(f'{v}_filter-scalar')
+            figure=charts.get_histogram(da, v, color=color_mapping[v], x_min=x_min, x_max=x_max),
+            extra_dash_components=get_log_axis_switches(f'{v}_filter-scalar'),
         )
         var_filters.append(var_filter)
 

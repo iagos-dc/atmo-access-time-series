@@ -204,6 +204,7 @@ def graph(aio_id, figure=Component.UNDEFINED):
 
     return dcc.Graph(
         id=graph_id(aio_id),
+        # config={'modeBarButtonsToAdd': ['select'], 'modeBarButtonsToRemove': ['zoom']},
         **_my_explicitize_args(figure=figure),
     )
 
