@@ -79,7 +79,41 @@ def set_value_by_aio_id(aio_id, ids, value):
     return [value if i['aio_id'] == aio_id else dash.no_update for i in ids]
 
 
-def filter_dataset(ds, rng_by_variable):
+def filter_dataset(ds, rng_by_variable, ignore_time=False):
+    def get_cond_conjunction(conds):
+        cond_conjunction = True
+        for cond in conds:
+            cond_conjunction &= cond
+        return cond_conjunction
+
+    if ignore_time:
+        rng_by_variable = rng_by_variable.copy()
+        rng_by_variable.pop('time', None)
+
+    cond_by_variable = {}
+    for v, rng in rng_by_variable.items():
+        _min, _max = rng
+        if isinstance(_min, str):
+            _min = np.datetime64(_min)
+        if isinstance(_max, str):
+            _max = np.datetime64(_max)
+        cond = ds[v].notnull() | ~ds[v].notnull()
+        if _min is not None:
+            cond &= (ds[v] >= _min)
+        if _max is not None:
+            cond &= (ds[v] <= _max)
+        cond_by_variable[v] = cond
+        print(f'v={v}, rng={rng}, cond={cond_by_variable[v].sum().item()}')
+
+    ds_filtered = {}
+    for v in ds.data_vars:
+        conds = [cond for v_other, cond in cond_by_variable.items() if v_other != v]
+        ds_filtered[v] = ds[v].where(get_cond_conjunction(conds), drop=False)
+    ds_filtered = xr.Dataset(ds_filtered)
+    return ds_filtered
+
+
+def filter_dataset_old(ds, rng_by_variable):
     cond_by_variable = {}
     for v, rng in rng_by_variable.items():
         _min, _max = rng
@@ -95,6 +129,7 @@ def filter_dataset(ds, rng_by_variable):
             cond &= ds[v] <= _max
             # cond &= ds[v].isnull() | (ds[v] <= _max)
         cond_by_variable[v] = cond
+
     if len(cond_by_variable) > 0:
         cond_iter = iter(cond_by_variable.values())
         total_cond = next(cond_iter)
@@ -131,7 +166,8 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
             raise RuntimeError(f'variable_label={v} is duplicated among selected_range_ids={selected_range_ids}, selected_ranges={selected_ranges}')
         rng_by_variable[v] = (x0, x1)
 
-    ds_filtered = filter_dataset(ds, rng_by_variable)
+    ds_filtered = filter_dataset_old(ds, rng_by_variable)
+    ds_filtered_by_var = filter_dataset(ds, rng_by_variable)
     color_mapping = charts.get_color_mapping(ds.data_vars)
 
     def get_fig(aio_id):
@@ -146,7 +182,7 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
         log_x = 'log_x' in log_scale_switch
         log_y = 'log_y' in log_scale_switch
 
-        new_fig = charts.get_histogram(ds_filtered[variable_label], variable_label, color=color_mapping[variable_label], x_min=x_min, x_max=x_max, log_x= log_x, log_y=log_y)
+        new_fig = charts.get_histogram(ds_filtered_by_var[variable_label], variable_label, color=color_mapping[variable_label], x_min=x_min, x_max=x_max, log_x= log_x, log_y=log_y)
         return {
             'fig': new_fig,
             'rng': [x_min, x_max],
@@ -160,8 +196,11 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
                 t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
                 t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
                 new_fig = {
-                    # 'fig': charts.get_avail_data_by_var_gantt(ds_filtered),
-                    'fig': charts.get_avail_data_by_var_heatmap(ds_filtered, time_granularity[0], color_mapping=color_mapping),
+                    'fig': charts.get_avail_data_by_var_heatmap(
+                        filter_dataset(ds, rng_by_variable, ignore_time=True),
+                        time_granularity[0],
+                        color_mapping=color_mapping
+                    ),
                     'rng': [t_min, t_max],
                 }
                 figures_data.append(new_fig)
@@ -176,7 +215,11 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
         t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
         t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
         new_fig = {
-            'fig': charts.get_avail_data_by_var_heatmap(ds_filtered, time_granularity[0], color_mapping=color_mapping),
+            'fig': charts.get_avail_data_by_var_heatmap(
+                filter_dataset(ds, rng_by_variable, ignore_time=True),
+                time_granularity[0],
+                color_mapping=color_mapping
+            ),
             'rng': [t_min, t_max],
         }
         return set_value_by_aio_id('time_filter-time', figure_ids, new_fig)
@@ -216,7 +259,8 @@ def go_callback(go_fig_buttion_n_clicks):
     )
 
     var_filters = []
-    for v, da in ds.data_vars.items():
+    for v in sorted(ds.data_vars):
+        da = ds[v]
         x_min = da.min().item()
         x_max = da.max().item()
 

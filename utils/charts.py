@@ -202,7 +202,7 @@ def get_color_mapping(variables):
     return dict(zip(variables, colors()))
 
 
-def get_avail_data_by_var_heatmap(ds, granularity, color_mapping=None):
+def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max=True, color_mapping=None):
     if color_mapping is None:
         color_mapping = get_color_mapping(ds.data_vars)
 
@@ -230,11 +230,17 @@ def get_avail_data_by_var_heatmap(ds, granularity, color_mapping=None):
         ds_avail['time_period'] = t2
         return ds_avail.set_coords('time_period')
 
-    def get_heatmap(ds_avail, color_mapping):
+    def get_heatmap(ds_avail, adjust_color_intensity_to_max, color_mapping):
         n_vars = len(list(ds_avail.data_vars))
         availability_data = np.stack([ds_avail[v].values for i, v in enumerate(ds_avail.data_vars)])
-        z_data = availability_data + 2 * np.arange(n_vars).reshape((n_vars, 1))
-            # this hook is because we want apply different color scale to each row of availability_data...
+
+        if True or not adjust_color_intensity_to_max:
+            z_data = availability_data
+        else:
+            z_data = availability_data / availability_data.max(axis=1, keepdims=True)
+            z_data = np.nan_to_num(z_data)
+        # this hook is because we want apply different color scale to each row of availability_data:
+        z_data += 2 * np.arange(n_vars).reshape((n_vars, 1))
         # and here come the color scales:
         colorscale = [
             [[2*i / (2*n_vars), f'rgba{color_mapping[v] + (0,)}'], [(2*i+1) / (2*n_vars), f'rgba{color_mapping[v] + (255,)}']]
@@ -281,7 +287,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, color_mapping=None):
         'margin': {'b': 80, 't': 40},
     }
 
-    fig = go.Figure(data=get_heatmap(ds_avail, color_mapping), layout=layout_dict)
+    fig = go.Figure(data=get_heatmap(ds_avail, adjust_color_intensity_to_max, color_mapping), layout=layout_dict)
     if granularity == 'year':
         dtick = 'M12'
         tickformat = '%Y'
@@ -295,7 +301,6 @@ def get_avail_data_by_var_heatmap(ds, granularity, color_mapping=None):
         ticklabelmode='period',
         title='time',
     )
-    # print(ds_avail['time'])
     return fig
 
 
