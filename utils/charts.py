@@ -234,7 +234,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         n_vars = len(list(ds_avail.data_vars))
         availability_data = np.stack([ds_avail[v].values for i, v in enumerate(ds_avail.data_vars)])
 
-        if True or not adjust_color_intensity_to_max:
+        if not adjust_color_intensity_to_max:
             z_data = availability_data
         else:
             z_data = availability_data / availability_data.max(axis=1, keepdims=True)

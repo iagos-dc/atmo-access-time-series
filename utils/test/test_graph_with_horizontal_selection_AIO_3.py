@@ -107,7 +107,10 @@ def filter_dataset(ds, rng_by_variable, ignore_time=False):
 
     ds_filtered = {}
     for v in ds.data_vars:
-        conds = [cond for v_other, cond in cond_by_variable.items() if v_other != v]
+        if not ignore_time:
+            conds = [cond for v_other, cond in cond_by_variable.items() if v_other != v]
+        else:
+            conds = cond_by_variable.values()
         ds_filtered[v] = ds[v].where(get_cond_conjunction(conds), drop=False)
     ds_filtered = xr.Dataset(ds_filtered)
     return ds_filtered
