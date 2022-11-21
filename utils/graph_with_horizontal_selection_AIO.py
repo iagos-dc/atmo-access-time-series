@@ -253,11 +253,15 @@ def interval_inputs(aio_id, x_axis_type, x_label=None):
         )
 
 
-def interval_controls_container(aio_id, x_axis_type, x_label=None, extra_dash_components=None):
+def interval_controls_container(aio_id, x_axis_type, x_label=None, extra_dash_components=None, extra_dash_components2=None):
     if extra_dash_components is None:
         extra_dash_components = []
     if not isinstance(extra_dash_components, (list, tuple)):
         extra_dash_components = [extra_dash_components]
+    if extra_dash_components2 is None:
+        extra_dash_components2 = []
+    if not isinstance(extra_dash_components2, (list, tuple)):
+        extra_dash_components2 = [extra_dash_components2]
 
     return [
         dbc.Row(dbc.Col(interval_inputs(aio_id, x_axis_type, x_label=x_label))),
@@ -273,10 +277,12 @@ def interval_controls_container(aio_id, x_axis_type, x_label=None, extra_dash_co
                 ),
             ] +
             [
-                dbc.Col(extra_dash_component, width='auto', align='center')
-                for extra_dash_component in extra_dash_components],
+                dbc.Col(extra_dash_component, width='auto', align='center') for extra_dash_component in extra_dash_components
+            ],
             justify='between'
         ),
+    ] + [
+        extra_dash_component for extra_dash_component in extra_dash_components2
     ]
 
 
@@ -293,7 +299,7 @@ def figure_data_store(aio_id, data=None):
     return dcc.Store(id=figure_data_store_id(aio_id), data=data)
 
 
-class GraphWithHorizontalSelectionAIO(html.Div):
+class GraphWithHorizontalSelectionAIO(dbc.Container):
     def __init__(
             self,
             aio_id,
@@ -305,6 +311,7 @@ class GraphWithHorizontalSelectionAIO(html.Div):
             title=None,
             figure=Component.UNDEFINED,
             extra_dash_components=None,
+            extra_dash_components2=None,
             **kwargs
     ):
         if x_axis_type not in ['time', 'scalar']:
@@ -333,21 +340,25 @@ class GraphWithHorizontalSelectionAIO(html.Div):
                         dbc.Row(
                             [
                                 dbc.Col(
-                                    [
-                                        dbc.Card([
-                                            dbc.CardHeader(title if title is not None else 'Interval selected:'),
-                                            dbc.CardBody(
-                                                children=interval_controls_container(aio_id, x_axis_type, x_label=x_label, extra_dash_components=extra_dash_components),
+                                    dbc.Card([
+                                        # dbc.CardHeader(title if title is not None else 'Interval selected:'),
+                                        dbc.CardBody(
+                                            children=interval_controls_container(
+                                                aio_id,
+                                                x_axis_type,
+                                                x_label=x_label,
+                                                extra_dash_components=extra_dash_components,
+                                                extra_dash_components2=extra_dash_components2,
                                             ),
-                                        ]),
-                                    ],
+                                        ),
+                                    ]),
                                     width=4,
-                                    align='center',
+                                    align='start',
                                 ),
                                 dbc.Col(
                                     graph(aio_id, figure=figure),
                                     width=8,
-                                    align='center',
+                                    align='start',
                                 ),
                             ],
                             align='start',
@@ -356,6 +367,7 @@ class GraphWithHorizontalSelectionAIO(html.Div):
                     fluid=True,
                 )
             ],
+            fluid=True,
             #className='row',
             **kwargs
         )

@@ -368,7 +368,7 @@ def get_avail_data_by_var_heatmap_old(ds, granularity, color_mapping=None):
     return fig
 
 
-def get_histogram(da, x_label, bins=20, color=None, x_min=None, x_max=None, log_x=False, log_y=False):
+def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_x=False, log_y=False):
     ar = da.where(da.notnull(), drop=True).values
     if log_x:
         ar = np.log(ar[ar > 0])
@@ -401,10 +401,16 @@ def get_histogram(da, x_label, bins=20, color=None, x_min=None, x_max=None, log_
         )
     ])
     fig.update_layout(
-        title=da.attrs['long_name'],
+        #title=da.attrs['long_name'],
         xaxis_title=f"{da.attrs['standard_name']} ({da.attrs['units']})",
         yaxis_title='# observations',
     )
+
+    fig.update_layout({
+        'autosize': True,
+        'height': 220,
+        'margin': {'b': 0, 't': 0},
+    })
 
     if log_x:
         fig.update_xaxes(type='log')

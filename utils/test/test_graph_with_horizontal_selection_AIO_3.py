@@ -4,7 +4,7 @@ import xarray as xr
 import toolz
 import plotly.express as px
 import dash
-from dash import Dash, html, MATCH, ALL, ctx, callback
+from dash import Dash, html, MATCH, ALL, ctx, callback, dcc
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
@@ -37,6 +37,26 @@ def get_log_axis_switches(i):
         # size='sm',
         # className='mb-3',
     )
+
+
+def get_nbars_slider(i):
+    emptry_row = dbc.Row(dbc.Col(html.P()))
+    row = dbc.Row(
+        [
+            dbc.Col(dbc.Label('Number of histogram bars:'), width='auto'),
+            dbc.Col(
+                dbc.RadioItems(
+                    options=[{'label': str(nbars), 'value': nbars} for nbars in [10, 20, 30, 50, 100]],
+                    value=50,
+                    inline=True,
+                    id={'subcomponent': 'nbars_slider', 'aio_id': i},
+                ),
+                width='auto',
+            ),
+        ],
+        justify='end', #align='baseline',
+    )
+    return [emptry_row, row]
 
 
 def get_time_granularity_radio():
@@ -149,10 +169,12 @@ def filter_dataset_old(ds, rng_by_variable):
     Input(selected_range_store_id(ALL), 'id'),
     Input({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'value'),
     Input({'subcomponent2': 'time_granularity_radio', 'foo': ALL}, 'value'),
+    Input({'subcomponent': 'nbars_slider', 'aio_id': ALL}, 'value'),
     State(figure_data_store_id(ALL), 'id'),
     State({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'id'),
+    State({'subcomponent': 'nbars_slider', 'aio_id': ALL}, 'id'),
 )
-def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_switches, time_granularity, figure_ids, log_scale_switch_ids):
+def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_switches, time_granularity, nbars, figure_ids, log_scale_switch_ids, nbars_ids):
     #print(f'figure_ids={figure_ids}')
     #print(f'selected_ranges={selected_ranges}')
     #print(f'selected_ranges={selected_range_ids}')
@@ -185,7 +207,16 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
         log_x = 'log_x' in log_scale_switch
         log_y = 'log_y' in log_scale_switch
 
-        new_fig = charts.get_histogram(ds_filtered_by_var[variable_label], variable_label, color=color_mapping[variable_label], x_min=x_min, x_max=x_max, log_x= log_x, log_y=log_y)
+        bins = get_value_by_aio_id(aio_id, nbars_ids, nbars)
+
+        new_fig = charts.get_histogram(
+            ds_filtered_by_var[variable_label],
+            variable_label,
+            bins=bins,
+            color=color_mapping[variable_label],
+            x_min=x_min, x_max=x_max,
+            log_x=log_x, log_y=log_y
+        )
         return {
             'fig': new_fig,
             'rng': [x_min, x_max],
@@ -210,7 +241,7 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
             else:
                 figures_data.append(get_fig(i['aio_id']))
         return figures_data
-    elif ctx.triggered_id.get('subcomponent') == 'log_scale_switch':
+    elif ctx.triggered_id.get('subcomponent') in ['log_scale_switch', 'nbars_slider']:
         aio_id = ctx.triggered_id.aio_id
         figure_data = get_fig(aio_id)
         return set_value_by_aio_id(aio_id, figure_ids, figure_data)
@@ -256,12 +287,11 @@ def go_callback(go_fig_buttion_n_clicks):
         x_max=t_max,
         x_label='time',
         title='Time interval selected:',
-        #figure=charts.get_avail_data_by_var_gantt(ds),
         figure=charts.get_avail_data_by_var_heatmap(ds, 'year', color_mapping=color_mapping),
         extra_dash_components=get_time_granularity_radio(),
     )
 
-    var_filters = []
+    filter_and_title_by_v = {'time': (time_filter, 'Data availability')}
     for v in sorted(ds.data_vars):
         da = ds[v]
         x_min = da.min().item()
@@ -277,10 +307,19 @@ def go_callback(go_fig_buttion_n_clicks):
             title=f'{v} interval selected:',
             figure=charts.get_histogram(da, v, color=color_mapping[v], x_min=x_min, x_max=x_max),
             extra_dash_components=get_log_axis_switches(f'{v}_filter-scalar'),
+            extra_dash_components2=get_nbars_slider(f'{v}_filter-scalar'),
         )
-        var_filters.append(var_filter)
+        filter_and_title_by_v[v] = var_filter, da.attrs['long_name'] + f' : {v}'
 
-    return dbc.ListGroup([time_filter] + var_filters)
+    return dbc.Accordion(
+        [
+            dbc.AccordionItem(v_filter, title=title, item_id=f'filter-{v}')
+            for v, (v_filter, title) in filter_and_title_by_v.items()
+        ],
+        always_open=True,
+        active_item=[f'filter-{v}' for v in filter_and_title_by_v.keys()]
+    )
+    #return dbc.ListGroup(list(filter_by_v.values())
 
 
 if __name__ == "__main__":
