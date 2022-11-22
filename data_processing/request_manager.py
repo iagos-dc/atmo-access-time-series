@@ -3,7 +3,8 @@ import itertools
 import functools
 import hashlib
 import json
-from mmappickle import mmapdict
+import diskcache
+import time
 import icoscp.cpb.dobj
 
 from log import logger
@@ -16,12 +17,12 @@ def _get_max_id(m):
     return max(itertools.chain([0], (int(k, base=16) for k in m.keys())))
 
 
-# TODO: switch into diskcache ??? https://grantjenks.com/docs/diskcache/tutorial.html
-_REQUESTS_MMAPDICT_URL = '/home/wolp/PycharmProjects/atmo-access-time-series/data_access/cache/requests.tmp'
-_RESULTS_MMAPDICT_URL = '/home/wolp/PycharmProjects/atmo-access-time-series/data_access/cache/results.tmp'
+_REQUESTS_CACHE_URL = '/home/wolp/PycharmProjects/atmo-access-time-series/data_access/cache/requests.tmp'
+_RESULTS_CACHE_URL = '/home/wolp/PycharmProjects/atmo-access-time-series/data_access/cache/results.tmp'
 
-req_map = mmapdict(_REQUESTS_MMAPDICT_URL)
-res_map = mmapdict(_RESULTS_MMAPDICT_URL)
+# see: https://grantjenks.com/docs/diskcache/tutorial.html
+req_map = diskcache.Cache(_REQUESTS_CACHE_URL)
+res_map = diskcache.Cache(_RESULTS_CACHE_URL)
 
 
 def _get_hashable(obj):
@@ -46,7 +47,7 @@ def _get_hashable(obj):
         return obj
 
 
-@functools.lru_cache(maxsize=10)
+#@functools.lru_cache(maxsize=10)
 def get_request_id(req):
     """
     Retrieve an id for a request req already stored in req_map or assign a new one
@@ -67,20 +68,32 @@ def get_request_id(req):
             i = hex(int(i, 16) + 1)[2:]
 
 
-# TODO: make it thread/multiprocess safe
+# TODO: check if it is proper solution; cannot use a transaction (diskcache.Cache.transact())?
 def request_cache(func):
     @functools.wraps(func)
     def _(req):
         try:
-            i, is_id_new = get_request_id(req)
-            if not is_id_new:
-                res = res_map[i]
-            else:
+            i = None
+            with diskcache.Lock(req_map, '_lock'):
+                i, is_id_new = get_request_id(req)
+                if is_id_new:
+                    print(f'req_map[{i}] = {str(req)}')
+                    req_map[i] = req
+            if is_id_new:
+                # print(f'prepare to execute req={str(req)}')
                 res = func(req)
-                req_map[i] = req
                 res_map[i] = res
+            else:
+                while i not in res_map:
+                    time.sleep(0.1)
+                res = res_map[i]
+                # print(f'retrieved req={str(req)}')
             return res
         except Exception as e:
+            print(repr(ValueError(f'req={str(req)}')))
+            if i is not None:
+                req_map.pop(i)
+                res_map.pop(i)
             raise ValueError(f'req={str(req)}') from e
     return _
 
@@ -135,6 +148,7 @@ class GetICOSDatasetTitleRequest(Request):
         self.dobj = dobj
 
     def execute(self):
+        print(f'execute {str(self)}')
         return icoscp.cpb.dobj.Dobj(self.dobj).meta['references']['title']
 
     def get_hashable(self):
@@ -163,7 +177,7 @@ class ReadDataRequest(Request):
         self.selector = selector
 
     def execute(self):
-        # print(f'execute {str(self)}')
+        print(f'execute {str(self)}')
         return data_access.read_dataset(self.ri, self.url, self.ds_metadata, selector=self.selector)
 
     def get_hashable(self):

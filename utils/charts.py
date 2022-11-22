@@ -58,8 +58,6 @@ def _get_scatter_plot(ds):
     df = ds.to_dataframe()
     v1, v2, *_ = list(df)
     df = df[[v1, v2]]
-    v1_unit = ds[v1].attrs.get('units', '???')
-    v2_unit = ds[v2].attrs.get('units', '???')
     fig = px.scatter(df, x=v1, y=v2, height=600)
     return fig
 
@@ -283,8 +281,8 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
     n_vars = max(len(ds_avail.data_vars), 1)
     layout_dict = {
         'autosize': True,
-        'height': 60 + 40 * n_vars,
-        'margin': {'b': 0, 't': 35},
+        'height': 80 + 30 * n_vars,
+        'margin': {'b': 25, 't': 35},
     }
 
     fig = go.Figure(data=get_heatmap(ds_avail, adjust_color_intensity_to_max, color_mapping), layout=layout_dict)
@@ -423,12 +421,11 @@ def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_
         marker={'color': color}
     )
 
+    xaxis_title = da.attrs.get('long_name', da.attrs.get('label', '???'))
+    xaxis_units = da.attrs.get('units', '???')
     fig_layout = {
-        # 'title': da.attrs['long_name'],
-        # 'xaxis_title': f"{da.attrs['standard_name']} ({da.attrs['units']})",
-        # 'yaxis_title': '# observations',
         'xaxis': {
-            'title': f"{da.attrs['standard_name']} ({da.attrs['units']})",
+            'title': f'{xaxis_title} ({xaxis_units})',
         },
         'yaxis': {
             'title': '# observations',

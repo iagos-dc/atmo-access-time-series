@@ -286,7 +286,11 @@ def go_callback(select_datasets_request):
             extra_dash_components=get_log_axis_switches(f'{v}_filter-scalar'),
             extra_dash_components2=get_nbars_slider(f'{v}_filter-scalar'),
         )
-        filter_and_title_by_v[v] = var_filter, da.attrs['long_name'] + f' : {v}'
+        title = da.attrs.get('title', '???')
+        city = da.attrs.get('city')
+        if city is not None:
+            title = f'{title}, {city}'
+        filter_and_title_by_v[v] = var_filter, title + f' : {v}'
 
     return dbc.Accordion(
         [
