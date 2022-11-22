@@ -1,10 +1,8 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-import toolz
-import plotly.express as px
 import dash
-from dash import Dash, html, MATCH, ALL, ctx, callback, dcc
+from dash import Dash, html, ALL, ctx, callback
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
@@ -264,7 +262,7 @@ def update_histograms_callback(selected_ranges, selected_range_ids, log_scale_sw
 app.layout = html.Div(
     [
         # all_selected_ranges_store(),
-        dbc.ListGroup(id='list-group'),
+        dbc.Container(id='list-group', fluid=True),
         dbc.Button('Go!', id='go_fig_button_id', n_clicks=0, type='submit')
     ]
 )
@@ -323,4 +321,4 @@ def go_callback(go_fig_buttion_n_clicks):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True, host='localhost', port=8055)
+    app.run_server(debug=True, host='localhost', port=8050)

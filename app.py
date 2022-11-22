@@ -97,10 +97,12 @@ QUICKLOOK_POPUP_ID = 'quicklook-popup'
     # 'children' contains a layout of the popup
 SELECT_DATASETS_BUTTON_ID = 'select-datasets-button'
     # 'n_click' contains a number of clicks at the button
-AVAIL_DATA_GRAPH_ID = 'avail-data-graph'
+FILTER_TAB_CONTAINER_ID = 'filter-tab-container'
+    # 'children' contains a layout of the filter tab
+# AVAIL_DATA_GRAPH_ID = 'avail-data-graph'
     # 'figure' contains a Plotly figure object
-VAR_HIST_GRAPHS_CONTAINER_ID = 'var-hist-graphs-container'
-SCATTER_GRAPH_ID = 'scatter-graph'
+# VAR_HIST_GRAPHS_CONTAINER_ID = 'var-hist-graphs-container'
+# SCATTER_GRAPH_ID = 'scatter-graph'
     # 'figure' contains a Plotly figure object
 
 # Atmo-Access logo url
@@ -406,20 +408,7 @@ def get_dashboard_layout():
         value=FILTER_DATA_TAB_VALUE,
         children=html.Div(
             style={'margin': '20px'},
-            children=[
-                html.Div(
-                    id='filter-datasets-time-graph',
-                    className='twelve columns',
-                    children=dcc.Graph(
-                        id=AVAIL_DATA_GRAPH_ID,
-                    )
-                ),
-                html.Div(
-                    id=VAR_HIST_GRAPHS_CONTAINER_ID,
-                    className='twelve columns',
-                    children=[],
-                ),
-            ]
+            children=dbc.Container(id=FILTER_TAB_CONTAINER_ID, fluid=True)
         )
     )
 
@@ -477,7 +466,8 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
 )
 def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks):
-    trigger = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    # trigger = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    trigger = dash.ctx.triggered_id
     if trigger == SEARCH_DATASETS_BUTTON_ID:
         return SELECT_DATASETS_TAB_VALUE
     elif trigger == SELECT_DATASETS_BUTTON_ID:
@@ -853,38 +843,41 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
     return req.to_dict()
 
 
-@app.callback(
-    Output(AVAIL_DATA_GRAPH_ID, 'figure'),
-    Output(VAR_HIST_GRAPHS_CONTAINER_ID, 'children'),
-    Input(SELECT_DATASETS_REQUEST_ID, 'data'),
-    prevent_initial_call=True,
-)
-def get_data_histograms(select_datasets_request):
-    if select_datasets_request is not None:
-        req = data_processing.MergeDatasetsRequest.from_dict(select_datasets_request)
-        ds = req.compute()
-        avail_data_by_var_plot = get_avail_data_by_var_gantt(ds)
-        df = ds.to_dataframe()
-        hists = []
-        for i, v in enumerate(list(df)):
-            *v_label, ri = v.split('_')
-            v_label = '_'.join(v_label)
-            hist_fig = px.histogram(
-                df, x=v, nbins=100,
-                title=f'{v_label} ({ri})',
-                labels={v: f'{v_label} ({ri})'},
-            )
-            hist_fig.update_layout(
-                clickmode='event',
-                selectdirection='h',
-            )
-            hists.append(dcc.Graph(
-                id={'type': VAR_HIST_GRAPHS_CONTAINER_ID, 'index': i},
-                figure=hist_fig,
-            ))
-        return avail_data_by_var_plot, hists
-    else:
-        return None, None
+from utils import crossfiltering  # noq (install callbacks)
+
+
+# @app.callback(
+#     Output(AVAIL_DATA_GRAPH_ID, 'figure'),
+#     Output(VAR_HIST_GRAPHS_CONTAINER_ID, 'children'),
+#     Input(SELECT_DATASETS_REQUEST_ID, 'data'),
+#     prevent_initial_call=True,
+# )
+# def get_data_histograms(select_datasets_request):
+#     if select_datasets_request is not None:
+#         req = data_processing.MergeDatasetsRequest.from_dict(select_datasets_request)
+#         ds = req.compute()
+#         avail_data_by_var_plot = get_avail_data_by_var_gantt(ds)
+#         df = ds.to_dataframe()
+#         hists = []
+#         for i, v in enumerate(list(df)):
+#             *v_label, ri = v.split('_')
+#             v_label = '_'.join(v_label)
+#             hist_fig = px.histogram(
+#                 df, x=v, nbins=100,
+#                 title=f'{v_label} ({ri})',
+#                 labels={v: f'{v_label} ({ri})'},
+#             )
+#             hist_fig.update_layout(
+#                 clickmode='event',
+#                 selectdirection='h',
+#             )
+#             hists.append(dcc.Graph(
+#                 id={'type': VAR_HIST_GRAPHS_CONTAINER_ID, 'index': i},
+#                 figure=hist_fig,
+#             ))
+#         return avail_data_by_var_plot, hists
+#     else:
+#         return None, None
 
 
 # @app.callback(

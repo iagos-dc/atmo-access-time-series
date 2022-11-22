@@ -283,8 +283,8 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
     n_vars = max(len(ds_avail.data_vars), 1)
     layout_dict = {
         'autosize': True,
-        'height': 120 + 40 * n_vars,
-        'margin': {'b': 80, 't': 40},
+        'height': 60 + 40 * n_vars,
+        'margin': {'b': 0, 't': 35},
     }
 
     fig = go.Figure(data=get_heatmap(ds_avail, adjust_color_intensity_to_max, color_mapping), layout=layout_dict)
@@ -369,7 +369,30 @@ def get_avail_data_by_var_heatmap_old(ds, granularity, color_mapping=None):
 
 
 def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_x=False, log_y=False):
+    color = f'rgb{color}' if isinstance(color, tuple) and len(color) == 3 else color
+
     ar = da.where(da.notnull(), drop=True).values
+
+    if len(ar) == 0:
+        ar_ = np.array([np.nan])
+    else:
+        ar_ = ar
+    qs = np.quantile(ar_, q=[0.25, 0.5, 0.75])
+    boxplot_data = {
+        'q1': qs[0], 'median': qs[1], 'q3': qs[2],
+        'lowerfence': np.amin(ar_), 'upperfence': np.amax(ar_),
+        'mean': np.mean(ar_), 'sd': np.std(ar_),
+    }
+    boxplot_data = {k: [v] for k, v in boxplot_data.items()}
+    boxplot_trace = go.Box(
+        line={'color': color},
+        y=[x_label],
+        orientation='h',
+        xaxis='x',
+        yaxis='y2',
+        **boxplot_data
+    )
+
     if log_x:
         ar = np.log(ar[ar > 0])
         x_min = np.log(x_min) if x_min is not None and x_min > 0 else None
@@ -385,38 +408,50 @@ def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_
     precision = int(np.ceil(np.log10(50 * bins / rng)))
     if precision < 0:
         precision = 0
-    fig = go.Figure(data=[
-        go.Bar(
-            name=x_label,
-            y=h,
-            x=edges[:-1],
-            width=np.diff(edges),
-            offset=0,
-            customdata=np.transpose([edges[:-1], edges[1:], h]),
-            hovertemplate='<br>'.join([
-                'obs: %{customdata[2]}',
-                'range: [%{customdata[0]:.' + str(precision) + 'f}, %{customdata[1]:.' + str(precision) + 'f}]',
-            ]),
-            marker={'color': f'rgb{color}' if isinstance(color, tuple) and len(color) == 3 else color}
-        )
-    ])
-    fig.update_layout(
-        #title=da.attrs['long_name'],
-        xaxis_title=f"{da.attrs['standard_name']} ({da.attrs['units']})",
-        yaxis_title='# observations',
+
+    histogram_trace = go.Bar(
+        name=x_label,
+        y=h,
+        x=edges[:-1],
+        width=np.diff(edges),
+        offset=0,
+        customdata=np.transpose([edges[:-1], edges[1:], h]),
+        hovertemplate='<br>'.join([
+            'obs: %{customdata[2]}',
+            'range: [%{customdata[0]:.' + str(precision) + 'f}, %{customdata[1]:.' + str(precision) + 'f}]',
+        ]),
+        marker={'color': color}
     )
+
+    fig_layout = {
+        # 'title': da.attrs['long_name'],
+        # 'xaxis_title': f"{da.attrs['standard_name']} ({da.attrs['units']})",
+        # 'yaxis_title': '# observations',
+        'xaxis': {
+            'title': f"{da.attrs['standard_name']} ({da.attrs['units']})",
+        },
+        'yaxis': {
+            'title': '# observations',
+            'domain': [0, 0.775],
+        },
+        'yaxis2': {
+            'domain': [0.825, 1],
+        }
+    }
+
+    fig = go.Figure(data=[histogram_trace, boxplot_trace], layout=fig_layout)
 
     fig.update_layout({
         'autosize': True,
-        'height': 220,
-        'margin': {'b': 0, 't': 0},
+        'height': 320,
+        'margin': {'b': 0, 't': 35},
+        'showlegend': False,
     })
 
     if log_x:
         fig.update_xaxes(type='log')
     if log_y:
-        fig.update_yaxes(type='log')
-
+        fig.update_layout({'yaxis': {'type': 'log'}})
     return fig
 
 
