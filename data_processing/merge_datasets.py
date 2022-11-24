@@ -92,6 +92,20 @@ def merge_datasets_old(dss):
     return xr.merge(da_by_ri_var.values())
 
 
+def integrate_datasets(dss):
+    da_by_ri_var = {}
+    for ri, ds in dss:
+        for v, da in ds.data_vars.items():
+            da = da.copy()
+            da['time'].attrs = {
+                'standard_name': 'time',
+                'long_name': 'time',
+            }
+            v_ri = f'{v}_{ri}'
+            da_by_ri_var[v_ri] = da
+    return da_by_ri_var
+
+
 def merge_datasets(dss):
     """
 

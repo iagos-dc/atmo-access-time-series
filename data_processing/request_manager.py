@@ -255,3 +255,8 @@ def request_from_dict(d):
         return MergeDatasetsRequest.from_dict(d)
     else:
         raise NotImplementedError(f'd={d}')
+
+
+def request_from_json(js):
+    d = json.loads(js)
+    return request_from_dict(d)
