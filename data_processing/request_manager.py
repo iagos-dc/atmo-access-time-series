@@ -10,7 +10,7 @@ import icoscp.cpb.dobj
 from log import logger
 
 import data_access
-from .merge_datasets import merge_datasets
+from .merge_datasets import merge_datasets, integrate_datasets
 
 
 def _get_max_id(m):
@@ -240,6 +240,42 @@ class MergeDatasetsRequest(Request):
         ))
 
 
+class IntegrateDatasetsRequest(Request):
+    def __init__(self, read_dataset_requests):
+        self.read_dataset_requests = read_dataset_requests
+
+    def execute(self):
+        print(f'execute {str(self)}')
+        dss = [
+            (read_dataset_request.ri, read_dataset_request.compute())
+            for read_dataset_request in self.read_dataset_requests
+        ]
+        return integrate_datasets(dss)
+
+    def get_hashable(self):
+        rs = sorted(read_dataset_request.get_hashable() for read_dataset_request in self.read_dataset_requests)
+        return ('integrate_datasets', ) + tuple(rs)
+
+    def to_dict(self):
+        return dict(
+            _action='integrate_datasets',
+            read_dataset_requests=tuple(
+                read_dataset_request.to_dict() for read_dataset_request in self.read_dataset_requests
+            ),
+        )
+
+    @classmethod
+    def from_dict(cls, d):
+        try:
+            read_dataset_requests_as_dict = d['read_dataset_requests']
+        except KeyError:
+            raise ValueError(f'bad ReadDataRequest: d={str(d)}')
+        return IntegrateDatasetsRequest(tuple(
+            request_from_dict(read_dataset_request_as_dict)
+            for read_dataset_request_as_dict in read_dataset_requests_as_dict
+        ))
+
+
 def request_from_dict(d):
     if not isinstance(d, dict):
         raise ValueError(f'd must be a dict; type(d)={str(type(d))}; d={str(d)}')
@@ -253,6 +289,8 @@ def request_from_dict(d):
         return ReadDataRequest.from_dict(d)
     elif action == 'merge_datasets':
         return MergeDatasetsRequest.from_dict(d)
+    elif action == 'integrate_datasets':
+        return IntegrateDatasetsRequest.from_dict(d)
     else:
         raise NotImplementedError(f'd={d}')
 

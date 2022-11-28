@@ -4,4 +4,10 @@ from .request_manager import (
     GetICOSDatasetTitleRequest,
     ReadDataRequest,
     MergeDatasetsRequest,
+    IntegrateDatasetsRequest,
+)
+
+from .time_coincidence import (
+    interpolate_mask_1d,
+    filter_dataset,
 )

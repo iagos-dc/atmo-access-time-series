@@ -78,43 +78,6 @@ def set_value_by_aio_id(aio_id, ids, value):
     return [value if i['aio_id'] == aio_id else dash.no_update for i in ids]
 
 
-def filter_dataset(ds, rng_by_variable, ignore_time=False):
-    def get_cond_conjunction(conds):
-        cond_conjunction = True
-        for cond in conds:
-            cond_conjunction &= cond
-        return cond_conjunction
-
-    if ignore_time:
-        rng_by_variable = rng_by_variable.copy()
-        rng_by_variable.pop('time', None)
-
-    cond_by_variable = {}
-    for v, rng in rng_by_variable.items():
-        _min, _max = rng
-        if isinstance(_min, str):
-            _min = np.datetime64(_min)
-        if isinstance(_max, str):
-            _max = np.datetime64(_max)
-        cond = ds[v].notnull() | ~ds[v].notnull()
-        if _min is not None:
-            cond &= (ds[v] >= _min)
-        if _max is not None:
-            cond &= (ds[v] <= _max)
-        cond_by_variable[v] = cond
-        # print(f'v={v}, rng={rng}, cond={cond_by_variable[v].sum().item()}')
-
-    ds_filtered = {}
-    for v in ds.data_vars:
-        if not ignore_time:
-            conds = [cond for v_other, cond in cond_by_variable.items() if v_other != v]
-        else:
-            conds = cond_by_variable.values()
-        ds_filtered[v] = ds[v].where(get_cond_conjunction(conds), drop=False)
-    ds_filtered = xr.Dataset(ds_filtered)
-    return ds_filtered
-
-
 def filter_dataset_old(ds, rng_by_variable):
     cond_by_variable = {}
     for v, rng in rng_by_variable.items():
@@ -162,7 +125,7 @@ def update_histograms_callback(
     if ctx.triggered_id is None or select_datasets_request is None:
         raise PreventUpdate
 
-    req = data_processing.MergeDatasetsRequest.from_dict(select_datasets_request)
+    req = data_processing.IntegrateDatasetsRequest.from_dict(select_datasets_request)
     ds = req.compute()
 
     selected_range_by_aio_id = dict(zip((i['aio_id'] for i in selected_range_ids), selected_ranges))
@@ -174,8 +137,8 @@ def update_histograms_callback(
         rng_by_variable[v] = (x0, x1)
 
     # ds_filtered = filter_dataset_old(ds, rng_by_variable)
-    ds_filtered_by_var = filter_dataset(ds, rng_by_variable)
-    color_mapping = charts.get_color_mapping(ds.data_vars)
+    ds_filtered_by_var = data_processing.filter_dataset(ds, rng_by_variable)
+    color_mapping = charts.get_color_mapping(ds)
 
     def get_fig(aio_id):
         variable_label = selected_range_by_aio_id[aio_id]['variable_label']
@@ -206,11 +169,11 @@ def update_histograms_callback(
         figures_data = []
         for i in figure_ids:
             if i['aio_id'] == 'time_filter-time':
-                t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
-                t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
+                t_min = pd.Timestamp(min(da['time'].min().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
+                t_max = pd.Timestamp(max(da['time'].max().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
                 new_fig = {
                     'fig': charts.get_avail_data_by_var_heatmap(
-                        filter_dataset(ds, rng_by_variable, ignore_time=True),
+                        data_processing.filter_dataset(ds, rng_by_variable, ignore_time=True),
                         time_granularity[0],
                         color_mapping=color_mapping
                     ),
@@ -225,11 +188,11 @@ def update_histograms_callback(
         figure_data = get_fig(aio_id)
         return set_value_by_aio_id(aio_id, figure_ids, figure_data)
     elif ctx.triggered_id.get('subcomponent') == 'time_granularity_radio':
-        t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
-        t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
+        t_min = pd.Timestamp(min(da['time'].min().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
+        t_max = pd.Timestamp(max(da['time'].max().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
         new_fig = {
             'fig': charts.get_avail_data_by_var_heatmap(
-                filter_dataset(ds, rng_by_variable, ignore_time=True),
+                data_processing.filter_dataset(ds, rng_by_variable, ignore_time=True),
                 time_granularity[0],
                 color_mapping=color_mapping
             ),
@@ -249,13 +212,14 @@ def go_callback(select_datasets_request):
     if select_datasets_request is None:
         return None
 
-    req = data_processing.MergeDatasetsRequest.from_dict(select_datasets_request)
+    req = data_processing.IntegrateDatasetsRequest.from_dict(select_datasets_request)
     ds = req.compute()
 
-    color_mapping = charts.get_color_mapping(ds.data_vars)
+    # color_mapping = charts.get_color_mapping(ds.data_vars)
+    color_mapping = charts.get_color_mapping(ds)
 
-    t_min = pd.Timestamp(ds.time.min().values).strftime('%Y-%m-%d %H:%M')
-    t_max = pd.Timestamp(ds.time.max().values).strftime('%Y-%m-%d %H:%M')
+    t_min = pd.Timestamp(min(da['time'].min().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
+    t_max = pd.Timestamp(max(da['time'].max().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
     time_filter = GraphWithHorizontalSelectionAIO(
         'time_filter',
         'time',
@@ -269,8 +233,7 @@ def go_callback(select_datasets_request):
     )
 
     filter_and_title_by_v = {'time': (time_filter, 'Data availability')}
-    for v in sorted(ds.data_vars):
-        da = ds[v]
+    for v, da in ds.items():
         x_min = da.min().item()
         x_max = da.max().item()
 

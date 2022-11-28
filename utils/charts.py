@@ -201,8 +201,16 @@ def get_color_mapping(variables):
 
 
 def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max=True, color_mapping=None):
+    """
+
+    :param ds: xarray.Dataset or dictionary {var_label: xarray.DataArray};
+    :param granularity: str; one of ['year', 'season', 'month']
+    :param adjust_color_intensity_to_max: bool, optional, default=True
+    :param color_mapping: dict, optional; {var_label: tuple(r, g, b)}, where r, b, g are int's
+    :return:
+    """
     if color_mapping is None:
-        color_mapping = get_color_mapping(ds.data_vars)
+        color_mapping = get_color_mapping(ds)
 
     def get_data_avail_with_freq(ds, granularity):
         if granularity == 'year':
@@ -213,7 +221,18 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
             freq = 'MS'
         else:
             raise ValueError(f'unknown granularity={granularity}')
-        ds_avail = ds.notnull().resample({'time': freq}).mean()
+        if isinstance(ds, xr.Dataset):
+            ds_avail = ds.notnull().resample({'time': freq}).mean()
+        else:
+            # ds is a dictionary {var_label: xr.DataArray}
+            ds_avail = xr.merge(
+                [
+                    da.reset_coords(drop=True).notnull().resample({'time': freq}).mean().rename(v)
+                    for v, da in ds.items()
+                ],
+                join='outer',
+                # compat='override',
+            )
         t = ds_avail['time']
         if granularity == 'year':
             t2 = t.dt.year
@@ -229,20 +248,22 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         return ds_avail.set_coords('time_period')
 
     def get_heatmap(ds_avail, adjust_color_intensity_to_max, color_mapping):
-        n_vars = len(list(ds_avail.data_vars))
-        availability_data = np.stack([ds_avail[v].values for i, v in enumerate(ds_avail.data_vars)])
+        vs = list(reversed(list(ds_avail.data_vars)))
+        n_vars = len(vs)
+        availability_data = np.stack([ds_avail[v].values for v in vs])
 
         if not adjust_color_intensity_to_max:
             z_data = availability_data
         else:
-            z_data = availability_data / availability_data.max(axis=1, keepdims=True)
+            max_availability = np.nanmax(availability_data, axis=1, keepdims=True) if len(availability_data) > 0 else np.nan
+            z_data = availability_data / max_availability
             z_data = np.nan_to_num(z_data)
         # this hook is because we want apply different color scale to each row of availability_data:
         z_data += 2 * np.arange(n_vars).reshape((n_vars, 1))
         # and here come the color scales:
         colorscale = [
             [[2*i / (2*n_vars), f'rgba{color_mapping[v] + (0,)}'], [(2*i+1) / (2*n_vars), f'rgba{color_mapping[v] + (255,)}']]
-            for i, v in enumerate(ds_avail.data_vars)
+            for i, v in enumerate(vs)
         ]
         colorscale = sum(colorscale, start=[])
         colorscale.append([1., 'rgba(255, 255, 255, 255)'])  # must define whatever color for z / zmax = 1.
@@ -263,7 +284,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
             xperiod=xperiod,
             xperiod0=xperiod0,
             #xperiodalignment='end',
-            y=list(ds_avail.data_vars),
+            y=vs,
             colorscale=colorscale,
             customdata=100 * availability_data,   # availability in %
             hovertemplate='%{x}: %{customdata:.0f}%',

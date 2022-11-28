@@ -102,6 +102,10 @@ def integrate_datasets(dss):
                 'long_name': 'time',
             }
             v_ri = f'{v}_{ri}'
+            da.name = v_ri
+            attrs = dict(ds.attrs)
+            attrs.update(da.attrs)
+            da.attrs = attrs
             da_by_ri_var[v_ri] = da
     return da_by_ri_var
 

@@ -275,8 +275,8 @@ def get_dashboard_layout():
     # these are special Dash components used for transferring data from one callback to other callback(s)
     # without displaying the data
     stores = [
-        dcc.Store(id=DATASETS_STORE_ID),
-        dcc.Store(id=SELECT_DATASETS_REQUEST_ID),
+        dcc.Store(id=DATASETS_STORE_ID, storage_type='session'),
+        dcc.Store(id=SELECT_DATASETS_REQUEST_ID, storage_type='session'),
     ]
 
     # logo and application title
@@ -817,7 +817,7 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
         # req.compute()  ###
         read_dataset_requests.append(req)
 
-    req = data_processing.MergeDatasetsRequest(read_dataset_requests)
+    req = data_processing.IntegrateDatasetsRequest(read_dataset_requests)
     # TODO: do it asynchronously? will it work with dash/flask? look at options of @app.callback decorator (background=True, ???)
     req.compute()
     # ds = req.compute()
