@@ -1,3 +1,6 @@
+# Plotly-Dash: How to update only figure data without changing the figure layout?
+# https://stackoverflow.com/questions/65122448/plotly-dash-how-to-update-only-figure-data-without-changing-the-figure-layout
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -92,7 +95,14 @@ def interpolate_mask_1d(mask_da, target_coord, tolerance, source_dim=None):
     return mask_in_target
 
 
-def filter_dataset(da_by_varlabel, rng_by_varlabel, ignore_time=False, tolerance=np.timedelta64(1, 'D')):
+def filter_dataset(
+        da_by_varlabel,
+        rng_by_varlabel,
+        ignore_time=False,
+        cross_filtering=False,
+        tolerance=None,
+        filter_data_request=False,
+):
     def get_cond_conjunction(conds, target_coords):
         cond_conjunction = True
         for cond in conds:
@@ -120,25 +130,34 @@ def filter_dataset(da_by_varlabel, rng_by_varlabel, ignore_time=False, tolerance
         if cond is not True:
             cond_by_varlabel[v] = cond
 
-    ds_filtered = {}
     if not ignore_time:
         if 'time' in rng_by_varlabel:
             _t_min, _t_max = get_var_range(rng_by_varlabel['time'])
         else:
             _t_min, _t_max = None, None
 
+    ds_filtered = {}
     for v, da in da_by_varlabel.items():
-        conds = [cond for v_other, cond in cond_by_varlabel.items() if v_other != v]
-        cond = get_cond_conjunction(conds, da['time'])
-        if ignore_time:
+        if cross_filtering:
+            conds = [cond for v_other, cond in cond_by_varlabel.items() if v_other != v]
+            cond = get_cond_conjunction(conds, da['time'])
+        else:
+            cond = True
+
+        if ignore_time or filter_data_request:
             cond_for_v = cond_by_varlabel.get(v)
             if cond_for_v is not None:
                 cond &= cond_for_v
-        else:
+
+        if not ignore_time:
             if _t_min is not None:
                 cond &= da['time'] >= _t_min
             if _t_max is not None:
                 cond &= da['time'] <= _t_max
-        ds_filtered[v] = da.where(cond, drop=False)
+
+        if cond is not True:
+            ds_filtered[v] = da.where(cond, drop=False)
+        else:
+            ds_filtered[v] = da
 
     return ds_filtered

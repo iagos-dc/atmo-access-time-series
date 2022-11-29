@@ -7,7 +7,7 @@ from .request_manager import (
     IntegrateDatasetsRequest,
 )
 
-from .time_coincidence import (
+from .filtering import (
     interpolate_mask_1d,
     filter_dataset,
 )

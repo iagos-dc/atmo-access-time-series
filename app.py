@@ -32,6 +32,9 @@ import data_access
 import data_processing
 from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX, _get_scatter_plot, _get_line_plot, \
     _get_timeline_by_station, _get_timeline_by_station_and_vars, _plot_vars, get_avail_data_by_var_gantt
+from utils.crossfiltering import FILTER_TAB_CONTAINER_ROW_ID, get_filtering_type_radio, FILTER_TYPE_RADIO_ID, \
+    FILTER_TIME_CONINCIDENCE_SELECT_ID
+from utils.graph_with_horizontal_selection_AIO import selected_range_store_id
 
 CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
 DEBUG_GET_DATASETS = False
@@ -97,13 +100,8 @@ QUICKLOOK_POPUP_ID = 'quicklook-popup'
     # 'children' contains a layout of the popup
 SELECT_DATASETS_BUTTON_ID = 'select-datasets-button'
     # 'n_click' contains a number of clicks at the button
-FILTER_TAB_CONTAINER_ID = 'filter-tab-container'
-    # 'children' contains a layout of the filter tab
-# AVAIL_DATA_GRAPH_ID = 'avail-data-graph'
-    # 'figure' contains a Plotly figure object
-# VAR_HIST_GRAPHS_CONTAINER_ID = 'var-hist-graphs-container'
-# SCATTER_GRAPH_ID = 'scatter-graph'
-    # 'figure' contains a Plotly figure object
+FILTER_DATA_BUTTON_ID = 'filter-data-button'
+FILTER_DATA_REQUEST_ID = 'filter-data-request'
 
 # Atmo-Access logo url
 ATMO_ACCESS_LOGO_URL = \
@@ -277,6 +275,7 @@ def get_dashboard_layout():
     stores = [
         dcc.Store(id=DATASETS_STORE_ID, storage_type='session'),
         dcc.Store(id=SELECT_DATASETS_REQUEST_ID, storage_type='session'),
+        dcc.Store(id=FILTER_DATA_REQUEST_ID, storage_type='session'),
     ]
 
     # logo and application title
@@ -408,7 +407,28 @@ def get_dashboard_layout():
         value=FILTER_DATA_TAB_VALUE,
         children=html.Div(
             style={'margin': '20px'},
-            children=dbc.Container(id=FILTER_TAB_CONTAINER_ID, fluid=True)
+            children=dbc.Container(
+                [
+                    dbc.Row(
+                        get_filtering_type_radio() +
+                        [
+                            dbc.Col(
+                                dbc.Button(
+                                    id=FILTER_DATA_BUTTON_ID, n_clicks=0,
+                                    color='primary',
+                                    type='submit',
+                                    style={'font-weight': 'bold'},
+                                    children='Apply filter to data'
+                                ),
+                                width='auto',
+                            ),
+                        ],
+                        justify='start',
+                    ),
+                    dbc.Row(id=FILTER_TAB_CONTAINER_ROW_ID),
+                ],
+                fluid=True,
+            )
         )
     )
 
@@ -464,14 +484,17 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
     Output(APP_TABS_ID, 'value'),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
+    Input(FILTER_DATA_BUTTON_ID, 'n_clicks')
 )
-def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks):
+def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks, filter_data_button_clicks):
     # trigger = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     trigger = dash.ctx.triggered_id
     if trigger == SEARCH_DATASETS_BUTTON_ID:
         return SELECT_DATASETS_TAB_VALUE
     elif trigger == SELECT_DATASETS_BUTTON_ID:
         return FILTER_DATA_TAB_VALUE
+    elif trigger == FILTER_DATA_BUTTON_ID:
+        return DATA_ANALYSIS_TAB_VALUE
     else:
         return SEARCH_DATASETS_TAB_VALUE
 
@@ -793,10 +816,6 @@ def download_csv(n_clicks, ds_md_json):
 
 @app.callback(
     Output(SELECT_DATASETS_REQUEST_ID, 'data'),
-    # Output(AVAIL_DATA_GRAPH_ID, 'figure'),
-    # Output(VAR_HIST_GRAPH_1_ID, 'figure'),
-    # Output(VAR_HIST_GRAPH_2_ID, 'figure'),
-    # Output(VAR_HIST_GRAPH_3_ID, 'figure'),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
@@ -820,96 +839,7 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
     req = data_processing.IntegrateDatasetsRequest(read_dataset_requests)
     # TODO: do it asynchronously? will it work with dash/flask? look at options of @app.callback decorator (background=True, ???)
     req.compute()
-    # ds = req.compute()
-    # avail_data_by_var_plot = get_avail_data_by_var(ds)
-    # df = ds.to_dataframe()
-    # hists = []
-    # for i, v in enumerate(list(df)[:3]):
-    #     *v_label, ri = v.split('_')
-    #     v_label = '_'.join(v_label)
-    #     hist_fig = px.histogram(
-    #         df, x=v, nbins=100,
-    #         title=f'{v_label} ({ri})',
-    #         labels={v: f'{v_label} ({ri})'},
-    #     )
-    #     hist_fig.update_layout(
-    #         clickmode='event',
-    #         selectdirection='h',
-    #     )
-    #     hists.append(hist_fig)
-    # if len(hists) < 3:
-    #     hists.extend((None, ) * (3 - len(hists)))
-    # return req.to_dict(), avail_data_by_var_plot, hists[0], hists[1], hists[2]
     return req.to_dict()
-
-
-from utils import crossfiltering  # noq (install callbacks)
-
-
-# @app.callback(
-#     Output(AVAIL_DATA_GRAPH_ID, 'figure'),
-#     Output(VAR_HIST_GRAPHS_CONTAINER_ID, 'children'),
-#     Input(SELECT_DATASETS_REQUEST_ID, 'data'),
-#     prevent_initial_call=True,
-# )
-# def get_data_histograms(select_datasets_request):
-#     if select_datasets_request is not None:
-#         req = data_processing.MergeDatasetsRequest.from_dict(select_datasets_request)
-#         ds = req.compute()
-#         avail_data_by_var_plot = get_avail_data_by_var_gantt(ds)
-#         df = ds.to_dataframe()
-#         hists = []
-#         for i, v in enumerate(list(df)):
-#             *v_label, ri = v.split('_')
-#             v_label = '_'.join(v_label)
-#             hist_fig = px.histogram(
-#                 df, x=v, nbins=100,
-#                 title=f'{v_label} ({ri})',
-#                 labels={v: f'{v_label} ({ri})'},
-#             )
-#             hist_fig.update_layout(
-#                 clickmode='event',
-#                 selectdirection='h',
-#             )
-#             hists.append(dcc.Graph(
-#                 id={'type': VAR_HIST_GRAPHS_CONTAINER_ID, 'index': i},
-#                 figure=hist_fig,
-#             ))
-#         return avail_data_by_var_plot, hists
-#     else:
-#         return None, None
-
-
-# @app.callback(
-#     Output(SELECT_DATASETS_REQUEST_ID, 'data'),
-#     Output(TIME_HISTOGRAM_GRAPH_ID, 'figure'),
-#     Output(SCATTER_GRAPH_ID, 'figure'),
-#     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
-#     State(DATASETS_STORE_ID, 'data'),
-#     State(DATASETS_TABLE_ID, 'selected_row_ids'),
-#     prevent_initial_call=True,
-# )
-# def select_datasets(n_clicks, datasets_json, selected_row_ids):
-#     if datasets_json is None or selected_row_ids is None:
-#         return None
-#
-#     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
-#     ds_md = datasets_df.loc[selected_row_ids]
-#     read_dataset_requests = []
-#     for idx, ds_metadata in ds_md.iterrows():
-#         ri = ds_metadata['RI']
-#         url = ds_metadata['url']
-#         selector = ds_metadata['selector'] if 'selector' in ds_metadata else None
-#         req = data_processing.ReadDataRequest(ri, url, ds_metadata, selector=selector)
-#         # req.compute()  ###
-#         read_dataset_requests.append(req)
-#
-#     req = data_processing.MergeDatasetsRequest(read_dataset_requests)
-#     # req.compute()  # TODO: do it lazy ???
-#     ds = req.compute()
-#     line_plot = _get_line_plot(ds)
-#     scatter_plot = _get_scatter_plot(ds)
-#     return req.to_dict(), line_plot, scatter_plot
 
 
 # End of callback definitions
