@@ -33,7 +33,7 @@ import data_processing
 from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX, _get_scatter_plot, _get_line_plot, \
     _get_timeline_by_station, _get_timeline_by_station_and_vars, _plot_vars, get_avail_data_by_var_gantt
 from utils.crossfiltering import FILTER_TAB_CONTAINER_ROW_ID, get_filtering_type_radio, FILTER_TYPE_RADIO_ID, \
-    FILTER_TIME_CONINCIDENCE_SELECT_ID
+    FILTER_TIME_CONINCIDENCE_SELECT_ID, INTEGRATE_DATASETS_REQUEST_ID
 from utils.graph_with_horizontal_selection_AIO import selected_range_store_id
 
 CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
@@ -90,8 +90,6 @@ GANTT_GRAPH_ID = 'gantt-graph'
     # 'figure' contains a Plotly figure object
 DATASETS_STORE_ID = 'datasets-store'
     # 'data' stores datasets metadata in JSON, as provided by the method pd.DataFrame.to_json(orient='split', date_format='iso')
-SELECT_DATASETS_REQUEST_ID = 'select-datasets-request'
-    # 'data' stores a JSON representation of a request executed
 DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID = 'datasets-table-checklist-all-none-switch'
 DATASETS_TABLE_ID = 'datasets-table'
     # 'columns' contains list of dictionaries {'name' -> column name, 'id' -> column id}
@@ -274,7 +272,7 @@ def get_dashboard_layout():
     # without displaying the data
     stores = [
         dcc.Store(id=DATASETS_STORE_ID, storage_type='session'),
-        dcc.Store(id=SELECT_DATASETS_REQUEST_ID, storage_type='session'),
+        dcc.Store(id=INTEGRATE_DATASETS_REQUEST_ID, storage_type='session'),
         dcc.Store(id=FILTER_DATA_REQUEST_ID, storage_type='session'),
     ]
 
@@ -815,7 +813,7 @@ def download_csv(n_clicks, ds_md_json):
 
 
 @app.callback(
-    Output(SELECT_DATASETS_REQUEST_ID, 'data'),
+    Output(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
@@ -840,6 +838,57 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
     # TODO: do it asynchronously? will it work with dash/flask? look at options of @app.callback decorator (background=True, ???)
     req.compute()
     return req.to_dict()
+
+
+# TODO: lots of duplications with utils.crossfiltering.update_histograms_callback
+@app.callback(
+    Output(FILTER_DATA_REQUEST_ID, 'data'),
+    Input(FILTER_DATA_BUTTON_ID, 'n_clicks'),
+    State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
+    State(selected_range_store_id(ALL), 'data'),
+    State(selected_range_store_id(ALL), 'id'),
+    State(FILTER_TYPE_RADIO_ID, 'value'),
+    State(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'value'),
+    prevent_initial_call=True,
+)
+def filter_data_callback(
+        n_clicks,
+        integrate_datasets_request,
+        selected_ranges, selected_range_ids,
+        filter_type, cross_filtering_time_coincidence
+):
+    if dash.ctx.triggered_id is None or integrate_datasets_request is None:
+        raise dash.exceptions.PreventUpdate
+
+    # TODO: this is a duplication with utils.crossfiltering.update_histograms_callback
+    cross_filtering = filter_type == 'cross filter'
+    if cross_filtering:
+        cross_filtering_time_coincidence_dt = pd.Timedelta(cross_filtering_time_coincidence).to_timedelta64()
+    else:
+        cross_filtering_time_coincidence_dt = None
+
+    # TODO: this is a duplication with utils.crossfiltering.update_histograms_callback
+    integrate_datasets_req = data_processing.IntegrateDatasetsRequest.from_dict(integrate_datasets_request)
+
+    # TODO: this is a duplication with utils.crossfiltering.update_histograms_callback
+    selected_range_by_aio_id = dict(zip((i['aio_id'] for i in selected_range_ids), selected_ranges))
+    rng_by_varlabel = {}
+    for selected_range in selected_range_by_aio_id.values():
+        v, x0, x1 = selected_range['variable_label'], selected_range['x_sel_min'], selected_range['x_sel_max']
+        if v in rng_by_varlabel:
+            raise RuntimeError(f'variable_label={v} is duplicated among selected_range_ids={selected_range_ids}, selected_ranges={selected_ranges}')
+        rng_by_varlabel[v] = (x0, x1)
+
+    filter_data_req = data_processing.FilterDataRequest(
+        integrate_datasets_req,
+        rng_by_varlabel,
+        cross_filtering,
+        cross_filtering_time_coincidence_dt
+    )
+
+    filter_data_req.compute()
+
+    return filter_data_req.to_dict()
 
 
 # End of callback definitions

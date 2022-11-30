@@ -6,11 +6,13 @@ import json
 import diskcache
 import time
 import icoscp.cpb.dobj
+import pandas as pd
 
 from log import logger
 
 import data_access
 from .merge_datasets import merge_datasets, integrate_datasets
+from .filtering import filter_dataset
 
 
 def _get_max_id(m):
@@ -233,7 +235,7 @@ class MergeDatasetsRequest(Request):
         try:
             read_dataset_requests_as_dict = d['read_dataset_requests']
         except KeyError:
-            raise ValueError(f'bad ReadDataRequest: d={str(d)}')
+            raise ValueError(f'bad MergeDatasetsRequest: d={str(d)}')
         return MergeDatasetsRequest(tuple(
             request_from_dict(read_dataset_request_as_dict)
             for read_dataset_request_as_dict in read_dataset_requests_as_dict
@@ -269,11 +271,87 @@ class IntegrateDatasetsRequest(Request):
         try:
             read_dataset_requests_as_dict = d['read_dataset_requests']
         except KeyError:
-            raise ValueError(f'bad ReadDataRequest: d={str(d)}')
+            raise ValueError(f'bad IntegrateDatasetsRequest: d={str(d)}')
         return IntegrateDatasetsRequest(tuple(
             request_from_dict(read_dataset_request_as_dict)
             for read_dataset_request_as_dict in read_dataset_requests_as_dict
         ))
+
+
+class FilterDataRequest(Request):
+    def __init__(
+            self,
+            integrate_datasets_request,
+            rng_by_varlabel,
+            cross_filtering,
+            cross_filtering_time_coincidence_dt
+    ):
+        self.integrate_datasets_request = integrate_datasets_request
+        self.rng_by_varlabel = rng_by_varlabel
+        self.cross_filtering = cross_filtering
+        self.cross_filtering_time_coincidence_dt = cross_filtering_time_coincidence_dt
+
+    def execute(self):
+        print(f'execute {str(self)}')
+        ds = self.integrate_datasets_request.compute()
+
+        ds_filtered_by_var = filter_dataset(
+            ds,
+            self.rng_by_varlabel,
+            cross_filtering=self.cross_filtering,
+            tolerance=self.cross_filtering_time_coincidence_dt,
+            filter_data_request=True,
+        )
+
+        return ds_filtered_by_var
+
+    def get_hashable(self):
+        if self.cross_filtering_time_coincidence_dt is not None:
+            cross_filtering_time_coincidence_as_str = str(pd.Timedelta(self.cross_filtering_time_coincidence_dt))
+        else:
+            cross_filtering_time_coincidence_as_str = None
+        return (
+            'filter_data',
+            self.integrate_datasets_request.get_hashable(),
+            _get_hashable(self.rng_by_varlabel),
+            _get_hashable(self.cross_filtering),
+            _get_hashable(cross_filtering_time_coincidence_as_str),
+        )
+
+
+    def to_dict(self):
+        if self.cross_filtering_time_coincidence_dt is not None:
+            cross_filtering_time_coincidence_as_str = str(pd.Timedelta(self.cross_filtering_time_coincidence_dt))
+        else:
+            cross_filtering_time_coincidence_as_str = None
+        return dict(
+            _action='filter_data',
+            integrate_datasets_request=self.integrate_datasets_request.to_dict(),
+            rng_by_varlabel=self.rng_by_varlabel,
+            cross_filtering=self.cross_filtering,
+            cross_filtering_time_coincidence_as_str=cross_filtering_time_coincidence_as_str,
+        )
+
+    @classmethod
+    def from_dict(cls, d):
+        print(f'FilterDataRequest.from_dict for d={d}')
+        try:
+            integrate_datasets_request_as_dict = d['integrate_datasets_request']
+            rng_by_varlabel = d['rng_by_varlabel']
+            cross_filtering = d['cross_filtering']
+            cross_filtering_time_coincidence_as_str = d['cross_filtering_time_coincidence_as_str']
+        except KeyError:
+            raise ValueError(f'bad FilterDataRequest: d={str(d)}')
+        if cross_filtering_time_coincidence_as_str is not None:
+            cross_filtering_time_coincidence_dt = pd.Timedelta(cross_filtering_time_coincidence_as_str).to_timedelta64()
+        else:
+            cross_filtering_time_coincidence_dt = None
+        return FilterDataRequest(
+            request_from_dict(integrate_datasets_request_as_dict),
+            rng_by_varlabel,
+            cross_filtering,
+            cross_filtering_time_coincidence_dt
+        )
 
 
 def request_from_dict(d):
@@ -291,6 +369,8 @@ def request_from_dict(d):
         return MergeDatasetsRequest.from_dict(d)
     elif action == 'integrate_datasets':
         return IntegrateDatasetsRequest.from_dict(d)
+    elif action == 'filter_data':
+        return FilterDataRequest.from_json(d)
     else:
         raise NotImplementedError(f'd={d}')
 

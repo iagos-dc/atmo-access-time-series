@@ -12,7 +12,7 @@ from utils import charts
 import data_processing
 
 
-SELECT_DATASETS_REQUEST_ID = 'select-datasets-request'
+INTEGRATE_DATASETS_REQUEST_ID = 'integrate-datasets-request'
     # 'data' stores a JSON representation of a request executed
 FILTER_TAB_CONTAINER_ROW_ID = 'filter-tab-container-row'
     # 'children' contains a layout of the filter tab
@@ -146,7 +146,7 @@ def set_value_by_aio_id(aio_id, ids, value):
     State(figure_data_store_id(ALL), 'id'),
     State({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'id'),
     State({'subcomponent': 'nbars_slider', 'aio_id': ALL}, 'id'),
-    State(SELECT_DATASETS_REQUEST_ID, 'data'),
+    State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     prevent_initial_call=True,
 )
 def update_histograms_callback(
@@ -154,9 +154,9 @@ def update_histograms_callback(
         time_granularity, filter_type, cross_filtering_time_coincidence,
         log_scale_switches, nbars,
         figure_ids, log_scale_switch_ids, nbars_ids,
-        select_datasets_request,
+        integrate_datasets_request,
 ):
-    if ctx.triggered_id is None or select_datasets_request is None:
+    if ctx.triggered_id is None or integrate_datasets_request is None:
         raise PreventUpdate
 
     cross_filtering = filter_type == 'cross filter'
@@ -166,7 +166,7 @@ def update_histograms_callback(
         cross_filtering_time_coincidence_dt = None
     filter_time_coincidence_select_style = None if cross_filtering else {'background-color': '#dddddd'}
 
-    req = data_processing.IntegrateDatasetsRequest.from_dict(select_datasets_request)
+    req = data_processing.IntegrateDatasetsRequest.from_dict(integrate_datasets_request)
     ds = req.compute()
     color_mapping = charts.get_color_mapping(ds)
 
@@ -261,14 +261,14 @@ def update_histograms_callback(
 
 @callback(
     Output(FILTER_TAB_CONTAINER_ROW_ID, 'children'),
-    Input(SELECT_DATASETS_REQUEST_ID, 'data'),
+    Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     prevent_initial_call=True,
 )
-def data_filtering_create_layout_callback(select_datasets_request):
-    if select_datasets_request is None:
+def data_filtering_create_layout_callback(integrate_datasets_request):
+    if integrate_datasets_request is None:
         return None
 
-    req = data_processing.IntegrateDatasetsRequest.from_dict(select_datasets_request)
+    req = data_processing.IntegrateDatasetsRequest.from_dict(integrate_datasets_request)
     ds = req.compute()
 
     color_mapping = charts.get_color_mapping(ds)
