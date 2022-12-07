@@ -11,15 +11,18 @@ from dash import html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 
-# Provides a version of Dash application which can be run in Jupyter notebook/lab
-# See: https://github.com/plotly/jupyter-dash
 
 # Local imports
-from app_tabs.search_datasets_tab.layout import SEARCH_DATASETS_TAB_VALUE, SEARCH_DATASETS_BUTTON_ID, get_search_datasets_tab
+from app_tabs.common.layout import get_app_data_stores
+from app_tabs.search_datasets_tab.layout import SEARCH_DATASETS_TAB_VALUE, SEARCH_DATASETS_BUTTON_ID, \
+    get_search_datasets_tab
 from app_tabs.select_datasets_tab.layout import SELECT_DATASETS_TAB_VALUE, SELECT_DATASETS_BUTTON_ID, \
     get_select_datasets_tab
-from app_tabs.filter_data_tab.layout import FILTER_DATA_TAB_VALUE, FILTER_DATA_BUTTON_ID, get_filter_data_tab
-from app_tabs.common.layout import get_app_data_stores
+from app_tabs.filter_data_tab.layout import FILTER_DATA_TAB_VALUE, FILTER_DATA_BUTTON_ID, \
+    get_filter_data_tab
+from app_tabs.data_analysis_tab.layout import DATA_ANALYSIS_TAB_VALUE, \
+    get_data_analysis_tab
+
 
 # Configuration of the app
 # See: https://dash.plotly.com/devtools#configuring-with-run_server
@@ -40,7 +43,6 @@ from app_tabs.common.layout import get_app_data_stores
 APP_TABS_ID = 'app-tabs'    # see: https://dash.plotly.com/dash-core-components/tabs; method 1 (content as callback)
     # value contains an id of the active tab
     # children contains a list of layouts of each tab
-DATA_ANALYSIS_TAB_VALUE = 'data-analysis-tab'
 
 # Atmo-Access logo url
 ATMO_ACCESS_LOGO_URL = \
@@ -79,7 +81,7 @@ def get_dashboard_layout():
             get_search_datasets_tab(),
             get_select_datasets_tab(),
             get_filter_data_tab(),
-            *_get_mockup_remaining_tabs(),
+            get_data_analysis_tab(),
         ]
     )
 
@@ -99,11 +101,6 @@ def get_dashboard_layout():
     )
 
     return layout
-
-
-def _get_mockup_remaining_tabs():
-    data_analysis_tab = dcc.Tab(label='Data analysis', value=DATA_ANALYSIS_TAB_VALUE)
-    return [data_analysis_tab]
 
 # End of definition of routines which constructs components of the dashboard
 

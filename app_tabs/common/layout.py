@@ -8,6 +8,7 @@ INTEGRATE_DATASETS_REQUEST_ID = 'integrate-datasets-request'
 # 'data' stores a JSON representation of a request executed
 
 FILTER_DATA_REQUEST_ID = 'filter-data-request'
+# 'data' stores a JSON representation of a request executed
 
 
 def get_app_data_stores():
