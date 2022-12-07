@@ -1,3 +1,4 @@
+import pkg_resources
 import abc
 import itertools
 import functools
@@ -19,8 +20,8 @@ def _get_max_id(m):
     return max(itertools.chain([0], (int(k, base=16) for k in m.keys())))
 
 
-_REQUESTS_CACHE_URL = '/home/wolp/PycharmProjects/atmo-access-time-series/data_access/cache/requests.tmp'
-_RESULTS_CACHE_URL = '/home/wolp/PycharmProjects/atmo-access-time-series/data_access/cache/results.tmp'
+_REQUESTS_CACHE_URL = pkg_resources.resource_filename('data_access', 'cache/requests.tmp')
+_RESULTS_CACHE_URL = pkg_resources.resource_filename('data_access', 'cache/results.tmp')
 
 # see: https://grantjenks.com/docs/diskcache/tutorial.html
 req_map = diskcache.Cache(_REQUESTS_CACHE_URL)

@@ -1,3 +1,4 @@
+import pkg_resources
 import dash
 from dash import dcc, html, callback, MATCH, ctx, ALL
 from dash.exceptions import PreventUpdate
@@ -11,7 +12,8 @@ from dash.development.base_component import Component
 from log import start_logging_callbacks, log_callback_with_ret_value
 
 
-#start_logging_callbacks('/home/wolp/PycharmProjects/atmo-access-time-series/log/log.mmap')
+# log_filepath = pkg_resources.resource_filename('log', 'log_callbacks.pkl')
+# start_logging_callbacks(log_filepath)
 
 
 def _my_explicitize_args(**kwargs):
