@@ -10,7 +10,7 @@ Time series analysis service for ATMO-ACCESS project
 git clone https://github.com/pawel-wolff/atmo-access-time-series
 cd atmo-access-time-series
 conda env create -f environment.yml
-conda activate aa-time-series-env
+conda activate aats
 ```
 
 ## Deployment
