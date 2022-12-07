@@ -9,11 +9,12 @@ import pandas as pd
 import xarray as xr
 import pathlib
 import json
-from timeit import default_timer as timer
 import itertools
+
+from .common import CACHE_DIR, DATA_DIR
 from . import helper
 
-from log import logger, log_exectime, log_profiler_info
+from log import logger, log_exectime
 
 from . import query_actris
 from . import query_iagos
@@ -21,8 +22,6 @@ from . import query_icos
 
 
 LON_LAT_BBOX_EPS = 0.05  # epsilon of margin for selecting stations
-CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
-
 
 # for caching purposes
 # TODO: do it properly
@@ -455,7 +454,7 @@ _iagos_catalogue_df = None
 def _get_iagos_datasets_catalogue():
     global _iagos_catalogue_df
     if _iagos_catalogue_df is None:
-        url = pkg_resources.resource_filename('data_access', 'resources/catalogue.json')
+        url = DATA_DIR / 'catalogue.json'
         with open(url, 'r') as f:
             md = json.load(f)
         _iagos_catalogue_df = pd.DataFrame.from_records(md)
@@ -538,8 +537,8 @@ def read_dataset(ri, url, ds_metadata, selector=None):
         ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
         ds = ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
     elif ri == 'iagos':
-        data_path = pathlib.Path(pkg_resources.resource_filename('data_access', 'resources/iagos_L3_postprocessed'))
-        ds = xr.open_dataset(data_path / url)
+        iagos_data_path = DATA_DIR / 'iagos_L3_postprocessed'
+        ds = xr.open_dataset(iagos_data_path / url)
         if selector is not None:
             dim, *coord = selector.split(':')
             if len(coord) == 1:
@@ -582,13 +581,3 @@ def read_dataset(ri, url, ds_metadata, selector=None):
 
 
 _GET_DATASETS_BY_RI.update(zip(_RIS, (_get_actris_datasets, _get_iagos_datasets, _get_icos_datasets)))
-
-
-####################
-#
-# data_access strategy:
-# - infer_freq: should be done for each variable (it's done like that now) and each slice wrt other dimension(s) (not yet) ?
-# - do not perform resampling to align with freq of each individual variable;
-# - perform resampling to align all time-series to a common time index (by default, the most coarse time index; resampling by mean aggregation ?)
-# - drop variables with NaN's only
-# -

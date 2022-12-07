@@ -6,6 +6,7 @@ import pkg_resources
 from dash import Output, Input, State, callback
 
 import data_access
+import data_access.common
 from app_tabs.common.data import stations
 from app_tabs.common.layout import DATASETS_STORE_ID
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
@@ -13,7 +14,6 @@ from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLE
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID
 from log import logger
 
-CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
 DEBUG_GET_DATASETS = False
 
 
@@ -72,8 +72,8 @@ def search_datasets(
                            f'lon_min={lon_min}, lon_max={lon_max}, lat_min={lat_min}, lat_max={lat_max}\n'
                            f'datasets_df={datasets_df}\n'
                            f'datasets_df2={datasets_df2}')
-            datasets_df.to_pickle(CACHE_DIR / '_datasets_df.pkl')
-            datasets_df2.to_pickle(CACHE_DIR / '_datasets_df2.pkl')
+            datasets_df.to_pickle(data_access.common.CACHE_DIR / '_datasets_df.pkl')
+            datasets_df2.to_pickle(data_access.common.CACHE_DIR / '_datasets_df2.pkl')
         else:
             logger().info('datasets_df == datasets_df2')
 

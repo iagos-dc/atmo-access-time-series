@@ -1,3 +1,5 @@
+from .common import CACHE_DIR
+
 from .data_access import (
     get_stations,
     get_vars,

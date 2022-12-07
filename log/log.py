@@ -145,8 +145,6 @@ def start_logging(log_filename=None, logging_level=logging.WARNING):
 
 def start_logging_callbacks(log_filename):
     global _callback_args_by_time
-    #from mmappickle import mmapdict
-    #_callback_args_by_time = mmapdict(log_filename)
     import diskcache
     _callback_args_by_time = diskcache.Cache(log_filename)
 

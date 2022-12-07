@@ -1,13 +1,9 @@
 import requests
 import json
-import pathlib
-import pkg_resources
 import pandas as pd
 import xarray as xr
 
-
-CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
-
+from .common import CACHE_DIR
 
 
 MAPPING_ECV2ACTRIS = {

@@ -9,6 +9,7 @@ import time
 import icoscp.cpb.dobj
 import pandas as pd
 
+import data_access.common
 from log import logger
 
 import data_access
@@ -20,8 +21,8 @@ def _get_max_id(m):
     return max(itertools.chain([0], (int(k, base=16) for k in m.keys())))
 
 
-_REQUESTS_CACHE_URL = pkg_resources.resource_filename('data_access', 'cache/requests.tmp')
-_RESULTS_CACHE_URL = pkg_resources.resource_filename('data_access', 'cache/results.tmp')
+_REQUESTS_CACHE_URL = str(data_access.common.CACHE_DIR / 'requests.tmp')
+_RESULTS_CACHE_URL = str(data_access.common.CACHE_DIR / 'results.tmp')
 
 # see: https://grantjenks.com/docs/diskcache/tutorial.html
 req_map = diskcache.Cache(_REQUESTS_CACHE_URL)

@@ -1,8 +1,13 @@
-import pkg_resources
-import pathlib
 import json
 import pandas as pd
 import xarray as xr
+import pathlib
+import pkg_resources
+
+# from data_access.common import DATA_DIR
+
+DATA_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'resources'))
+
 
 
 IAGOS_REGIONS = {
@@ -18,7 +23,7 @@ IAGOS_REGIONS = {
 
 
 if __name__ == '__main__':
-    data_path = pathlib.Path(pkg_resources.resource_filename('data_access', 'resources/iagos_L3_postprocessed'))
+    data_path = DATA_DIR / 'iagos_L3_postprocessed'
     md = []
     for url in data_path.glob('*/*.nc'):
         rel_url = url.relative_to(data_path)
@@ -58,6 +63,6 @@ if __name__ == '__main__':
 
         md.append(ds_md)
 
-    catalogue_url = pkg_resources.resource_filename('data_access', 'resources/catalogue.json')
+    catalogue_url = DATA_DIR / 'catalogue.json'
     with open(catalogue_url, 'w') as f:
         json.dump(md, f, indent=2)
