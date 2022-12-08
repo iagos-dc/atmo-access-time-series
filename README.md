@@ -1,38 +1,39 @@
 # atmo-access-time-series
+
+<img align="right" width="200" src="https://www7.obs-mip.fr/wp-content-aeris/uploads/sites/82/2021/03/ATMO-ACCESS-Logo-final_horizontal-payoff-grey-blue.png">
+
 Time series analysis service for ATMO-ACCESS project
 
-[Try out the demo!](https://atmo-access-time-series.herokuapp.com/)
-
-[![Binder](https://notebooks.gesis.org/binder/badge_logo.svg)](https://mybinder.org/v2/gh/pawel-wolff/atmo-access-time-series/HEAD?urlpath=/tree/app.ipynb) (temporarily not supported)
 
 ## Installation
+
+### Clone the git repository
+
 ```sh
 git clone https://github.com/pawel-wolff/atmo-access-time-series
 cd atmo-access-time-series
+```
+
+### Install python environment
+
+- Using conda:
+
+```sh
 conda env create -f environment.yml
 conda activate aats
 ```
 
-## Deployment
-Try out the demo deployed on [Heroku](https://atmo-access-time-series.herokuapp.com/).
+- Using pip:
 
-Deployment in the stand-alone mode:
+```sh
+pip install -r requirements.txt
+```
+
+
+## Deployment at localhost
+
 ```sh
 python app.py
 ```
 
-Deployment in a Jupyter Notebook:
-```sh
-jupyter notebook
-```
-then open `app.ipynb` in the notebook and run all cells (can use >> button to that end).
-
-If you need to change the application configuration, modify this part of the code (somewhere at the beginning of the script):
-```python
-app_conf = {'mode': 'external', 'debug': True}  # for running inside a Jupyter notebook change 'mode' to 'inline'
-RUNNING_IN_BINDER = os.environ.get('BINDER_SERVICE_HOST') is not None
-if RUNNING_IN_BINDER:
-    JupyterDash.infer_jupyter_proxy_config()
-else:
-    app_conf.update({'host': 'localhost', 'port': 9235})
-```
+Open a web browser and put `http://0.0.0.0:8050/` in the address bar.
