@@ -37,3 +37,13 @@ python app.py
 ```
 
 Open a web browser and put `http://0.0.0.0:8050/` in the address bar.
+
+> Remark: at the first usage (and whenever the application's cache is cleared - see below),
+the application is a bit slow (loading some of datasets' metadata takes time).
+
+
+## Clear application's cache
+
+```sh
+python clear_cache.py
+```
