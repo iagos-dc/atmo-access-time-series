@@ -1,8 +1,8 @@
 import json
-
+import toolz
+import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
-import pandas as pd
 import werkzeug.utils
 from dash import callback, Output, Input, State, dcc
 
@@ -13,7 +13,7 @@ from app_tabs.common.layout import DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
     DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID
 from log import logger
-from utils.charts import _get_timeline_by_station, _get_timeline_by_station_and_vars, _plot_vars
+from utils import charts
 
 
 @callback(
@@ -36,9 +36,9 @@ def get_gantt_figure(gantt_view_type, datasets_json):
        return {}, selectedData   # empty figure; TODO: is it a right way?
 
     if gantt_view_type == 'compact':
-        fig = _get_timeline_by_station(datasets_df)
+        fig = charts._get_timeline_by_station(datasets_df)
     else:
-        fig = _get_timeline_by_station_and_vars(datasets_df)
+        fig = charts._get_timeline_by_station_and_vars(datasets_df)
     fig.update_traces(
         selectedpoints=[],
         #mode='markers+text', marker={'color': 'rgba(0, 116, 217, 0.7)', 'size': 20},
@@ -150,11 +150,18 @@ def popup_graphs(active_cell, datasets_json):
         ds_exc = e
 
     if da_by_var is not None:
-        ds_vars = [v for v in da_by_var if da_by_var[v].squeeze().ndim == 1]
-        if len(ds_vars) > 0:
+        da_by_var = toolz.valfilter(lambda da: da.squeeze().ndim == 1, da_by_var)
+        if len(da_by_var) > 0:
+            series_by_var = toolz.valmap(lambda da: da.to_series(), da_by_var)
+            fig = charts.multi_line(series_by_var, width=1000)
+            fig = charts.add_watermark(fig)
+            fig.update_layout(
+                legend=dict(orientation='h'),
+                title=ds_md['title'],
+            )
             ds_plot = dcc.Graph(
                 id='quick-plot',
-                figure=_plot_vars(da_by_var, ds_vars[0], ds_vars[1] if len(ds_vars) > 1 else None),
+                figure=fig,
                 config={
                     'displayModeBar': True,
                     'displaylogo': False,

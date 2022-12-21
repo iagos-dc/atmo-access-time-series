@@ -569,3 +569,67 @@ def multi_line(df, width=1000, height=500, scatter_mode='lines', nticks=None, co
 
 def empty_figure():
     return go.Figure()
+
+
+def _get_watermark_size(fig):
+    if not isinstance(fig, dict):
+        fig = fig.to_dict()
+
+    default_size = 75
+    ref_height = 500
+    ref_width = 1000
+
+    layout = fig.get('layout')
+    if layout is None:
+        return default_size
+    height = layout.get('height')
+    if height is not None:
+        return default_size * height / ref_height
+    width = layout.get('width', ref_width)
+    return default_size * width / ref_width
+
+
+def _get_fig_center(fig):
+    if not isinstance(fig, dict):
+        fig = fig.to_dict()
+
+    default_center_by_axis = {
+        'xaxis': .5,
+        'yaxis': .5,
+    }
+    def_center = (default_center_by_axis['xaxis'], default_center_by_axis['yaxis'])
+
+    layout = fig.get('layout')
+    if layout is None:
+        return def_center
+
+    def get_axis_domain_center(axis):
+        axis = layout.get(axis)
+        if axis is None:
+            return default_center_by_axis[axis]
+        return sum(axis.get('domain', (0, 1))) / 2
+
+    x = get_axis_domain_center('xaxis')
+    y = get_axis_domain_center('yaxis')
+    return x, y
+
+
+def add_watermark(fig, size=None):
+    if size is None:
+        size = _get_watermark_size(fig)
+    x, y = _get_fig_center(fig)
+
+    annotations = [dict(
+        name="watermark",
+        text="ATMO-ACCESS",
+        textangle=-30,
+        opacity=0.1,
+        font=dict(color="black", size=size),
+        xref="paper",
+        yref="paper",
+        x=x,
+        y=y,
+        showarrow=False,
+    )]
+    fig.update_layout(annotations=annotations)
+    return fig

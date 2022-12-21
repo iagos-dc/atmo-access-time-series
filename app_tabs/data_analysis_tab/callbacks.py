@@ -58,24 +58,9 @@ def get_plot_callback(vs, filter_data_request, param):
     fig = charts.multi_line(df, width=width, height=600, color_mapping=colors_by_var)
 
     # show title, legend, watermark, etc.
-    nvars = len(da_by_var_filtered)
-    delta_domain = min(75 / width, 0.5 / nvars)
-    annotations = [dict(
-        name="sdfs watermark",
-        text="ATMO-ACCESS",
-        textangle=-30,
-        opacity=0.1,
-        font=dict(color="black", size=75),
-        xref="paper",
-        yref="paper",
-        x=0.5 - delta_domain * (nvars % 2),
-        y=0.5,
-        showarrow=False,
-    )]
     fig.update_layout(
         legend=dict(orientation='h'),
         title='Here comes a title...',
-        annotations=annotations,
     )
-
+    fig = charts.add_watermark(fig)
     return fig
