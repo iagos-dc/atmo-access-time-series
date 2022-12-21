@@ -1,10 +1,14 @@
+import toolz
 import numpy as np
 import pandas as pd
 import xarray as xr
 from plotly import express as px, graph_objects as go
 from plotly.subplots import make_subplots
 
+
+# TODO: remove this import once _plot_vars is removed
 import data_access
+
 
 # Color codes
 ACTRIS_COLOR_HEX = '#00adb7'
@@ -52,51 +56,6 @@ def _contiguous_periods(start, end, var_codes=None, dt=pd.Timedelta('1D')):
     if var_codes is not None:
         res_dict['var_codes'] = dat
     return pd.DataFrame(res_dict)
-
-
-def _get_scatter_plot(ds):
-    df = ds.to_dataframe()
-    v1, v2, *_ = list(df)
-    df = df[[v1, v2]]
-    fig = px.scatter(df, x=v1, y=v2, height=600)
-    return fig
-
-
-def _get_line_plot(ds):
-    df = ds.to_dataframe()
-    v1, v2, *_ = list(df)
-    df = df[[v1, v2]]
-    v1_unit = ds[v1].attrs.get('units', '???')
-    v2_unit = ds[v2].attrs.get('units', '???')
-
-    # Create figure with secondary y-axis
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-    # Add traces
-    fig.add_trace(
-        go.Scatter(x=df.index, y=df[v1], name=v1, mode='lines'),
-        secondary_y=False,
-    )
-
-    fig.add_trace(
-        go.Scatter(x=df.index, y=df[v2], name=v2, mode='lines'),
-        secondary_y=True,
-    )
-
-    # Add figure title
-    fig.update_layout(
-        title_text=f'{v1} and {v2}',
-        height=600
-    )
-
-    # Set x-axis title
-    fig.update_xaxes(title_text="time")
-
-    # Set y-axes titles
-    fig.update_yaxes(title_text=f'{v1} ({v1_unit})', secondary_y=False)
-    fig.update_yaxes(title_text=f'{v2} ({v2_unit})', secondary_y=True)
-
-    return fig
 
 
 def _get_timeline_by_station(datasets_df):
@@ -323,70 +282,6 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
     return fig
 
 
-def get_avail_data_by_var_heatmap_old(ds, granularity, color_mapping=None):
-    if color_mapping is None:
-        color_mapping = get_color_mapping(ds.data_vars)
-
-    def get_data_avail_with_freq(ds, granularity):
-        if granularity == 'year':
-            freq = 'YS'
-        elif granularity == 'season':
-            freq = 'QS-DEC'
-        elif granularity == 'month':
-            freq = 'MS'
-        else:
-            raise ValueError(f'unknown granularity={granularity}')
-        ds_avail = ds.notnull().resample({'time': freq}).mean()
-        t = ds_avail['time']
-        if granularity == 'year':
-            t2 = t.dt.year
-        elif granularity == 'season':
-            season = t.dt.month.to_series().map({12: 'DJF', 3: 'MAM', 6: 'JJA', 9: 'SON'})
-            t2 = t.dt.year.astype(str).str.cat('-', xr.DataArray(season))
-        elif granularity == 'month':
-            month = t.dt.month.to_series().map({m: str(m).zfill(2) for m in range(1, 13)})
-            t2 = t.dt.year.astype(str).str.cat('-', xr.DataArray(month))
-        else:
-            raise ValueError(f'unknown granularity={granularity}')
-        ds_avail['time2'] = t2
-        return ds_avail.set_coords('time2')
-
-    def get_heatmap(ds_avail, v, color):
-        heatmap = go.Heatmap(
-            z=np.expand_dims(ds_avail[v].values, 0),
-            x=ds_avail['time2'],
-            y=[v],
-            colorscale=[[0., f'rgba{color + (0, )}'], [1., f'rgba{color + (255, )}']],
-            hovertemplate='%{x}: %{z}',
-            name=v,
-            showscale=False,
-            xgap=1,
-        )
-        return heatmap
-
-    ds_avail = get_data_avail_with_freq(ds, granularity)
-    traces = [get_heatmap(ds_avail, v, color) for v, color in color_mapping.items()]
-    for i, trace in enumerate(reversed(traces)):
-        if i > 0:
-            trace.update(yaxis=f'y{i+1}')
-
-    n_vars = max(len(traces), 1)
-    dy = 1 / n_vars
-    ys = np.linspace(0, 1, n_vars + 1)
-    layout_dict = {
-        'autosize': False,
-        'height': 100 + 40 * n_vars,
-        'margin': {'b': 80, 't': 40},
-    }
-    for i, y1, y2 in zip(range(1, n_vars + 1), ys[:-1], ys[1:]):
-        yaxis = 'yaxis' if i == 1 else f'yaxis{i}'
-        layout_dict[yaxis] = {'domain': [y1 + 0.05 * dy, y2 - 0.05 * dy]}
-    layout = go.Layout(layout_dict)
-    fig = go.Figure(data=traces, layout=layout)
-    fig.update_xaxes(title='time')
-    return fig
-
-
 def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_x=False, log_y=False):
     color = f'rgb{color}' if isinstance(color, tuple) and len(color) == 3 else color
 
@@ -473,6 +368,7 @@ def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_
     return fig
 
 
+# TODO: remove as deprecated; use multi-line plot instead
 def _plot_vars(ds, v1, v2=None):
     vars_long = data_access.get_vars_long()
     vs = [v1, v2] if v2 is not None else [v1]
@@ -527,3 +423,149 @@ def _plot_vars(ds, v1, v2=None):
         )
 
     return fig
+
+
+def align_range(rng, nticks, log_coeffs=(2, 2.5, 5)):
+    if nticks < 3:
+        ValueError(f'no_ticks must be an integer >= 3; got no_ticks={nticks}')
+    nticks = int(nticks)
+
+    log_coeffs = log_coeffs + (10,)
+    low, high = rng
+    if np.isnan(low) or np.isnan(high):
+        return (0, 1), 0, 1 / (nticks - 1)
+
+    dtick = (high - low) / (nticks - 2)
+    dtick_base = np.power(10, np.floor(np.log10(dtick)))
+    dlog_dtick = dtick / dtick_base
+    for log_coeff in log_coeffs:
+        if dlog_dtick <= log_coeff:
+            break
+    dtick = dtick_base * log_coeff
+    delta_aligned = dtick * (nticks - 1)
+    low_aligned = np.floor(low / dtick) * dtick
+    high_aligned = np.ceil(high / dtick) * dtick
+    while high_aligned - low_aligned < delta_aligned - dtick / 2:
+        high_aligned += dtick
+        if high_aligned - low_aligned < delta_aligned - dtick / 2:
+            low_aligned -= dtick
+    return (low_aligned, high_aligned), low_aligned, dtick
+
+
+def multi_line(df, width=1000, height=500, scatter_mode='lines', nticks=None, color_mapping=None, range_tick0_dtick_by_var=None):
+    """
+
+    :param df: pandas DataFrame or dict of pandas Series (in that case each series might have a different index)
+    :param width:
+    :param height:
+    :param scatter_mode:
+    :param nticks:
+    :param color_mapping:
+    :param range_tick0_dtick_by_var:
+    :return:
+    """
+    nvars = len(list(df))
+    if not (nvars >= 1):
+        return None
+    if nticks is None:
+        nticks = max(height // 50, 3)
+    if color_mapping is None:
+        color_mapping = get_color_mapping(list(df))
+    if range_tick0_dtick_by_var is None:
+        range_by_var = {v: (df[v].min(), df[v].max()) for v in df}
+        range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range(rng, nticks=nticks), range_by_var)
+
+    fig = go.Figure()
+
+    for i, (variable_label, variable_values) in enumerate(df.items()):
+        if i > 0:
+            yaxis = {'yaxis': f'y{i+1}'}
+        else:
+            yaxis = {}
+
+        scatter = go.Scatter(
+            x=variable_values.index.values,
+            y=variable_values.values,
+            name=variable_label,
+            mode=scatter_mode,
+            marker_color=f'rgb{color_mapping[variable_label]}',
+            **yaxis,
+        )
+        fig.add_trace(scatter)
+
+    delta_domain = min(75 / width, 0.5 / nvars)
+    domain = [delta_domain * ((nvars - 1) // 2), min(1 - delta_domain * ((nvars - 2) // 2), 1)]
+    print(nvars, domain)
+    fig.update_layout(xaxis={'domain': domain})
+
+    for i, (variable_label, (rng, tick0, dtick)) in enumerate(range_tick0_dtick_by_var.items()):
+        yaxis_props = {
+            #'gridcolor': 'black',
+            #'gridwidth': 1,
+            'range': rng,
+            'tick0': tick0,
+            'dtick': dtick,
+            'tickcolor': f'rgb{color_mapping[variable_label]}',
+            'ticklabelposition': 'outside',
+            'tickfont_color': f'rgb{color_mapping[variable_label]}',
+            #'minor_showgrid': False,
+            'title': {
+                'font_color': f'rgb{color_mapping[variable_label]}',
+                'standoff': 0,
+                'text': variable_label,
+            },
+            'showline': True,
+            'linewidth': 2,
+            'linecolor': f'rgb{color_mapping[variable_label]}',
+            'zeroline': True,
+            'zerolinewidth': 1,
+            #'zerolinecolor': 'black',
+            'fixedrange': True,
+        }
+        if i > 0:
+            yaxis_props.update({'overlaying': 'y'})
+
+        idx_of_last_variable_on_left_side = (nvars + 1) // 2 - 1
+        idx_of_first_variable_on_right_side = (nvars + 1) // 2
+        if i == idx_of_last_variable_on_left_side:
+            yaxis_props.update({
+                'side': 'left',
+                #'ticks': 'inside',
+            })
+        elif i == idx_of_first_variable_on_right_side:
+            yaxis_props.update({
+                'anchor': 'x',
+                'side': 'right',
+                #'ticks': 'inside',
+            })
+        else:
+            if i < idx_of_last_variable_on_left_side:
+                position = delta_domain * i
+                side = 'left'
+            else:
+                position = 1 - delta_domain * (nvars - 1 - i)
+                side = 'right'
+            yaxis_props.update({
+                'anchor': 'free',
+                'position': position,
+                'side': side,
+            })
+
+        yaxis_id = 'yaxis' if i == 0 else f'yaxis{i+1}'
+        fig.update_layout({yaxis_id: yaxis_props})
+
+    fig_size = {}
+    if height:
+        #fig_size['minreducedheight'] = height
+        fig_size['height'] = height
+    if width:
+        #fig_size['minreducedwidth'] = width
+        fig_size['width'] = width
+    if fig_size:
+        fig.update_layout(fig_size)
+
+    return fig
+
+
+def empty_figure():
+    return go.Figure()

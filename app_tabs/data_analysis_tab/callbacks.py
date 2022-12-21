@@ -1,3 +1,7 @@
+import toolz
+import numpy as np
+import xarray as xr
+import pandas as pd
 import dash
 from dash import Input, State, Output, callback
 import plotly.express as px
@@ -5,6 +9,7 @@ import plotly.express as px
 from ..common.layout import FILTER_DATA_REQUEST_ID
 from .layout import VARIABLES_CHECKLIST_ID, GRAPH_ID, RADIO_ID
 import data_processing
+from utils import charts
 
 
 @callback(
@@ -33,7 +38,7 @@ def get_variables_callback(filter_data_request):
     Input(VARIABLES_CHECKLIST_ID, 'value'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     Input(RADIO_ID, 'value'),
-    # prevent_initial_call=True,
+    prevent_initial_call=True,
 )
 def get_plot_callback(vs, filter_data_request, param):
     if dash.ctx.triggered_id is None or filter_data_request is None:
@@ -41,14 +46,36 @@ def get_plot_callback(vs, filter_data_request, param):
 
     req = data_processing.FilterDataRequest.from_dict(filter_data_request)
     da_by_var = req.compute()
-    fig_by_var = {}
-    for v, da in da_by_var.items():
-        if v in vs:
-            da_mean = da.resample({'time': param}).mean()
-            df = da_mean.to_dataframe()
-            fig_by_var[v] = px.line(df, y=v)
+    da_by_var_filtered = toolz.keyfilter(lambda v: v in vs, da_by_var)
+    if len(da_by_var_filtered) == 0:
+        return charts.empty_figure()
 
-    if len(fig_by_var) == 0:
-        raise dash.exceptions.PreventUpdate
+    da_agg_by_var_filtered = toolz.valmap(lambda da: da.resample({'time': param}).mean(), da_by_var_filtered)
+    df = xr.Dataset(da_agg_by_var_filtered).reset_coords(drop=True).to_dataframe()
+    colors_by_var = charts.get_color_mapping(da_by_var)
 
-    return list(fig_by_var.values())[0]
+    width = 1200
+    fig = charts.multi_line(df, width=width, height=600, color_mapping=colors_by_var)
+
+    # show title, legend, watermark, etc.
+    nvars = len(da_by_var_filtered)
+    delta_domain = min(75 / width, 0.5 / nvars)
+    annotations = [dict(
+        name="sdfs watermark",
+        text="ATMO-ACCESS",
+        textangle=-30,
+        opacity=0.1,
+        font=dict(color="black", size=75),
+        xref="paper",
+        yref="paper",
+        x=0.5 - delta_domain * (nvars % 2),
+        y=0.5,
+        showarrow=False,
+    )]
+    fig.update_layout(
+        legend=dict(orientation='h'),
+        title='Here comes a title...',
+        annotations=annotations,
+    )
+
+    return fig

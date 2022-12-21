@@ -130,7 +130,7 @@ def filter_dataset(
         if cond is not True:
             cond_by_varlabel[v] = cond
 
-    if not ignore_time:
+    if filter_data_request or not ignore_time:
         if 'time' in rng_by_varlabel:
             _t_min, _t_max = get_var_range(rng_by_varlabel['time'])
         else:
@@ -149,15 +149,22 @@ def filter_dataset(
             if cond_for_v is not None:
                 cond &= cond_for_v
 
-        if not ignore_time:
+        def get_time_cond(da, _t_min, _t_max):
+            cond = True
             if _t_min is not None:
                 cond &= da['time'] >= _t_min
             if _t_max is not None:
                 cond &= da['time'] <= _t_max
+            return cond
+
+        if filter_data_request or not ignore_time:
+            time_cond = get_time_cond(da, _t_min, _t_max)
+            cond &= time_cond
 
         if cond is not True:
-            ds_filtered[v] = da.where(cond, drop=False)
-        else:
-            ds_filtered[v] = da
+            da = da.where(cond, drop=False)
+        if filter_data_request and time_cond is not True:
+            da = da.where(time_cond, drop=True)
+        ds_filtered[v] = da
 
     return ds_filtered
