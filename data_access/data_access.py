@@ -521,7 +521,7 @@ def read_dataset(ri, url, ds_metadata, selector=None):
     if not isinstance(url, str):
         raise ValueError(f'url must be str; got: {url} of type={type(url)}')
 
-    logger().info(f'ri={ri}, url={url}, ds_metadata=\n{ds_metadata}')
+    # logger().info(f'ri={ri}, url={url}, ds_metadata=\n{ds_metadata}')
 
     ri = ri.lower()
     if ri == 'actris':

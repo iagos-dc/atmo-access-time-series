@@ -6,8 +6,6 @@ import pandas as pd
 import xarray as xr
 import numba
 
-import data_processing
-
 
 @numba.njit
 def _get_max_ind_of_a_leq_b(a, b):

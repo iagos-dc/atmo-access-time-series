@@ -2,18 +2,48 @@ import toolz
 import numpy as np
 import pandas as pd
 import xarray as xr
+import numba
 from plotly import express as px, graph_objects as go
-from plotly.subplots import make_subplots
-
-
-# TODO: remove this import once _plot_vars is removed
-import data_access
 
 
 # Color codes
 ACTRIS_COLOR_HEX = '#00adb7'
 IAGOS_COLOR_HEX = '#456096'
 ICOS_COLOR_HEX = '#ec165c'
+
+
+@numba.njit
+def _first_index_with_two_consecutive_notnan(a):
+    n = len(a)
+    for i in range(n - 1):
+        if not np.isnan(a[i]) and not np.isnan(a[i + 1]):
+            return i
+    return None
+
+
+def plotly_scatter(x, y, *args, **kwargs):
+    """
+    This is a thin wrapper around plotly.graph_objects.Scatter. It workaround plotly bug:
+    Artifacts on line scatter plot when the first item is None #3959
+    https://github.com/plotly/plotly.py/issues/3959
+    """
+    x = np.asarray(x)
+    y = np.asarray(y)
+    i = _first_index_with_two_consecutive_notnan(y)
+    if i is not None:
+        if i > 0:
+            x = x[i:]
+            y = y[i:]
+    else:
+        x = None
+        y = None
+
+    return go.Scatter(
+        x=x,
+        y=y,
+        *args,
+        **kwargs
+    )
 
 
 def _contiguous_periods(start, end, var_codes=None, dt=pd.Timedelta('1D')):
@@ -368,63 +398,6 @@ def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_
     return fig
 
 
-# TODO: remove as deprecated; use multi-line plot instead
-def _plot_vars(ds, v1, v2=None):
-    vars_long = data_access.get_vars_long()
-    vs = [v1, v2] if v2 is not None else [v1]
-    v_names = []
-    for v in vs:
-        try:
-            v_name = vars_long.loc[vars_long['variable_name'] == v]['std_ECV_name'].iloc[0] + f' ({v})'
-        except:
-            v_name = v
-        v_names.append(v_name)
-    fig = go.Figure()
-    for i, v in enumerate(vs):
-        da = ds[v]
-        fig.add_trace(go.Scatter(
-            x=da['time'].values,
-            y=da.values,
-            name=v,
-            yaxis=f'y{i + 1}'
-        ))
-
-    fig.update_layout(
-        xaxis=dict(
-            domain=[0.0, 0.95]
-        ),
-        yaxis1=dict(
-            title=v_names[0],
-            titlefont=dict(
-                color="#1f77b4"
-            ),
-            tickfont=dict(
-                color="#1f77b4"
-            ),
-            anchor='x',
-            side='left',
-        ),
-    )
-    if v2 is not None:
-        fig.update_layout(
-            yaxis2=dict(
-                title=v_names[1],
-                titlefont=dict(
-                    color="#ff7f0e"
-                ),
-                tickfont=dict(
-                    color="#ff7f0e"
-                ),
-                anchor="x",
-                overlaying="y1",
-                side="right",
-                # position=0.15
-            ),
-        )
-
-    return fig
-
-
 def align_range(rng, nticks, log_coeffs=(2, 2.5, 5)):
     if nticks < 3:
         ValueError(f'no_ticks must be an integer >= 3; got no_ticks={nticks}')
@@ -483,7 +456,7 @@ def multi_line(df, width=1000, height=500, scatter_mode='lines', nticks=None, co
         else:
             yaxis = {}
 
-        scatter = go.Scatter(
+        scatter = plotly_scatter(
             x=variable_values.index.values,
             y=variable_values.values,
             name=variable_label,
@@ -621,7 +594,7 @@ def add_watermark(fig, size=None):
 
     annotations = [dict(
         name="watermark",
-        text="ATMO-ACCESS",
+        text="ATMO ACCESS",
         textangle=-30,
         opacity=0.1,
         font=dict(color="black", size=size),

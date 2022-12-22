@@ -25,11 +25,18 @@ def callback_args_by_time():
 def log_args(func):
     @functools.wraps(func)
     def log_args_wrapper(*args, **kwargs):
-        args_str = ', '.join(f'{arg}' for arg in args)
-        kwargs_str = ', '.join([f'{k}={v}' for k, v in kwargs.items()])
-        params_str = ', '.join([s for s in (args_str, kwargs_str) if s])
-        logger().info(f'{func.__module__}.{func.__qualname__}({params_str})')
-        return func(*args, **kwargs)
+        # args_str = ', '.join(f'{arg}' for arg in args)
+        # kwargs_str = ', '.join([f'{k}={v}' for k, v in kwargs.items()])
+        # params_str = ', '.join([s for s in (args_str, kwargs_str) if s])
+        ret = func(*args, **kwargs)
+        log_str_lines = [f'{func.__module__}.{func.__qualname__}']
+        for arg in args:
+            log_str_lines.append(f'  {arg}')
+        for k, v in kwargs.items():
+            log_str_lines.append(f'  {k}={v}')
+        log_str_lines.append(f'result: {ret}')
+        logger().info('\n'.join(log_str_lines))
+        return ret
     return log_args_wrapper
 
 

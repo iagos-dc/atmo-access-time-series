@@ -1,3 +1,4 @@
+import numpy as np
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -13,6 +14,24 @@ from app_tabs.common.layout import INTEGRATE_DATASETS_REQUEST_ID, FILTER_DATA_RE
 from utils import charts
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id, \
     GraphWithHorizontalSelectionAIO
+
+
+def _get_min_max_time(da_by_var):
+    t_min, t_max = None, None
+    for _, da in da_by_var.items():
+        t = da['time']
+        if len(t) == 0:
+            continue
+        t0, t1 = t.min().values, t.max().values
+        if not np.isnan(t0) and t_min is None or t0 < t_min:
+            t_min = t0
+        if not np.isnan(t1) and t_max is None or t1 > t_max:
+            t_max = t1
+    if t_min is not None:
+        t_min = pd.Timestamp(t_min).strftime('%Y-%m-%d %H:%M')
+    if t_max is not None:
+        t_max = pd.Timestamp(t_max).strftime('%Y-%m-%d %H:%M')
+    return t_min, t_max
 
 
 @callback(
@@ -98,8 +117,7 @@ def update_histograms_callback(
         figures_data = []
         for i in figure_ids:
             if i['aio_id'] == 'time_filter-time':
-                t_min = pd.Timestamp(min(da['time'].min().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
-                t_max = pd.Timestamp(max(da['time'].max().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
+                t_min, t_max = _get_min_max_time(ds)
                 new_fig = {
                     'fig': charts.get_avail_data_by_var_heatmap(
                         data_processing.filter_dataset(
@@ -122,8 +140,7 @@ def update_histograms_callback(
         figure_data = get_fig(aio_id)
         return set_value_by_aio_id(aio_id, figure_ids, figure_data), not cross_filtering, filter_time_coincidence_select_style
     elif not isinstance(ctx.triggered_id, str) and ctx.triggered_id.get('subcomponent') == 'time_granularity_radio':
-        t_min = pd.Timestamp(min(da['time'].min().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
-        t_max = pd.Timestamp(max(da['time'].max().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
+        t_min, t_max = _get_min_max_time(ds)
         new_fig = {
             'fig': charts.get_avail_data_by_var_heatmap(
                 data_processing.filter_dataset(
@@ -156,8 +173,8 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
 
     color_mapping = charts.get_color_mapping(ds)
 
-    t_min = pd.Timestamp(min(da['time'].min().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
-    t_max = pd.Timestamp(max(da['time'].max().values for _, da in ds.items())).strftime('%Y-%m-%d %H:%M')
+    t_min, t_max = _get_min_max_time(ds)
+
     time_filter = GraphWithHorizontalSelectionAIO(
         'time_filter',
         'time',

@@ -109,6 +109,11 @@ def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clic
     elif ctx.triggered_id.subcomponent == 'graph':
         if selected_data_on_fig is not None and 'range' in selected_data_on_fig:
             new_x0, new_x1 = selected_data_on_fig['range']['x']
+
+            # plotly bug??? selected_data_on_fig['range']['x'] might have new_x0 > new_x1; so need to fix it:
+            if new_x0 > new_x1:
+                new_x0, new_x1 = new_x1, new_x0
+
             if x_axis_type == 'time':
                 new_x0 = pd.Timestamp(new_x0).strftime('%Y-%m-%d %H:%M')
                 new_x1 = pd.Timestamp(new_x1).strftime('%Y-%m-%d %H:%M')

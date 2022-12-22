@@ -51,7 +51,12 @@ def get_plot_callback(vs, filter_data_request, param):
         return charts.empty_figure()
 
     da_agg_by_var_filtered = toolz.valmap(lambda da: da.resample({'time': param}).mean(), da_by_var_filtered)
-    df = xr.Dataset(da_agg_by_var_filtered).reset_coords(drop=True).to_dataframe()
+    da_agg = [da.rename(v) for v, da in da_agg_by_var_filtered.items()]
+
+    # TODO: this is a temporary patch for the issue of conflicting 'layer' coordinates
+    #df = xr.Dataset(da_agg_by_var_filtered).reset_coords(drop=True).to_dataframe()
+    df = xr.merge(da_agg, compat='override').reset_coords(drop=True).to_dataframe()
+
     colors_by_var = charts.get_color_mapping(da_by_var)
 
     width = 1200
