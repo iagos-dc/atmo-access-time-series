@@ -2,7 +2,6 @@ import toolz
 import numpy as np
 import pandas as pd
 import xarray as xr
-import numba
 from plotly import express as px, graph_objects as go
 
 
@@ -12,35 +11,19 @@ IAGOS_COLOR_HEX = '#456096'
 ICOS_COLOR_HEX = '#ec165c'
 
 
-@numba.njit
-def _first_index_with_two_consecutive_notnan(a):
-    n = len(a)
-    for i in range(n - 1):
-        if not np.isnan(a[i]) and not np.isnan(a[i + 1]):
-            return i
-    return None
-
-
 def plotly_scatter(x, y, *args, **kwargs):
     """
     This is a thin wrapper around plotly.graph_objects.Scatter. It workaround plotly bug:
     Artifacts on line scatter plot when the first item is None #3959
     https://github.com/plotly/plotly.py/issues/3959
     """
-    x = np.asarray(x)
-    y = np.asarray(y)
-    i = _first_index_with_two_consecutive_notnan(y)
-    if i is not None:
-        if i > 0:
-            x = x[i:]
-            y = y[i:]
-    else:
-        x = None
-        y = None
-
+    x = np.asanyarray(x)
+    y = np.asanyarray(y)
+    y_isnan = np.isnan(y).astype('i4')
+    isolated_notnans = np.diff(y_isnan, n=2, prepend=1, append=1) == 2
     return go.Scatter(
         x=x,
-        y=y,
+        y=np.where(~isolated_notnans, y, np.nan),
         *args,
         **kwargs
     )
@@ -468,7 +451,6 @@ def multi_line(df, width=1000, height=500, scatter_mode='lines', nticks=None, co
 
     delta_domain = min(75 / width, 0.5 / nvars)
     domain = [delta_domain * ((nvars - 1) // 2), min(1 - delta_domain * ((nvars - 2) // 2), 1)]
-    print(nvars, domain)
     fig.update_layout(xaxis={'domain': domain})
 
     for i, (variable_label, (rng, tick0, dtick)) in enumerate(range_tick0_dtick_by_var.items()):
