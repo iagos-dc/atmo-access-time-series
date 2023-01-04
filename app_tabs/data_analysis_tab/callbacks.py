@@ -44,12 +44,17 @@ def get_variables_callback(filter_data_request, variables_checklist_all_none_swi
     Output(layout.DATA_ANALYSIS_SPECIFICATION_STORE_ID, 'data'),
     Input(layout.ANALYSIS_METHOD_RADIO_ID, 'value'),
     Input(layout.RADIO_ID, 'value'),
+    Input(layout.MIN_SAMPLE_SIZE_INPUT_ID, 'value'),
     Input(layout.SHOW_STD_SWITCH_ID, 'value')
 )
-def get_data_analysis_specification_store(analysis_method, params, show_std):
+def get_data_analysis_specification_store(analysis_method, params, min_sample_size, show_std):
+    if min_sample_size is None:
+        # this happens when a user enters an invalid input in layout.MIN_SAMPLE_SIZE_INPUT_ID
+        raise dash.exceptions.PreventUpdate
     analysis_spec = {
         'method': analysis_method,
         'aggregation_period': params,
+        'min_sample_size': min_sample_size,
         'show_std': show_std,
     }
     print(analysis_spec)
@@ -78,8 +83,8 @@ def get_plot_callback(vs, filter_data_request, analysis_spec):
     analysis_method = analysis_spec['method']
     if analysis_method == layout.GAUSSIAN_MEAN_AND_STD_METHOD:
         aggregation_period = analysis_spec['aggregation_period']
-        show_std = analysis_spec['show_std']
-        mean, std, _ = analysis.gaussian_mean_and_std(da_by_var, aggregation_period, calc_std=show_std)
+        min_sample_size = analysis_spec['min_sample_size']
+        mean, std, _ = analysis.gaussian_mean_and_std(da_by_var, aggregation_period, min_sample_size=min_sample_size)
         width = 1200
         fig = charts.multi_line(
             mean.to_dataframe(),

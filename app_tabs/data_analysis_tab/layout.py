@@ -15,6 +15,8 @@ DATA_ANALYSIS_SPECIFICATION_STORE_ID = 'data-analysis-specification-store'
 
 RADIO_ID = 'data-analysis-parameter-radio'
 
+MIN_SAMPLE_SIZE_INPUT_ID = 'data-analysis-min-sample-size'
+
 SHOW_STD_SWITCH_ID = 'data-analysis-show-std-switch'
 
 GRAPH_ID = 'data-analysis-graph'
@@ -81,6 +83,12 @@ def get_analysis_parameters_card():
                     ],
                     value='M',
                 ),
+                dbc.InputGroup(
+                    [
+                        dbc.InputGroupText('Minimal sample size for period:'),
+                        dbc.Input(type='number', min=1, step=1, value=5, id=MIN_SAMPLE_SIZE_INPUT_ID),
+                    ]
+                ), 
                 dbc.Switch(
                     id=SHOW_STD_SWITCH_ID,
                     label='Calculate standard deviation',
