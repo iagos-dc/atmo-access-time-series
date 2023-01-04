@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from plotly import express as px, graph_objects as go
+import plotly.colors
 
 
 # Color codes
@@ -11,22 +12,70 @@ IAGOS_COLOR_HEX = '#456096'
 ICOS_COLOR_HEX = '#ec165c'
 
 
-def plotly_scatter(x, y, *args, **kwargs):
+def rgb_to_rgba(rgb, opacity):
+    return f'rgba{plotly.colors.unlabel_rgb(rgb) + (opacity * 255,)}'
+
+
+def plotly_scatter(x, y, *args, y_std=None, std_mode=None, **kwargs):
     """
     This is a thin wrapper around plotly.graph_objects.Scatter. It workaround plotly bug:
     Artifacts on line scatter plot when the first item is None #3959
     https://github.com/plotly/plotly.py/issues/3959
+
+    :param std_mode: 'fill', 'error_bars' or None;
     """
+    assert std_mode in ['fill', 'error_bars', None]
+
     x = np.asanyarray(x)
     y = np.asanyarray(y)
     y_isnan = np.isnan(y).astype('i4')
-    isolated_notnans = np.diff(y_isnan, n=2, prepend=1, append=1) == 2
-    return go.Scatter(
+    isolated_points = np.diff(y_isnan, n=2, prepend=1, append=1) == 2
+    y_without_isolated_points = np.where(~isolated_points, y, np.nan)
+
+    if y_std is not None and std_mode == 'error_bars':
+        kwargs = kwargs.copy()
+        y_std = np.asanyarray(y_std)
+        y_std_without_isolated_points_y = np.where(~isolated_points, y_std, np.nan)
+        kwargs['error_y'] = go.scatter.ErrorY(array=y_std_without_isolated_points_y, symmetric=True, type='data')
+
+    y_scatter = go.Scatter(
         x=x,
-        y=np.where(~isolated_notnans, y, np.nan),
+        y=y_without_isolated_points,
         *args,
         **kwargs
     )
+    if y_std is None or std_mode != 'fill':
+        return y_scatter
+    else:
+        # y_std is not None ad std_mode == 'fill'
+        y_std = np.asanyarray(y_std)
+
+        kwargs_lo = kwargs.copy()
+        kwargs_lo['mode'] = 'lines'
+        kwargs_lo.pop('line_width', None)
+        kwargs_lo.setdefault('line', {})
+        kwargs_lo['line']['width'] = 0
+        kwargs_lo['showlegend'] = False
+
+        y_max = np.nanmax(np.abs(y) + y_std)
+        # this is a not very elegant workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
+        y_lo = np.nan_to_num(y - y_std, nan=y_max * 1e10)
+        y_scatter_lo = plotly_scatter(x, y_lo, *args, **kwargs_lo)
+
+        kwargs_hi = kwargs_lo.copy()
+        kwargs_hi['fill'] = 'tonexty'
+        if 'marker' in kwargs_hi and isinstance(kwargs_hi['marker'], dict) and 'color' in kwargs_hi['marker']:
+            color_rgb = kwargs_hi['marker']['color']
+            kwargs_hi['marker']['color'] = rgb_to_rgba(color_rgb, 0.3)
+        elif 'marker_color' in kwargs_hi:
+            color_rgb = kwargs_hi['marker_color']
+            kwargs_hi['marker_color'] = rgb_to_rgba(color_rgb, 0.3)
+
+        # this is a not very elegant workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
+        y_hi = np.nan_to_num(y + y_std, nan=y_max * 1e10)
+        y_scatter_hi = plotly_scatter(x, y_hi, *args, **kwargs_hi)
+
+        return y_scatter, y_scatter_lo, y_scatter_hi
 
 
 def _contiguous_periods(start, end, var_codes=None, dt=pd.Timedelta('1D')):
@@ -163,7 +212,6 @@ def get_avail_data_by_var_gantt(ds):
 
 
 def colors():
-    import plotly.colors
     list_of_rgb_triples = [plotly.colors.hex_to_rgb(hex_color) for hex_color in px.colors.qualitative.Dark24]
     return list_of_rgb_triples
 
@@ -408,10 +456,11 @@ def align_range(rng, nticks, log_coeffs=(2, 2.5, 5)):
     return (low_aligned, high_aligned), low_aligned, dtick
 
 
-def multi_line(df, width=1000, height=500, scatter_mode='lines', nticks=None, color_mapping=None, range_tick0_dtick_by_var=None):
+def multi_line(df, df_std=None, std_mode='fill', width=1000, height=500, scatter_mode='lines', nticks=None, color_mapping=None, range_tick0_dtick_by_var=None):
     """
 
     :param df: pandas DataFrame or dict of pandas Series (in that case each series might have a different index)
+    :param std_mode: 'fill' or 'error_bars' or None
     :param width:
     :param height:
     :param scatter_mode:
@@ -429,6 +478,19 @@ def multi_line(df, width=1000, height=500, scatter_mode='lines', nticks=None, co
         color_mapping = get_color_mapping(list(df))
     if range_tick0_dtick_by_var is None:
         range_by_var = {v: (df[v].min(), df[v].max()) for v in df}
+        if df_std is not None:
+            # adjust min/max of y-axis so that mean+std, mean-std are within min/max
+            for v, rng in list(range_by_var.items()):
+                if v in df_std:
+                    lo, hi = rng
+                    lo_with_std = (df[v] - df_std[v]).min()
+                    if lo_with_std < lo:
+                        lo = lo_with_std
+                    hi_with_std = (df[v] + df_std[v]).max()
+                    if hi_with_std > hi:
+                        hi = hi_with_std
+                range_by_var[v] = (lo, hi)
+
         range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range(rng, nticks=nticks), range_by_var)
 
     fig = go.Figure()
@@ -439,15 +501,28 @@ def multi_line(df, width=1000, height=500, scatter_mode='lines', nticks=None, co
         else:
             yaxis = {}
 
+        if df_std is not None and variable_label in df_std:
+            y_std = df_std[variable_label]
+            assert y_std.index.equals(variable_values.index)
+            y_std = y_std.values
+        else:
+            y_std = None
+
         scatter = plotly_scatter(
             x=variable_values.index.values,
             y=variable_values.values,
+            y_std=y_std,
+            std_mode=std_mode,
+            legendgroup=variable_label,
             name=variable_label,
             mode=scatter_mode,
             marker_color=f'rgb{color_mapping[variable_label]}',
             **yaxis,
         )
-        fig.add_trace(scatter)
+        if isinstance(scatter, tuple):
+            fig.add_traces(scatter)
+        else:
+            fig.add_trace(scatter)
 
     delta_domain = min(75 / width, 0.5 / nvars)
     domain = [delta_domain * ((nvars - 1) // 2), min(1 - delta_domain * ((nvars - 2) // 2), 1)]

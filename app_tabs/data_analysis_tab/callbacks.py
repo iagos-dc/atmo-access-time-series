@@ -6,20 +6,23 @@ import dash
 from dash import Input, State, Output, callback
 import plotly.express as px
 
-from ..common.layout import FILTER_DATA_REQUEST_ID
-from .layout import VARIABLES_CHECKLIST_ID, GRAPH_ID, RADIO_ID
+from ..common import layout as common_layout
+from . import layout
 import data_processing
+from data_processing import analysis
 from utils import charts
 
 
 @callback(
-    Output(VARIABLES_CHECKLIST_ID, 'options'),
-    Output(VARIABLES_CHECKLIST_ID, 'value'),
-    Input(FILTER_DATA_REQUEST_ID, 'data'),
+    Output(layout.VARIABLES_CHECKLIST_ID, 'options'),
+    Output(layout.VARIABLES_CHECKLIST_ID, 'value'),
+    Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
+    Input(layout.VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
     # prevent_initial_call=True,
 )
-def get_variables_callback(filter_data_request):
-    if dash.ctx.triggered_id is None or filter_data_request is None:
+def get_variables_callback(filter_data_request, variables_checklist_all_none_switch):
+    trigger = dash.ctx.triggered_id
+    if trigger is None or filter_data_request is None:
         raise dash.exceptions.PreventUpdate
 
     req = data_processing.FilterDataRequest.from_dict(filter_data_request)
@@ -29,43 +32,67 @@ def get_variables_callback(filter_data_request):
         raise dash.exceptions.PreventUpdate
 
     options = [{'label': v, 'value': v} for v in vs]
-    value = [vs[0]]
+    if variables_checklist_all_none_switch:
+        value = vs
+    else:
+        value = []
+
     return options, value
 
 
 @callback(
-    Output(GRAPH_ID, 'figure'),
-    Input(VARIABLES_CHECKLIST_ID, 'value'),
-    Input(FILTER_DATA_REQUEST_ID, 'data'),
-    Input(RADIO_ID, 'value'),
+    Output(layout.DATA_ANALYSIS_SPECIFICATION_STORE_ID, 'data'),
+    Input(layout.ANALYSIS_METHOD_RADIO_ID, 'value'),
+    Input(layout.RADIO_ID, 'value'),
+    Input(layout.SHOW_STD_SWITCH_ID, 'value')
+)
+def get_data_analysis_specification_store(analysis_method, params, show_std):
+    analysis_spec = {
+        'method': analysis_method,
+        'aggregation_period': params,
+        'show_std': show_std,
+    }
+    print(analysis_spec)
+    return analysis_spec
+
+
+@callback(
+    Output(layout.GRAPH_ID, 'figure'),
+    Input(layout.VARIABLES_CHECKLIST_ID, 'value'),
+    Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
+    Input(layout.DATA_ANALYSIS_SPECIFICATION_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
-def get_plot_callback(vs, filter_data_request, param):
-    if dash.ctx.triggered_id is None or filter_data_request is None:
+def get_plot_callback(vs, filter_data_request, analysis_spec):
+    if dash.ctx.triggered_id is None or filter_data_request is None or analysis_spec is None:
         raise dash.exceptions.PreventUpdate
 
     req = data_processing.FilterDataRequest.from_dict(filter_data_request)
     da_by_var = req.compute()
-    da_by_var_filtered = toolz.keyfilter(lambda v: v in vs, da_by_var)
-    if len(da_by_var_filtered) == 0:
-        return charts.empty_figure()
-
-    da_agg_by_var_filtered = toolz.valmap(lambda da: da.resample({'time': param}).mean(), da_by_var_filtered)
-    da_agg = [da.rename(v) for v, da in da_agg_by_var_filtered.items()]
-
-    # TODO: this is a temporary patch for the issue of conflicting 'layer' coordinates
-    #df = xr.Dataset(da_agg_by_var_filtered).reset_coords(drop=True).to_dataframe()
-    df = xr.merge(da_agg, compat='override').reset_coords(drop=True).to_dataframe()
-
     colors_by_var = charts.get_color_mapping(da_by_var)
 
-    width = 1200
-    fig = charts.multi_line(df, width=width, height=600, color_mapping=colors_by_var)
+    da_by_var = toolz.keyfilter(lambda v: v in vs, da_by_var)
+    if len(da_by_var) == 0:
+        return charts.empty_figure()
+
+    analysis_method = analysis_spec['method']
+    if analysis_method == layout.GAUSSIAN_MEAN_AND_STD_METHOD:
+        aggregation_period = analysis_spec['aggregation_period']
+        show_std = analysis_spec['show_std']
+        mean, std, _ = analysis.gaussian_mean_and_std(da_by_var, aggregation_period, calc_std=show_std)
+        width = 1200
+        fig = charts.multi_line(
+            mean.to_dataframe(),
+            df_std=std.to_dataframe() if std is not None else None,
+            width=width, height=600, color_mapping=colors_by_var
+        )
+    else:
+        raise NotImplementedError(analysis_method)
 
     # show title, legend, watermark, etc.
     fig.update_layout(
         legend=dict(orientation='h'),
-        title='Here comes a title...',
+        title=f'{analysis_method} for {", ".join(vs)}',
     )
     fig = charts.add_watermark(fig)
     return fig
