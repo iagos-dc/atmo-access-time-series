@@ -97,7 +97,7 @@ def update_graph_figure(fig_data, selected_range, fig):
     Input(to_input_id(MATCH), 'value'),
     State(selected_range_store_id(MATCH), 'data'),
 )
-#@log_callback_with_ret_value()
+# @log_callback_with_ret_value()
 def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clicks, x0, x1, selected_range):
     if ctx.triggered_id is None:
         raise dash.exceptions.PreventUpdate
@@ -331,50 +331,53 @@ class GraphWithHorizontalSelectionAIO(dbc.Container):
                 'fig': figure,
                 'rng': [x_min, x_max],
             }
-        super().__init__(
-            children=[
-                selected_range_store(
-                    aio_id,
-                    variable_label=variable_label,
-                    x_sel_min=None,
-                    x_sel_max=None,
-                ),
-                figure_data_store(aio_id, figure_data),
-                dbc.Container(
-                    [
-                        #html.H1('GraphWithHorizontalSelectionAIO'),
-                        #html.Hr(),
-                        dbc.Row(
-                            [
-                                dbc.Col(
-                                    dbc.Card([
-                                        # dbc.CardHeader(title if title is not None else 'Interval selected:'),
-                                        dbc.CardBody(
-                                            children=interval_controls_container(
-                                                aio_id,
-                                                x_axis_type,
-                                                x_label=x_label,
-                                                extra_dash_components=extra_dash_components,
-                                                extra_dash_components2=extra_dash_components2,
-                                            ),
-                                        ),
-                                    ]),
-                                    width=4,
-                                    align='start',
-                                ),
-                                dbc.Col(
-                                    graph(aio_id, figure=figure),
-                                    width=8,
-                                    align='start',
-                                ),
-                            ],
-                            align='start',
-                        ),
-                    ],
-                    fluid=True,
-                )
-            ],
+
+        children = [
+           selected_range_store(
+               aio_id,
+               variable_label=variable_label,
+               x_sel_min=None,
+               x_sel_max=None,
+           ),
+           figure_data_store(aio_id, figure_data),
+           dbc.Container(
+               [
+                   # html.H1('GraphWithHorizontalSelectionAIO'),
+                   # html.Hr(),
+                   dbc.Row(
+                       [
+                           dbc.Col(
+                               dbc.Card([
+                                   # dbc.CardHeader(title if title is not None else 'Interval selected:'),
+                                   dbc.CardBody(
+                                       children=interval_controls_container(
+                                           aio_id,
+                                           x_axis_type,
+                                           x_label=x_label,
+                                           extra_dash_components=extra_dash_components,
+                                           extra_dash_components2=extra_dash_components2,
+                                       ),
+                                   ),
+                               ]),
+                               width=4,
+                               align='start',
+                           ),
+                           dbc.Col(
+                               graph(aio_id, figure=figure),
+                               width=8,
+                               align='start',
+                           ),
+                       ],
+                       align='start',
+                   ),
+               ],
+               fluid=True,
+           )
+        ]
+
+        kwargs = kwargs.copy()
+        kwargs.update(
+            children=children,
             fluid=True,
-            #className='row',
-            **kwargs
         )
+        super().__init__(**kwargs)

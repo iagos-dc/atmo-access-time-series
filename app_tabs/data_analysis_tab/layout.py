@@ -1,5 +1,6 @@
 from dash import dcc, html
 import dash_bootstrap_components as dbc
+from utils import combo_input_AIO
 
 
 DATA_ANALYSIS_TAB_VALUE = 'data-analysis-tab'
@@ -9,17 +10,27 @@ VARIABLES_CHECKLIST_ID = 'data-analysis-variables-checklist'
 # options
 # value
 
+EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID = 'exploratory-analysis-inputs-group'
+
 ANALYSIS_METHOD_RADIO_ID = 'data-analysis-method-radio'
 
-DATA_ANALYSIS_SPECIFICATION_STORE_ID = 'data-analysis-specification-store'
+ANALYSIS_METHOD_PARAMETERS_CARD_BODY_ID = 'data-analysis-method-parameters-card-body'
 
-RADIO_ID = 'data-analysis-parameter-radio'
+GAUSSIAN_MEAN_AND_STD_COMBO_INPUT_AIO_ID = 'data-analysis-gaussian-mean-and-std-combo-input-aio'
+
+AGGREGATION_PERIOD_RADIO_ID = 'data-analysis-parameter-radio'
 
 MIN_SAMPLE_SIZE_INPUT_ID = 'data-analysis-min-sample-size'
 
 SHOW_STD_SWITCH_ID = 'data-analysis-show-std-switch'
 
+STD_MODE_RADIO_ID = 'data-analysis-std-mode-radio'
+
 GRAPH_ID = 'data-analysis-graph'
+
+GRAPH_SCATTER_MODE_RADIO_ID = 'data-analysis-graph-scatter-mode-radio'
+
+EXTRA_GRAPH_COMBO_INPUT_AIO_ID = 'data-analysis-extra-graph-combo-input-aio'
 
 
 GAUSSIAN_MEAN_AND_STD_METHOD = 'Gaussian mean and std'
@@ -54,76 +65,146 @@ def get_variables_checklist():
 
 
 def get_analysis_method_radio():
+    analysis_method_radio = dbc.RadioItems(
+        options=[{'label': analysis_method, 'value': analysis_method} for analysis_method in ANALYSIS_METHOD_LABELS],
+        value=ANALYSIS_METHOD_LABELS[0],
+        inline=False,
+        id=ANALYSIS_METHOD_RADIO_ID,
+    ),
+
     return dbc.Card([
         dbc.CardHeader('Analysis method'),
-        dbc.CardBody(
-            dbc.RadioItems(
-                options=[{'label': analysis_method, 'value': analysis_method} for analysis_method in ANALYSIS_METHOD_LABELS],
-                value='Gaussian mean and std',
-                inline=False,
-                id=ANALYSIS_METHOD_RADIO_ID,
-            ),
-        ),
+        dbc.CardBody(analysis_method_radio),
     ])
 
 
-def get_analysis_parameters_card():
+def get_analysis_method_parameters_card():
     return dbc.Card([
         dbc.CardHeader('Parameters'),
-        dbc.CardBody(
+        dbc.CardBody(id=ANALYSIS_METHOD_PARAMETERS_CARD_BODY_ID),
+    ])
+
+
+def _get_aggregation_period_input(id_):
+    return [
+        dbc.Label('Aggregation period:'),
+        dbc.RadioItems(
+            id=id_,
+            options=[
+                {'label': 'day', 'value': 'D'},
+                {'label': 'week', 'value': 'W'},
+                {'label': 'month', 'value': 'M'},
+                {'label': 'season', 'value': 'Q'},
+            ],
+            value='M',
+        )
+    ]
+
+
+def _get_minimal_sample_size_input(id_):
+    return [
+        dbc.InputGroup(
             [
-                dbc.Label('Aggregation period:'),
-                dbc.RadioItems(
-                    id=RADIO_ID,
-                    options=[
-                        {'label': 'day', 'value': 'D'},
-                        {'label': 'week', 'value': 'W'},
-                        {'label': 'month', 'value': 'M'},
-                        {'label': 'season', 'value': 'Q'},
-                    ],
-                    value='M',
-                ),
-                dbc.InputGroup(
-                    [
-                        dbc.InputGroupText('Minimal sample size for period:'),
-                        dbc.Input(type='number', min=1, step=1, value=5, id=MIN_SAMPLE_SIZE_INPUT_ID),
-                    ]
-                ), 
-                dbc.Switch(
-                    id=SHOW_STD_SWITCH_ID,
-                    label='Calculate standard deviation',
-                    # style={'margin-top': '10px'},
-                    value=False,
-                )
+                dbc.InputGroupText('Minimal sample size for period:'),
+                dbc.Input(id=id_, type='number', min=1, step=1, value=5),
             ]
+        )
+    ]
+
+
+def get_gaussian_mean_and_std_parameters_combo_input():
+    combo_inputs = [
+        *_get_aggregation_period_input(AGGREGATION_PERIOD_RADIO_ID),
+        *_get_minimal_sample_size_input(MIN_SAMPLE_SIZE_INPUT_ID),
+    ]
+
+    return combo_input_AIO.ComboInputAIO(
+        children=combo_inputs,
+        group_id=EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID,
+        aio_id=GAUSSIAN_MEAN_AND_STD_COMBO_INPUT_AIO_ID,
+        input_component_ids=[AGGREGATION_PERIOD_RADIO_ID, MIN_SAMPLE_SIZE_INPUT_ID]
+    )
+
+
+gaussian_mean_and_std_parameters_combo_input = get_gaussian_mean_and_std_parameters_combo_input()
+
+
+def get_gaussian_mean_and_std_extra_graph_controllers_combo_input():
+    combo_inputs = dbc.Row([
+        dbc.Col(
+            dbc.Switch(
+                id=SHOW_STD_SWITCH_ID,
+                label='Show standard deviation with',
+                # style={'margin-top': '10px'},
+                value=True,
+            ),
+            width='auto',
+        ),
+        dbc.Col(
+            dbc.RadioItems(
+                id=STD_MODE_RADIO_ID,
+                options=[
+                    {'label': 'fill', 'value': 'fill'},
+                    {'label': 'error bars', 'value': 'error_bars'},
+                ],
+                value='fill',
+                inline=True,
+            ),
+            width='auto',
         ),
     ])
+
+    return combo_input_AIO.ComboInputAIO(
+        children=combo_inputs,
+        group_id=EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID,
+        aio_id=EXTRA_GRAPH_COMBO_INPUT_AIO_ID,
+        input_component_ids=[SHOW_STD_SWITCH_ID, STD_MODE_RADIO_ID]
+    )
+
+
+gaussian_mean_and_std_extra_graph_controllers_combo_input = get_gaussian_mean_and_std_extra_graph_controllers_combo_input()
 
 
 def get_data_analysis_plot():
-    return dcc.Graph(
-        id=GRAPH_ID,
+    graph = dcc.Graph(id=GRAPH_ID)
+    scatter_mode_radio = dbc.RadioItems(
+        id=GRAPH_SCATTER_MODE_RADIO_ID,
+        options=[
+            {'label': 'lines', 'value': 'lines'},
+            {'label': 'markers', 'value': 'markers'},
+            {'label': 'lines+markers', 'value': 'lines+markers'},
+        ],
+        value='lines',
+        inline=True,
     )
+    scatter_mode_input_group = [
+        dbc.Label('Plot mode:', width='auto'),
+        dbc.Col(scatter_mode_radio),
+    ]
+
+    return [
+        dbc.Row(graph),
+        dbc.Row(scatter_mode_input_group, align='end'),
+        dbc.Row(id=EXTRA_GRAPH_COMBO_INPUT_AIO_ID),
+    ]
 
 
 def get_data_analysis_tab():
     data_analysis_tab_container_content = dbc.Row([
         dbc.Col(
             children=dbc.Container(
-                dbc.Row([
-                   get_variables_checklist(),
-                   get_analysis_method_radio(),
-                   get_analysis_parameters_card(),
-                ]),
+                [
+                    dbc.Row(get_variables_checklist()),
+                    dbc.Row(get_analysis_method_radio()),
+                    dbc.Row(get_analysis_method_parameters_card()),
+                ],
                 fluid=True,
             ),
             width=4,
         ),
         dbc.Col(
             children=dbc.Container(
-                dbc.Row([
-                    get_data_analysis_plot(),
-                ]),
+                get_data_analysis_plot(),
                 fluid=True,
             ),
             width=8),
@@ -133,7 +214,6 @@ def get_data_analysis_tab():
         label='Data analysis',
         value=DATA_ANALYSIS_TAB_VALUE,
         children=[
-            dcc.Store(id=DATA_ANALYSIS_SPECIFICATION_STORE_ID),
             html.Div(
                 style={'margin': '20px'},
                 children=dbc.Container(
