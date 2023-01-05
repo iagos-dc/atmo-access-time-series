@@ -3,10 +3,11 @@ import datetime
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 from plotly import express as px, graph_objects as go
+import plotly.colors
 
 import data_access
 from app_tabs.common.data import stations
-from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX
+from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX, rgb_to_rgba
 
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
 
@@ -120,13 +121,13 @@ def get_stations_map():
     fig.add_trace(go.Scattermapbox(
         mode="lines",
         fill="toself",
-        fillcolor='rgba(69, 96, 150, 0.05)',  # IAGOS_COLOR_HEX as rgba with opacity=0.05
+        fillcolor=rgb_to_rgba(IAGOS_COLOR_HEX, 0.05),  # IAGOS_COLOR_HEX as rgba with opacity=0.05
         lon=regions_lon,
         lat=regions_lat,
         marker={'color': IAGOS_COLOR_HEX},
         name='IAGOS',
         legendgroup='IAGOS',
-        opacity=0.7
+        opacity=0.3,
     ))
 
     # TODO: synchronize box selection on the map with max/min lon/lat input fields

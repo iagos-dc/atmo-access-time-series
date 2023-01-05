@@ -44,6 +44,10 @@ ANALYSIS_METHOD_LABELS = [
     AUTOCORRELATION_METHOD,
 ]
 
+# globals
+gaussian_mean_and_std_parameters_combo_input = None
+gaussian_mean_and_std_extra_graph_controllers_combo_input = None
+
 
 def get_variables_checklist():
     select_all_none_variable_switch = dbc.Switch(
@@ -112,7 +116,7 @@ def _get_minimal_sample_size_input(id_):
     ]
 
 
-def get_gaussian_mean_and_std_parameters_combo_input():
+def get_gaussian_mean_and_std_parameters_combo_input(parent_component):
     combo_inputs = [
         *_get_aggregation_period_input(AGGREGATION_PERIOD_RADIO_ID),
         *_get_minimal_sample_size_input(MIN_SAMPLE_SIZE_INPUT_ID),
@@ -120,16 +124,14 @@ def get_gaussian_mean_and_std_parameters_combo_input():
 
     return combo_input_AIO.ComboInputAIO(
         children=combo_inputs,
+        parent_component=parent_component,
         group_id=EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID,
         aio_id=GAUSSIAN_MEAN_AND_STD_COMBO_INPUT_AIO_ID,
         input_component_ids=[AGGREGATION_PERIOD_RADIO_ID, MIN_SAMPLE_SIZE_INPUT_ID]
     )
 
 
-gaussian_mean_and_std_parameters_combo_input = get_gaussian_mean_and_std_parameters_combo_input()
-
-
-def get_gaussian_mean_and_std_extra_graph_controllers_combo_input():
+def get_gaussian_mean_and_std_extra_graph_controllers_combo_input(parent_component):
     combo_inputs = dbc.Row([
         dbc.Col(
             dbc.Switch(
@@ -156,13 +158,11 @@ def get_gaussian_mean_and_std_extra_graph_controllers_combo_input():
 
     return combo_input_AIO.ComboInputAIO(
         children=combo_inputs,
+        parent_component=parent_component,
         group_id=EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID,
         aio_id=EXTRA_GRAPH_COMBO_INPUT_AIO_ID,
         input_component_ids=[SHOW_STD_SWITCH_ID, STD_MODE_RADIO_ID]
     )
-
-
-gaussian_mean_and_std_extra_graph_controllers_combo_input = get_gaussian_mean_and_std_extra_graph_controllers_combo_input()
 
 
 def get_data_analysis_plot():
@@ -190,6 +190,8 @@ def get_data_analysis_plot():
 
 
 def get_data_analysis_tab():
+    global gaussian_mean_and_std_parameters_combo_input, gaussian_mean_and_std_extra_graph_controllers_combo_input
+
     data_analysis_tab_container_content = dbc.Row([
         dbc.Col(
             children=dbc.Container(
@@ -210,7 +212,7 @@ def get_data_analysis_tab():
             width=8),
     ])
 
-    return dcc.Tab(
+    data_analysis_tab = dcc.Tab(
         label='Data analysis',
         value=DATA_ANALYSIS_TAB_VALUE,
         children=[
@@ -223,3 +225,8 @@ def get_data_analysis_tab():
             ),
         ]
     )
+
+    gaussian_mean_and_std_parameters_combo_input = get_gaussian_mean_and_std_parameters_combo_input(data_analysis_tab)
+    gaussian_mean_and_std_extra_graph_controllers_combo_input = get_gaussian_mean_and_std_extra_graph_controllers_combo_input(data_analysis_tab)
+
+    return data_analysis_tab

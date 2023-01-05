@@ -1,5 +1,6 @@
 from dash import dcc, html, callback, MATCH, ctx, ALL
 from dash.dependencies import Input, Output, State
+from dash.development.base_component import Component
 
 
 def _component_id(group, aio_id, component_name):
@@ -58,6 +59,7 @@ class ComboInputAIO(html.Div):
     def __init__(
             self,
             children,
+            parent_component,
             group_id,
             aio_id,
             input_component_ids,
@@ -66,9 +68,17 @@ class ComboInputAIO(html.Div):
         _set_subcomponents_id(children, group_id, aio_id, input_component_ids)
 
         if group_id not in self.created_groups:
+            # install dcc.Store as a child of a parent_component
             self.created_groups.add(group_id)
             combo_value = dcc.Store(id=get_combo_input_data_store_id(group_id))
-            children = list(children) + [combo_value]
+            if isinstance(parent_component.children, (list, tuple)):
+                parent_component.children = [combo_value] + list(parent_component.children)
+            elif parent_component.children is None:
+                parent_component.children = [combo_value]
+            elif isinstance(parent_component, Component):
+                parent_component.children = [combo_value, parent_component.children]
+            else:
+                raise ValueError(f'invalid type of parent_component; got type(parent_component)={type(parent_component)}')
 
         kwargs = kwargs.copy()
         kwargs.update(children=children)

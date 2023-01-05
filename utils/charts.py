@@ -13,10 +13,22 @@ ICOS_COLOR_HEX = '#ec165c'
 
 
 def rgb_to_rgba(rgb, opacity):
-    return f'rgba{plotly.colors.unlabel_rgb(rgb) + (opacity * 255,)}'
+    rgb_tuple = None
+    if isinstance(rgb, tuple):
+        rgb_tuple = rgb
+    elif isinstance(rgb, str):
+        if rgb.startswith('rgb(') and rgb.endswith(')'):
+            rgb_tuple = plotly.colors.unlabel_rgb(rgb)
+        elif rgb.startswith('#'):
+            rgb_tuple = plotly.colors.hex_to_rgb(rgb)
+
+    if rgb_tuple is None:
+        raise ValueError(f'invalid format of rgb; must be a tuple of 3 ints, a string rgb(R, G, B) or hex; got {rgb}')
+    rgba_tuple = rgb_tuple + (opacity, )
+    return f'rgba{rgba_tuple}'
 
 
-def plotly_scatter(x, y, *args, y_std=None, std_mode=None, **kwargs):
+def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2, **kwargs):
     """
     This is a thin wrapper around plotly.graph_objects.Scatter. It workaround plotly bug:
     Artifacts on line scatter plot when the first item is None #3959
@@ -64,13 +76,17 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, **kwargs):
 
         kwargs_hi = kwargs_lo.copy()
         kwargs_hi['fill'] = 'tonexty'
+        color_rgb = None
         if 'marker' in kwargs_hi and isinstance(kwargs_hi['marker'], dict) and 'color' in kwargs_hi['marker']:
             color_rgb = kwargs_hi['marker']['color']
-            kwargs_hi['marker']['color'] = rgb_to_rgba(color_rgb, 0.3)
         elif 'marker_color' in kwargs_hi:
             color_rgb = kwargs_hi['marker_color']
-            kwargs_hi['marker_color'] = rgb_to_rgba(color_rgb, 0.3)
-
+        elif 'line' in kwargs_hi and isinstance(kwargs_hi['line'], dict) and 'color' in kwargs_hi['line']:
+            color_rgb = kwargs_hi['line']['color']
+        elif 'line_color' in kwargs_hi:
+            color_rgb = kwargs_hi['line_color']
+        if color_rgb is not None:
+            kwargs_hi['fillcolor'] = rgb_to_rgba(color_rgb, std_fill_opacity)
         # this is a not very elegant workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
         y_hi = np.nan_to_num(y + y_std, nan=y_max * 1e10)
         y_scatter_hi = plotly_scatter(x, y_hi, *args, **kwargs_hi)
@@ -282,11 +298,12 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         z_data += 2 * np.arange(n_vars).reshape((n_vars, 1))
         # and here come the color scales:
         colorscale = [
-            [[2*i / (2*n_vars), f'rgba{color_mapping[v] + (0,)}'], [(2*i+1) / (2*n_vars), f'rgba{color_mapping[v] + (255,)}']]
+            # [[2*i / (2*n_vars), f'rgba{color_mapping[v] + (0,)}'], [(2*i+1) / (2*n_vars), f'rgba{color_mapping[v] + (255,)}']]
+            [[2*i / (2*n_vars), rgb_to_rgba(color_mapping[v], 0)], [(2*i+1) / (2*n_vars), rgb_to_rgba(color_mapping[v], 1)]]
             for i, v in enumerate(vs)
         ]
         colorscale = sum(colorscale, start=[])
-        colorscale.append([1., 'rgba(255, 255, 255, 255)'])  # must define whatever color for z / zmax = 1.
+        colorscale.append([1., 'rgba(255, 255, 255, 1)'])  # must define whatever color for z / zmax = 1.
         xperiod0 = None
         if granularity == 'year':
             xperiod = 'M12'
@@ -516,7 +533,7 @@ def multi_line(df, df_std=None, std_mode='fill', width=1000, height=500, scatter
             legendgroup=variable_label,
             name=variable_label,
             mode=scatter_mode,
-            marker_color=f'rgb{color_mapping[variable_label]}',
+            marker_color=plotly.colors.label_rgb(color_mapping[variable_label]),
             **yaxis,
         )
         if isinstance(scatter, tuple):

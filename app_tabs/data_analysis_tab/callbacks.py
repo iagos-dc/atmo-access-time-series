@@ -69,7 +69,7 @@ def get_plot_callback(vs, filter_data_request, analysis_method, method_inputs, s
     )):
         raise dash.exceptions.PreventUpdate
 
-    print(method_inputs)
+    # print(f'method_inputs={method_inputs}')
 
     req = data_processing.FilterDataRequest.from_dict(filter_data_request)
     da_by_var = req.compute()
