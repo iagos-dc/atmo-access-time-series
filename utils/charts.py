@@ -473,10 +473,22 @@ def align_range(rng, nticks, log_coeffs=(2, 2.5, 5)):
     return (low_aligned, high_aligned), low_aligned, dtick
 
 
-def multi_line(df, df_std=None, std_mode='fill', width=1000, height=500, scatter_mode='lines', nticks=None, color_mapping=None, range_tick0_dtick_by_var=None):
+def multi_line(
+        df, df_std=None,
+        std_mode='fill',
+        width=1000, height=500,
+        scatter_mode='lines',
+        nticks=None,
+        color_mapping=None,
+        range_tick0_dtick_by_var=None,
+        line_dash_style_by_sublabel=None,
+):
     """
 
-    :param df: pandas DataFrame or dict of pandas Series (in that case each series might have a different index)
+    :param df: pandas DataFrame or dict of pandas Series {varable_label: series}, or dict of dict of pandas Series
+     {variable_label: {sublabel: series}} (useful e.g. for quantiles);
+     in the two last cases each series might have a different index;
+     warning: for the moment, cannot use dict of dict of pandas Series together with df_std
     :param std_mode: 'fill' or 'error_bars' or None
     :param width:
     :param height:
@@ -484,8 +496,21 @@ def multi_line(df, df_std=None, std_mode='fill', width=1000, height=500, scatter
     :param nticks:
     :param color_mapping:
     :param range_tick0_dtick_by_var:
+    :param line_dash_style_by_sublabel: None or dict of the form {sublabel: str}, where values are from
+    [‘solid’, ‘dot’, ‘dash’, ‘longdash’, ‘dashdot’, ‘longdashdot’]
     :return:
     """
+    def ensurelist(obj):
+        if isinstance(obj, list):
+            return obj
+        elif isinstance(obj, tuple):
+            return list(obj)
+        elif isinstance(obj, dict):
+            return list(obj.values())
+        else:
+            return [obj]
+
+    df = dict(df)
     nvars = len(list(df))
     if not (nvars >= 1):
         return None
@@ -494,7 +519,13 @@ def multi_line(df, df_std=None, std_mode='fill', width=1000, height=500, scatter
     if color_mapping is None:
         color_mapping = get_color_mapping(list(df))
     if range_tick0_dtick_by_var is None:
-        range_by_var = {v: (df[v].min(), df[v].max()) for v in df}
+        def list_of_series_min_max(list_of_series):
+            list_of_series = ensurelist(list_of_series)
+            lo = pd.Series([series.min() for series in list_of_series]).min()
+            hi = pd.Series([series.max() for series in list_of_series]).max()
+            return lo, hi
+
+        range_by_var = toolz.valmap(list_of_series_min_max, df)
         if df_std is not None:
             # adjust min/max of y-axis so that mean+std, mean-std are within min/max
             for v, rng in list(range_by_var.items()):
@@ -506,40 +537,59 @@ def multi_line(df, df_std=None, std_mode='fill', width=1000, height=500, scatter
                     hi_with_std = (df[v] + df_std[v]).max()
                     if hi_with_std > hi:
                         hi = hi_with_std
-                range_by_var[v] = (lo, hi)
+                    range_by_var[v] = (lo, hi)
 
         range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range(rng, nticks=nticks), range_by_var)
 
     fig = go.Figure()
 
-    for i, (variable_label, variable_values) in enumerate(df.items()):
+    for i, (variable_label, variable_values_by_sublabel) in enumerate(df.items()):
         if i > 0:
             yaxis = {'yaxis': f'y{i+1}'}
         else:
             yaxis = {}
 
-        if df_std is not None and variable_label in df_std:
-            y_std = df_std[variable_label]
-            assert y_std.index.equals(variable_values.index)
-            y_std = y_std.values
-        else:
-            y_std = None
+        if not isinstance(variable_values_by_sublabel, dict):
+            variable_values_by_sublabel = {None: variable_values_by_sublabel}
+        n_traces = len(variable_values_by_sublabel)
 
-        scatter = plotly_scatter(
-            x=variable_values.index.values,
-            y=variable_values.values,
-            y_std=y_std,
-            std_mode=std_mode,
-            legendgroup=variable_label,
-            name=variable_label,
-            mode=scatter_mode,
-            marker_color=plotly.colors.label_rgb(color_mapping[variable_label]),
-            **yaxis,
-        )
-        if isinstance(scatter, tuple):
-            fig.add_traces(scatter)
-        else:
-            fig.add_trace(scatter)
+        for j, (sublabel, variable_values) in enumerate(variable_values_by_sublabel.items()):
+            if df_std is not None and variable_label in df_std:
+                y_std = df_std[variable_label]
+                assert y_std.index.equals(variable_values.index)
+                y_std = y_std.values
+            else:
+                y_std = None
+
+            extra_kwargs = {}
+            if n_traces == 1:
+                extra_kwargs['name'] = variable_label
+            else:
+                if j == 0:
+                    extra_kwargs['legendgrouptitle_text'] = variable_label
+                extra_kwargs['name'] = sublabel
+            if n_traces > 1 and 'lines' in scatter_mode and line_dash_style_by_sublabel is not None:
+                line_dash_style = line_dash_style_by_sublabel.get(sublabel)
+                if line_dash_style is None:
+                    line_dash_style = line_dash_style_by_sublabel.get('other')
+                if line_dash_style is not None:
+                    extra_kwargs['line_dash'] = line_dash_style
+
+            scatter = plotly_scatter(
+                x=variable_values.index.values,
+                y=variable_values.values,
+                y_std=y_std,
+                std_mode=std_mode,
+                legendgroup=variable_label,
+                mode=scatter_mode,
+                marker_color=plotly.colors.label_rgb(color_mapping[variable_label]),
+                **yaxis,
+                **extra_kwargs,
+            )
+            if isinstance(scatter, tuple):
+                fig.add_traces(scatter)
+            else:
+                fig.add_trace(scatter)
 
     delta_domain = min(75 / width, 0.5 / nvars)
     domain = [delta_domain * ((nvars - 1) // 2), min(1 - delta_domain * ((nvars - 2) // 2), 1)]
@@ -668,9 +718,9 @@ def add_watermark(fig, size=None):
 
     annotations = [dict(
         name="watermark",
-        text="ATMO ACCESS",
+        text="ATMO-ACCESS",
         textangle=-30,
-        opacity=0.1,
+        opacity=0.05,
         font=dict(color="black", size=size),
         xref="paper",
         yref="paper",

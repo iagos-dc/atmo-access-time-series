@@ -51,25 +51,30 @@ def get_data_analysis_specification_store(analysis_method):
             layout.gaussian_mean_and_std_parameters_combo_input,
             layout.gaussian_mean_and_std_extra_graph_controllers_combo_input
         )
+    elif analysis_method == layout.PERCENTILES_METHOD:
+        return (
+            layout.percentiles_parameters_combo_input,
+            layout.percentiles_extra_graph_controllers_combo_input,
+        )
 
 
 @callback(
     Output(layout.GRAPH_ID, 'figure'),
     Input(layout.VARIABLES_CHECKLIST_ID, 'value'),
     Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
-    Input(layout.ANALYSIS_METHOD_RADIO_ID, 'value'),
     Input(combo_input_AIO.get_combo_input_data_store_id(layout.EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID), 'data'),
     Input(layout.GRAPH_SCATTER_MODE_RADIO_ID, 'value'),
+    State(layout.ANALYSIS_METHOD_RADIO_ID, 'value'),
     prevent_initial_call=True,
 )
-def get_plot_callback(vs, filter_data_request, analysis_method, method_inputs, scatter_mode):
+def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, analysis_method):
     if any(map(
             lambda obj: obj is None,
             (dash.ctx.triggered_id, filter_data_request, analysis_method, method_inputs)
     )):
         raise dash.exceptions.PreventUpdate
 
-    # print(f'method_inputs={method_inputs}')
+    print(f'method_inputs={method_inputs}')
 
     req = data_processing.FilterDataRequest.from_dict(filter_data_request)
     da_by_var = req.compute()
@@ -98,6 +103,44 @@ def get_plot_callback(vs, filter_data_request, analysis_method, method_inputs, s
             width=width, height=600,
             scatter_mode=scatter_mode,
             color_mapping=colors_by_var,
+        )
+    elif analysis_method == layout.PERCENTILES_METHOD:
+        analysis_spec = method_inputs['value'][layout.PERCENTILES_COMBO_INPUT_AIO_ID]
+        aggregation_period = analysis_spec[layout.AGGREGATION_PERIOD_RADIO_ID]
+        min_sample_size = analysis_spec[layout.MIN_SAMPLE_SIZE_INPUT_ID]
+        percentiles = analysis_spec[layout.PERCENTILES_CHECKLIST_ID]
+        if analysis_spec[layout.PERCENTILE_USER_DEF_CHECKBOX_ID]:
+            user_def_percentile = analysis_spec[layout.PERCENTILE_USER_DEF_INPUT_ID]
+            if user_def_percentile is not None:
+                percentiles = list(percentiles) + [user_def_percentile]
+
+        quantiles, _ = analysis.percentiles(
+            da_by_var,
+            aggregation_period,
+            p=sorted(percentiles),
+            min_sample_size=min_sample_size
+        )
+        qs = np.sort(quantiles['quantile'].values)
+        quantiles_df = {}
+        for v, da in quantiles.data_vars.items():
+            quantiles_df[v] = {}
+            for q in qs:
+                if q == 0:
+                    p = 'min'
+                elif q == 1:
+                    p = 'max'
+                else:
+                    p = f'{int(100 * q)}'
+                df = da.sel({'quantile': q}, drop=True).to_series()
+                quantiles_df[v][p] = df
+
+        width = 1200
+        fig = charts.multi_line(
+            quantiles_df,
+            width=width, height=600,
+            scatter_mode=scatter_mode,
+            color_mapping=colors_by_var,
+            line_dash_style_by_sublabel=layout.LINE_DASH_STYLE_BY_PERCENTILE,
         )
     else:
         raise dash.exceptions.PreventUpdate
