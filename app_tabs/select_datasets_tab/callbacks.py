@@ -158,6 +158,7 @@ def popup_graphs(active_cell, datasets_json):
             fig.update_layout(
                 legend=dict(orientation='h'),
                 title=ds_md['title'],
+                hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
             )
             ds_plot = dcc.Graph(
                 id='quick-plot',

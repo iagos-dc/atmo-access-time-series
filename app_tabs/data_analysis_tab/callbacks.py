@@ -11,6 +11,7 @@ from . import layout
 import data_processing
 from data_processing import analysis
 from utils import charts, combo_input_AIO
+from log.log import log_exectime
 
 
 @callback(
@@ -65,9 +66,12 @@ def get_data_analysis_specification_store(analysis_method):
     Input(combo_input_AIO.get_combo_input_data_store_id(layout.EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID), 'data'),
     Input(layout.GRAPH_SCATTER_MODE_RADIO_ID, 'value'),
     State(layout.ANALYSIS_METHOD_RADIO_ID, 'value'),
+    State(layout.GRAPH_ID, 'relayoutData'),
     prevent_initial_call=True,
 )
-def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, analysis_method):
+@log_exectime
+def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, analysis_method, relayout_data):
+    print(f'relayout_data={relayout_data}')
     if any(map(
             lambda obj: obj is None,
             (dash.ctx.triggered_id, filter_data_request, analysis_method, method_inputs)
@@ -97,8 +101,8 @@ def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, anal
 
         width = 1200
         fig = charts.multi_line(
-            mean.to_dataframe(),
-            df_std=std.to_dataframe() if show_std else None,
+            mean,
+            df_std=std if show_std else None,
             std_mode=std_mode,
             width=width, height=600,
             scatter_mode=scatter_mode,
@@ -150,6 +154,13 @@ def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, anal
     fig.update_layout(
         legend=dict(orientation='h'),
         title=f'{analysis_method} for {", ".join(vs)}',
+        hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
     )
     fig = charts.add_watermark(fig)
+
+    print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
+
+    if dash.ctx.triggered_id != common_layout.FILTER_DATA_REQUEST_ID:
+        # we reset the zoom only if a new filter data request was launched
+        fig = charts.apply_figure_extent(fig, relayout_data)
     return fig

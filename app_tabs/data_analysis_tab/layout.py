@@ -230,7 +230,7 @@ def get_percentiles_parameters_combo_input(parent_component):
 
 
 def get_data_analysis_plot():
-    graph = dcc.Graph(id=GRAPH_ID)
+    graph = dcc.Graph(id=GRAPH_ID) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     scatter_mode_radio = dbc.RadioItems(
         id=GRAPH_SCATTER_MODE_RADIO_ID,
         options=[

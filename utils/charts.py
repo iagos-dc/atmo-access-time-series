@@ -5,6 +5,8 @@ import xarray as xr
 from plotly import express as px, graph_objects as go
 import plotly.colors
 
+from log.log import logger
+
 
 # Color codes
 ACTRIS_COLOR_HEX = '#00adb7'
@@ -30,7 +32,7 @@ def rgb_to_rgba(rgb, opacity):
 
 def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2, **kwargs):
     """
-    This is a thin wrapper around plotly.graph_objects.Scatter. It workaround plotly bug:
+    This is a thin wrapper around plotly.graph_objects.Scatter. It workarounds plotly bug:
     Artifacts on line scatter plot when the first item is None #3959
     https://github.com/plotly/plotly.py/issues/3959
 
@@ -44,13 +46,26 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
     isolated_points = np.diff(y_isnan, n=2, prepend=1, append=1) == 2
     y_without_isolated_points = np.where(~isolated_points, y, np.nan)
 
+    print(f'plotly_scatter: len(x)={len(x)}')
+    # TODO: test if we can mix traces of scatter and scattergl type on a single go.Figure
+    if len(x) <= 1_000:
+        go_Scatter = go.Scatter
+        go_scatter_ErrorY = go.scatter.ErrorY
+    else:
+        # for many points, we use GL version: https://github.com/plotly/plotly.js/issues/741
+        # but there is a bug with fill='tonexty': https://github.com/plotly/plotly.py/issues/2018,
+        #   https://github.com/plotly/plotly.py/issues/2322, https://github.com/plotly/plotly.js/issues/4017
+        # for further improvements see: https://github.com/plotly/plotly.js/issues/6230 (e.g. layout.hovermode = 'x')
+        go_Scatter = go.Scattergl
+        go_scatter_ErrorY = go.scattergl.ErrorY
+
     if y_std is not None and std_mode == 'error_bars':
         kwargs = kwargs.copy()
         y_std = np.asanyarray(y_std)
         y_std_without_isolated_points_y = np.where(~isolated_points, y_std, np.nan)
-        kwargs['error_y'] = go.scatter.ErrorY(array=y_std_without_isolated_points_y, symmetric=True, type='data')
+        kwargs['error_y'] = go_scatter_ErrorY(array=y_std_without_isolated_points_y, symmetric=True, type='data')
 
-    y_scatter = go.Scatter(
+    y_scatter = go_Scatter(
         x=x,
         y=y_without_isolated_points,
         *args,
@@ -729,4 +744,36 @@ def add_watermark(fig, size=None):
         showarrow=False,
     )]
     fig.update_layout(annotations=annotations)
+    return fig
+
+
+def apply_figure_xaxis_extent(fig, relayout_data):
+    if relayout_data is not None:
+        rng = [relayout_data.get(f'xaxis.range[{i}]') for i in range(2)]
+        if all(r is not None for r in rng):
+            fig.update_layout(xaxis={'range': rng})
+    return fig
+
+
+def apply_figure_extent(fig, relayout_data):
+    """
+
+    :param fig: plotly.graphical_objects.Figure
+    :param relayout_data: dict, e.g. relayout_data={'xaxis.range[0]': '1987-03-28 07:16:06.9794', 'xaxis.range[1]': '2003-01-18 00:53:57.7486'}
+    :return: plotly.graphical_objects.Figure
+    """
+    if relayout_data is not None:
+        layout_dict = {}
+        try:
+            for k, v in relayout_data.items():
+                try:
+                    axis, rng = k.split('.')
+                    rng_to_update = layout_dict.setdefault(axis, {'range': [None, None]})['range']
+                    rng_to_update[int(rng[-2])] = v
+                except Exception as e:
+                    logger().exception(f'Failed to parse relayout_data item k={k}, v={v}; relayout_data={relayout_data}', exc_info=e)
+            print(layout_dict)
+            fig.update_layout(layout_dict)
+        except Exception as e:
+            logger().exception(f'Failed to apply relayout_data={relayout_data}', exc_info=e)
     return fig

@@ -3,7 +3,6 @@ Provide Atmospheric stations, variables and datasets
 for EnvriFair Task 8.5
 API description: https://docs.google.com/document/d/1_YjLJQqO4ZPoIkPgvSKkhJzlUPptIEm0F1X7uDrKRiA/edit
 The corresponding Essential Climate Variables for ICOS are:
-
 https://gcos.wmo.int/en/essential-climate-variables/surface-vapour/ecv-requirements
 https://gcos.wmo.int/en/essential-climate-variables/surface-temperature/ecv-requirements
 https://gcos.wmo.int/en/essential-climate-variables/surface-wind/ecv-requirements
@@ -35,7 +34,7 @@ def get_list_platforms():
     stations : LIST[dicts]
     '''
 
-    stations = station.getIdList()
+    stations = station.getIdList(project='all')
 
     # remove ecosystem and ocean for this demonstrator
     # but, stations would contain ALL stations from ICOS
@@ -115,9 +114,9 @@ def __get_spec(variable_name):
              'ws': 'http://meta.icos-cp.eu/resources/cpmeta/atcMtoL2DataObject',
              'at': 'http://meta.icos-cp.eu/resources/cpmeta/atcMtoL2DataObject',
              'rh': 'http://meta.icos-cp.eu/resources/cpmeta/atcMtoL2DataObject',
-             'co2': 'http://meta.icos-cp.eu/resources/cpmeta/atcCo2L2DataObject',
+             'co2': 'http://meta.icos-cp.eu/resources/cpmeta/atcCo2Product', #'http://meta.icos-cp.eu/resources/cpmeta/atcCo2L2DataObject',
              'co': 'http://meta.icos-cp.eu/resources/cpmeta/atcCoL2DataObject',
-             'ch4': 'http://meta.icos-cp.eu/resources/cpmeta/atcCh4L2DataObject',
+             'ch4': 'http://meta.icos-cp.eu/resources/cpmeta/atcCh4Product', #'http://meta.icos-cp.eu/resources/cpmeta/atcCh4L2DataObject',
              'n2o': 'http://meta.icos-cp.eu/resources/cpmeta/atcN2oL2DataObject'
              }
     if variable_name in specs.keys():
@@ -131,15 +130,19 @@ def __get_ecv(spec):
                                                                             'Surface Wind Speed and direction', \
                                                                             'Temperature (near surface)', \
                                                                             'Water Vapour (surface)'],
-             'http://meta.icos-cp.eu/resources/cpmeta/atcCo2L2DataObject': ['Carbon Dioxide'],
+             'http://meta.icos-cp.eu/resources/cpmeta/atcCo2Product': ['Carbon Dioxide'],
+             # 'http://meta.icos-cp.eu/resources/cpmeta/atcCo2L2DataObject': ['Carbon Dioxide'],
              'http://meta.icos-cp.eu/resources/cpmeta/atcCoL2DataObject': ['Carbon Monoxide'],
-             'http://meta.icos-cp.eu/resources/cpmeta/atcCh4L2DataObject': ['Methane'],
+             'http://meta.icos-cp.eu/resources/cpmeta/atcCh4L2Product': ['Methane'],
+             'http://meta.icos-cp.eu/resources/cpmeta/atcCh4Product': ['Methane'], # WOLP: this key seemed to be missing
+             # 'http://meta.icos-cp.eu/resources/cpmeta/atcCh4L2DataObject': ['Methane'],
              'http://meta.icos-cp.eu/resources/cpmeta/atcN2oL2DataObject': ['Nitrous Oxide']
              }
 
     if spec in ecvar.keys():
         return ecvar[spec]
     else:
+        print(f'__get_ecv: key={spec} not found')
         return ''
 
 
@@ -148,29 +151,21 @@ def query_datasets(variables=[], temporal=[], spatial=[]):
     return identifiers for datasets constraint by input parameters.
     if a parameter is empty, it will be ignored. if no parameter is
     provided...ALL datasets are returned.
-
-
     Parameters
     ----------
     variables : LIST[STR]
         Provide a list of strings to query for variables. Entries\
         matching the variables returned from get_list_variables().
-
     temporal_extent : LIST[STR,STR] start, end , string at format yyyyMMddTHHmmss
                 or more general str must be convertible with a pandas.
                 date = pandas.to_datetime(date).date()
-
     spatial_extent : LIST[min_lon, min_lat, max_lon, max_lat]
         lat lon must be convertible to float. The bounding box is of format
         bottom left, top right corner.
-
-
-
     Returns
     -------
     LIST[DICT]
     Where DICT is of form {title:’’, urls:[{url:’’, type:”}], ecv_variables:[], time_period:[start, end], platform_id:””}
-
     title: title of the dataset
     urls: list of urls for the dataset. Can include link to a landing page, link to the data file, opendap link
     url.type: type of the url. Should be in list: landing_page, data_file, opendap
@@ -179,8 +174,8 @@ def query_datasets(variables=[], temporal=[], spatial=[]):
     platform_id: id of the station (i.e. identical to short_name of the platform return by method get_list_platforms())
     If there are no results an empty list is returned
     """
-    stn = station.getIdList()
-    stn = stn[(stn['theme'] == 'AS') & (stn['icosClass'].isin(['1', '2', 'Associated']))]
+    stn = station.getIdList(project='all')
+    stn = stn[(stn['theme'] == 'AS')] #& (stn['icosClass'].isin(['1', '2', 'Associated']))]
     dtypes = ['str', 'str', 'str', 'str', 'float', 'float', 'float', 'str', 'str']
     dtype = dict(zip(stn.columns.tolist(), dtypes))
     # get all datasets and convert dtype
@@ -224,6 +219,11 @@ def query_datasets(variables=[], temporal=[], spatial=[]):
         for s in df.station.unique().tolist():
             # find stations within bounding box
             a = stn.loc[stn['uri'] == s]
+
+            if len(a) != 1:
+                print(f'a={a}, s={s}, variables={variables}, temporal={temporal}, spatial={spatial}')
+                continue
+
             if float(a.lon) >= spatial[0] and \
                     float(a.lon) <= spatial[2] and \
                     float(a.lat) >= spatial[1] and \
@@ -248,7 +248,7 @@ def query_datasets(variables=[], temporal=[], spatial=[]):
     outlist = []
     for r in df.iterrows():
         d = {
-            'title': data_processing.GetICOSDatasetTitleRequest(r[1].dobj).compute(),  #Dobj(r[1].dobj).meta['references']['title'],
+            'title': data_processing.GetICOSDatasetTitleRequest(r[1].dobj).compute(),  
             'file_name': r[1].fileName,
             'urls': [{'url': r[1].dobj, 'type': 'landing_page'}],
             'ecv_variables': __get_ecv(r[1].spec),
@@ -265,9 +265,9 @@ def __sparql_data():
     	select ?station ?dobj ?spec ?fileName ?size ?submTime ?timeStart ?timeEnd
     	where {
         		VALUES ?spec {
-        			<http://meta.icos-cp.eu/resources/cpmeta/atcCh4L2DataObject> 
+        			<http://meta.icos-cp.eu/resources/cpmeta/atcCh4Product> 
         			<http://meta.icos-cp.eu/resources/cpmeta/atcCoL2DataObject>
-        			<http://meta.icos-cp.eu/resources/cpmeta/atcCo2L2DataObject>
+        			<http://meta.icos-cp.eu/resources/cpmeta/atcCo2Product>
         			<http://meta.icos-cp.eu/resources/cpmeta/atcMtoL2DataObject>
         			<http://meta.icos-cp.eu/resources/cpmeta/atcN2oL2DataObject>}
         	?dobj cpmeta:hasObjectSpec ?spec .
