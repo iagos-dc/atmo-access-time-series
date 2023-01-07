@@ -112,11 +112,11 @@ def _get_minimal_sample_size_input(id_):
 
 LINE_DASH_STYLE_BY_PERCENTILE = {
     'min': 'dot',
-    '5': 'dash',
-    '25': 'dashdot',
-    '50': 'solid',
-    '75': 'dashdot',
-    '95': 'dash',
+    5: 'dash',
+    25: 'dashdot',
+    50: 'solid',
+    75: 'dashdot',
+    95: 'dash',
     'max': 'dot',
     'other': 'longdashdot'
 }

@@ -11,6 +11,7 @@ from . import layout
 import data_processing
 from data_processing import analysis
 from utils import charts, combo_input_AIO
+from utils.broadcast import broadcast
 from log.log import log_exectime
 
 
@@ -93,7 +94,16 @@ def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, anal
         aggregation_period = analysis_spec[layout.AGGREGATION_PERIOD_RADIO_ID]
         min_sample_size = analysis_spec[layout.MIN_SAMPLE_SIZE_INPUT_ID]
 
-        mean, std, _ = analysis.gaussian_mean_and_std(da_by_var, aggregation_period, min_sample_size=min_sample_size)
+        mean_std_count_by_var = broadcast([0])(analysis.gaussian_mean_and_std)(
+            da_by_var,
+            aggregation_period,
+            min_sample_size=min_sample_size
+        )
+
+        mean_by_var, std_by_var, _ = (
+            toolz.valmap(lambda t: t[i], mean_std_count_by_var)
+            for i in range(3)
+        )
 
         graph_controllers = method_inputs['value'][layout.EXTRA_GRAPH_COMBO_INPUT_AIO_ID]
         show_std = graph_controllers[layout.SHOW_STD_SWITCH_ID]
@@ -101,8 +111,8 @@ def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, anal
 
         width = 1200
         fig = charts.multi_line(
-            mean,
-            df_std=std if show_std else None,
+            mean_by_var,
+            df_std=std_by_var if show_std else None,
             std_mode=std_mode,
             width=width, height=600,
             scatter_mode=scatter_mode,
@@ -118,29 +128,34 @@ def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, anal
             if user_def_percentile is not None:
                 percentiles = list(percentiles) + [user_def_percentile]
 
-        quantiles, _ = analysis.percentiles(
+        quantiles_by_p_and_count_by_var = broadcast([0])(analysis.percentiles)(
             da_by_var,
             aggregation_period,
             p=sorted(percentiles),
             min_sample_size=min_sample_size
         )
-        qs = np.sort(quantiles['quantile'].values)
-        quantiles_df = {}
-        for v, da in quantiles.data_vars.items():
-            quantiles_df[v] = {}
-            for q in qs:
-                if q == 0:
-                    p = 'min'
-                elif q == 1:
-                    p = 'max'
-                else:
-                    p = f'{int(100 * q)}'
-                df = da.sel({'quantile': q}, drop=True).to_series()
-                quantiles_df[v][p] = df
+
+        quantiles_by_p_by_var, _ = (
+            toolz.valmap(lambda t: t[i], quantiles_by_p_and_count_by_var)
+            for i in range(2)
+        )
+
+        def percentile_to_str(p):
+            if p == 0:
+                return 'min'
+            elif p == 100:
+                return 'max'
+            else:
+                return round(p)
+
+        quantiles_by_p_by_var = toolz.valmap(
+            lambda quantiles_by_p: toolz.keymap(percentile_to_str, quantiles_by_p),
+            quantiles_by_p_by_var
+        )
 
         width = 1200
         fig = charts.multi_line(
-            quantiles_df,
+            quantiles_by_p_by_var,
             width=width, height=600,
             scatter_mode=scatter_mode,
             color_mapping=colors_by_var,

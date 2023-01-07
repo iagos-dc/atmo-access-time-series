@@ -65,8 +65,8 @@ def broadcast(*args_and_kwargs_list):
                     res = func(*args_list, **kwargs)
                     results[k] = res
             else:
-                raise ValueError(f'invalid type for broadcasting: {type(first_param_value)}; '
-                                 f'must be list, tuple of dict')
+                raise ValueError(f'invalid type of {first_param_value} for broadcasting: '
+                                 f'{type(first_param_value)}; must be list, tuple or dict')
             return results
         return _broadcast_wrapper
     return _broadcast

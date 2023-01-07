@@ -82,6 +82,7 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
         kwargs_lo.pop('line_width', None)
         kwargs_lo.setdefault('line', {})
         kwargs_lo['line']['width'] = 0
+        kwargs_lo['hoverinfo'] = 'skip'
         kwargs_lo['showlegend'] = False
 
         y_max = np.nanmax(np.abs(y) + y_std)
