@@ -769,12 +769,14 @@ def apply_figure_extent(fig, relayout_data):
             for k, v in relayout_data.items():
                 try:
                     axis, rng = k.split('.')
-                    rng_to_update = layout_dict.setdefault(axis, {'range': [None, None]})['range']
-                    rng_to_update[int(rng[-2])] = v
+                    if rng.startswith('range[') and len(rng) == 8 and rng[-1] == ']':
+                        i = int(rng[-2])
+                        layout_dict.setdefault(axis, {'range': [None, None]})['range'][i] = v
                 except Exception as e:
                     logger().exception(f'Failed to parse relayout_data item k={k}, v={v}; relayout_data={relayout_data}', exc_info=e)
-            print(layout_dict)
-            fig.update_layout(layout_dict)
+            print(f'charts.apply_figure_extent: layout_dict={layout_dict}')
+            if layout_dict:
+                fig.update_layout(layout_dict)
         except Exception as e:
             logger().exception(f'Failed to apply relayout_data={relayout_data}', exc_info=e)
     return fig

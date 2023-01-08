@@ -8,6 +8,7 @@ from dash import callback, Output, Input, State, dcc
 
 import data_access
 import data_processing
+import data_processing.utils
 from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
@@ -152,7 +153,11 @@ def popup_graphs(active_cell, datasets_json):
     if da_by_var is not None:
         da_by_var = toolz.valfilter(lambda da: da.squeeze().ndim == 1, da_by_var)
         if len(da_by_var) > 0:
-            series_by_var = toolz.valmap(lambda da: da.to_series(), da_by_var)
+            series_by_var = toolz.valmap(
+                # due to peformance, make a random subsampling of the timeseries
+                lambda da: data_processing.utils.subsampling(da.to_series(), n=3000),
+                da_by_var
+            )
             fig = charts.multi_line(series_by_var, width=1000)
             fig = charts.add_watermark(fig)
             fig.update_layout(
