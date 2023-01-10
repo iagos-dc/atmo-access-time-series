@@ -6,6 +6,7 @@ from dash import callback, Output, ALL, Input, State, ctx
 from dash.exceptions import PreventUpdate
 
 import data_processing
+from data_processing import metadata
 from .layout import FILTER_TIME_CONINCIDENCE_SELECT_ID, FILTER_TYPE_RADIO_ID, \
     FILTER_TAB_CONTAINER_ROW_ID, FILTER_DATA_BUTTON_ID, \
     get_time_granularity_radio, get_log_axis_switches, get_nbars_slider
@@ -204,11 +205,13 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
             extra_dash_components=get_log_axis_switches(f'{v}_filter-scalar'),
             extra_dash_components2=get_nbars_slider(f'{v}_filter-scalar'),
         )
-        title = da.attrs.get('title', '???')
-        city = da.attrs.get('city')
-        if city is not None:
-            title = f'{title}, {city}'
-        filter_and_title_by_v[v] = var_filter, title + f' : {v}'
+
+        md = metadata.da_attr_to_metadata_dict(da=da)
+        title = md[metadata.VARIABLE_LABEL]
+        city_or_station_name = md[metadata.CITY_OR_STATION_NAME]
+        if city_or_station_name is not None:
+            title = f'{title}, {city_or_station_name}'
+        filter_and_title_by_v[v] = var_filter, f'{v} : {title}'
 
     # TODO: maybe the accordion should go to layout ???
     return dbc.Accordion(
@@ -217,7 +220,8 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
             for v, (v_filter, title) in filter_and_title_by_v.items()
         ],
         always_open=True,
-        active_item=[f'filter-{v}' for v in filter_and_title_by_v.keys()]
+        active_item=[f'filter-{v}' for v in filter_and_title_by_v.keys()],
+        # style={'text-transform': None},
     )
 
 

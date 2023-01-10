@@ -46,7 +46,8 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
     isolated_points = np.diff(y_isnan, n=2, prepend=1, append=1) == 2
     y_without_isolated_points = np.where(~isolated_points, y, np.nan)
 
-    print(f'plotly_scatter: len(x)={len(x)}')
+    # print(f'plotly_scatter: len(x)={len(x)}')
+
     # TODO: test if we can mix traces of scatter and scattergl type on a single go.Figure
     if len(x) <= 1_000:
         go_Scatter = go.Scatter
@@ -276,6 +277,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         if isinstance(ds, xr.Dataset):
             ds_avail = ds.notnull().resample({'time': freq}).mean()
         else:
+            print(f'ds={ds}')
             # ds is a dictionary {var_label: xr.DataArray}
             ds_avail = xr.merge(
                 [
@@ -490,28 +492,35 @@ def align_range(rng, nticks, log_coeffs=(2, 2.5, 5)):
 
 
 def multi_line(
-        df, df_std=None,
+        df,
+        df_std=None,
         std_mode='fill',
         width=1000, height=500,
         scatter_mode='lines',
         nticks=None,
+        variable_label_by_var=None,
+        yaxis_label_by_var=None,
         color_mapping=None,
         range_tick0_dtick_by_var=None,
         line_dash_style_by_sublabel=None,
 ):
     """
 
-    :param df: pandas DataFrame or dict of pandas Series {varable_label: series}, or dict of dict of pandas Series
-     {variable_label: {sublabel: series}} (useful e.g. for quantiles);
+    :param df: pandas DataFrame or dict of pandas Series {variable_id: series}, or dict of dict of pandas Series
+     {variable_id: {sublabel: series}} (useful e.g. for quantiles);
      in the two last cases each series might have a different index;
      warning: for the moment, cannot use dict of dict of pandas Series together with df_std
     :param std_mode: 'fill' or 'error_bars' or None
-    :param width:
-    :param height:
-    :param scatter_mode:
-    :param nticks:
-    :param color_mapping:
-    :param range_tick0_dtick_by_var:
+    :param width: int; default 1000
+    :param height: int; default 500
+    :param scatter_mode: str; 'lines', 'markers' or 'lines+markers'
+    :param nticks: int or None; number of ticks on y-axis (or y-axes); default is max(height // 50, 3)
+    :param variable_label_by_var: dict of str; labels of variables to be displayed on the plot legend and in hover;
+    keys of the dict are that of df (if DataFrame, that's the df columns)
+    :param yaxis_label_by_var: dict of str; labels to be displayed as title of y-axis (y-axes);
+    keys of the dict are that of df (if DataFrame, that's the df columns)
+    :param color_mapping: dict or None;
+    :param range_tick0_dtick_by_var: dict or None;
     :param line_dash_style_by_sublabel: None or dict of the form {sublabel: str}, where values are from
     [‘solid’, ‘dot’, ‘dash’, ‘longdash’, ‘dashdot’, ‘longdashdot’]
     :return:
@@ -532,6 +541,10 @@ def multi_line(
         return None
     if nticks is None:
         nticks = max(height // 50, 3)
+    if variable_label_by_var is None:
+        variable_label_by_var = {}
+    if yaxis_label_by_var is None:
+        yaxis_label_by_var = {}
     if color_mapping is None:
         color_mapping = get_color_mapping(list(df))
     if range_tick0_dtick_by_var is None:
@@ -559,7 +572,9 @@ def multi_line(
 
     fig = go.Figure()
 
-    for i, (variable_label, variable_values_by_sublabel) in enumerate(df.items()):
+    for i, (variable_id, variable_values_by_sublabel) in enumerate(df.items()):
+        variable_label_on_legend = variable_label_by_var.get(variable_id, variable_id)
+
         if i > 0:
             yaxis = {'yaxis': f'y{i+1}'}
         else:
@@ -570,8 +585,8 @@ def multi_line(
         n_traces = len(variable_values_by_sublabel)
 
         for j, (sublabel, variable_values) in enumerate(variable_values_by_sublabel.items()):
-            if df_std is not None and variable_label in df_std:
-                y_std = df_std[variable_label]
+            if df_std is not None and variable_id in df_std:
+                y_std = df_std[variable_id]
                 assert y_std.index.equals(variable_values.index)
                 y_std = y_std.values
             else:
@@ -579,10 +594,12 @@ def multi_line(
 
             extra_kwargs = {}
             if n_traces == 1:
-                extra_kwargs['name'] = variable_label
+                extra_kwargs['name'] = variable_label_on_legend
+                # if sublabel is not None:
+                #     extra_kwargs['name'] = extra_kwargs['name'] + f' ({sublabel})'
             else:
                 if j == 0:
-                    extra_kwargs['legendgrouptitle_text'] = variable_label
+                    extra_kwargs['legendgrouptitle_text'] = variable_label_on_legend
                 extra_kwargs['name'] = sublabel
             if n_traces > 1 and 'lines' in scatter_mode and line_dash_style_by_sublabel is not None:
                 line_dash_style = line_dash_style_by_sublabel.get(sublabel)
@@ -596,9 +613,9 @@ def multi_line(
                 y=variable_values.values,
                 y_std=y_std,
                 std_mode=std_mode,
-                legendgroup=variable_label,
+                legendgroup=variable_id,
                 mode=scatter_mode,
-                marker_color=plotly.colors.label_rgb(color_mapping[variable_label]),
+                marker_color=plotly.colors.label_rgb(color_mapping[variable_id]),
                 **yaxis,
                 **extra_kwargs,
             )
@@ -611,25 +628,25 @@ def multi_line(
     domain = [delta_domain * ((nvars - 1) // 2), min(1 - delta_domain * ((nvars - 2) // 2), 1)]
     fig.update_layout(xaxis={'domain': domain})
 
-    for i, (variable_label, (rng, tick0, dtick)) in enumerate(range_tick0_dtick_by_var.items()):
+    for i, (variable_id, (rng, tick0, dtick)) in enumerate(range_tick0_dtick_by_var.items()):
         yaxis_props = {
             #'gridcolor': 'black',
             #'gridwidth': 1,
             'range': rng,
             'tick0': tick0,
             'dtick': dtick,
-            'tickcolor': f'rgb{color_mapping[variable_label]}',
+            'tickcolor': f'rgb{color_mapping[variable_id]}',
             'ticklabelposition': 'outside',
-            'tickfont_color': f'rgb{color_mapping[variable_label]}',
+            'tickfont_color': f'rgb{color_mapping[variable_id]}',
             #'minor_showgrid': False,
             'title': {
-                'font_color': f'rgb{color_mapping[variable_label]}',
+                'font_color': f'rgb{color_mapping[variable_id]}',
                 'standoff': 0,
-                'text': variable_label,
+                'text': yaxis_label_by_var.get(variable_id),
             },
             'showline': True,
             'linewidth': 2,
-            'linecolor': f'rgb{color_mapping[variable_label]}',
+            'linecolor': f'rgb{color_mapping[variable_id]}',
             'zeroline': True,
             'zerolinewidth': 1,
             #'zerolinecolor': 'black',

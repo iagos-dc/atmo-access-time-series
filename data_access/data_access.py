@@ -470,7 +470,7 @@ def _get_iagos_datasets(variables, bbox):
                   (df['latitude'] >= lat_min - LON_LAT_BBOX_EPS) & (df['latitude'] <= lat_max + LON_LAT_BBOX_EPS)
     df = df[variables_filter & bbox_filter].explode('layer', ignore_index=True)
     df['title'] = df['title'] + ' in ' + df['layer']
-    df['selector'] = 'layer:' + df['layer']
+    df['selector'] = 'layer=' + df['layer']
     df = df[['title', 'urls', 'ecv_variables', 'time_period', 'platform_id', 'RI', 'selector']]
     return df
 
@@ -540,7 +540,8 @@ def read_dataset(ri, url, ds_metadata, selector=None):
         iagos_data_path = DATA_DIR / 'iagos_L3_postprocessed'
         ds = xr.open_dataset(iagos_data_path / url)
         if selector is not None:
-            dim, *coord = selector.split(':')
+            dim, coord = selector.split('=')
+            coord = coord.split(':')
             if len(coord) == 1:
                 coord, = coord
             elif len(coord) == 2 or len(coord) == 3:

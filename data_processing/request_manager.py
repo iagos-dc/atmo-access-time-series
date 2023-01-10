@@ -251,7 +251,12 @@ class IntegrateDatasetsRequest(Request):
     def execute(self):
         print(f'execute {str(self)}')
         dss = [
-            (read_dataset_request.ri, read_dataset_request.compute())
+            (
+                read_dataset_request.ri,
+                read_dataset_request.selector,
+                read_dataset_request.ds_metadata,
+                read_dataset_request.compute()
+            )
             for read_dataset_request in self.read_dataset_requests
         ]
         return integrate_datasets(dss)

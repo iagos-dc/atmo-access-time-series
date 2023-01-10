@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from log.log import logger
+from . import metadata
 
 
 def dim_coords_sorted_and_unique(ds, dims, warnings=None):
@@ -92,22 +93,113 @@ def merge_datasets_old(dss):
     return xr.merge(da_by_ri_var.values())
 
 
+class _Tree:
+    def __init__(self, children=None):
+        self.leafs = []
+        self.children = dict(children) if children is not None else {}
+
+    def add_path(self, labels, leaf):
+        if len(labels) == 0:
+            self.leafs.append(leaf)
+        else:
+            label, *other_labels = labels
+            subtree = self.children.setdefault(label, _Tree())
+            subtree.add_path(other_labels, leaf)
+
+    def _get_paths(self, path, result):
+        if len(self.children) == 0:
+            result[path] = self.leafs
+        else:
+            for label, child in self.children.items():
+                child._get_paths(path + (label,), result)
+
+    def get_paths(self):
+        result = {}
+        self._get_paths(tuple(), result)
+        return result
+
+    def _get_compressed_paths(self, path, result, after_level, level):
+        if len(self.children) == 0:
+            result[path] = self.leafs
+        elif len(self.children) == 1 and level >= after_level:
+            child, = self.children.values()
+            child._get_compressed_paths(path, result, after_level, level + 1)
+        else:
+            for label, child in self.children.items():
+                child._get_compressed_paths(path + (label,), result, after_level, level + 1)
+
+    def get_compressed_paths(self, after_level=0):
+        result = {}
+        self._get_compressed_paths(tuple(), result, after_level, 0)
+        return result
+
+
 def integrate_datasets(dss):
-    da_by_ri_var = {}
-    for ri, ds in dss:
+    tree_of_var_ids = _Tree()
+    print(f'integrate_datasets with len(dss)={len(dss)}')
+    for ri, selector, md, ds in dss:
+        print(f'ri={ri}, selector={selector}, md={md}')
         for v, da in ds.data_vars.items():
             da = da.copy()
             da['time'].attrs = {
                 'standard_name': 'time',
                 'long_name': 'time',
             }
-            v_ri = f'{v}_{ri}'
-            da.name = v_ri
             attrs = dict(ds.attrs)
             attrs.update(da.attrs)
             da.attrs = attrs
-            da_by_ri_var[v_ri] = da
-    return da_by_ri_var
+            da.name = '???'
+            da_md = metadata.da_attr_to_metadata_dict(da)
+
+            freq = attrs.get('_aats_freq', '0s')
+            if freq != '0s':
+                if freq != '1M':
+                    freq_as_timedelta = pd.Timedelta(freq)
+                    freq_resol = freq_as_timedelta.resolution_string
+                    mul = freq_as_timedelta // pd.Timedelta(f'1{freq_resol}')
+                    freq_str = f'{mul}{freq_resol}'
+                else:
+                    freq_str = '1M'
+            else:
+                freq_str = ''
+
+            v_ri_freq = f'{v}_{ri}_{freq_str}' if freq_str else f'{v}_{ri}'
+            var_id = (v_ri_freq, da_md[metadata.CITY_OR_STATION_NAME], attrs.get('sampling_height'), selector, )
+            var_id = tuple(map(lambda i: str(i) if i is not None else '', var_id))  # ensure all parts of var_id are strings
+            tree_of_var_ids.add_path(var_id, da)
+
+    das_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=1)  # we want to keep v and ri in the var_id
+    da_by_var_id = {}
+    for var_id, das in das_by_var_id.items():
+        if len(das) == 1:
+            da, = das
+            da.name = '_'.join(var_id)
+            da_by_var_id[da.name] = da
+        elif len(das) > 1:
+            logger().info(f'var_id={var_id}: concatenate {len(das)} DataArrays:')
+            for da in das:
+                logger().info(f'{da}')
+            try:
+                da = xr.concat(das, dim='time')
+                print(f'got da={da}')
+                print(f'with time={da.time}')
+            except Exception as e:
+                logger().exception(
+                    f'var_id={var_id}: concatenate of {len(das)} DataArrays failed; '
+                    f'fall back to present them separately by add an No. to their var_id', exc_info=e
+                )
+                _var_id = '_'.join(var_id)
+                for i, da in enumerate(das):
+                    da.name = f'{_var_id}_{i}'
+                    da_by_var_id[da.name] = da
+                continue
+
+            da.name = '_'.join(var_id)
+            da_by_var_id[da.name] = da
+        else:
+            raise RuntimeError(f'got an empty list of DataArrays for var_id={var_id}')
+
+    return da_by_var_id
 
 
 def merge_datasets(dss):
