@@ -230,7 +230,7 @@ def get_vars():
     return variables_df.drop_duplicates(subset=['std_ECV_name', 'ECV_name'], keep='first', ignore_index=True)
 
 
-@log_exectime
+#@log_exectime
 #@log_profiler_info()
 def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
     """
@@ -334,7 +334,7 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
     return datasets_df.drop(columns=['time_period']).rename(columns={'urls': 'url'})
 
 
-@log_exectime
+#@log_exectime
 #@log_profiler_info()
 def get_datasets_old(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
     """

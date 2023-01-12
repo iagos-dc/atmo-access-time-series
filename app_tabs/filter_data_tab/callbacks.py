@@ -15,6 +15,7 @@ from app_tabs.common.layout import INTEGRATE_DATASETS_REQUEST_ID, FILTER_DATA_RE
 from utils import charts
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id, \
     GraphWithHorizontalSelectionAIO
+from log import log_exception
 
 
 def _get_min_max_time(da_by_var):
@@ -52,6 +53,7 @@ def _get_min_max_time(da_by_var):
     State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     prevent_initial_call=True,
 )
+@log_exception
 def update_histograms_callback(
         selected_ranges, selected_range_ids,
         time_granularity, filter_type, cross_filtering_time_coincidence,
@@ -165,6 +167,7 @@ def update_histograms_callback(
     Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     prevent_initial_call=True,
 )
+@log_exception
 def data_filtering_create_layout_callback(integrate_datasets_request):
     if integrate_datasets_request is None:
         return None
@@ -236,6 +239,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
     State(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'value'),
     prevent_initial_call=True,
 )
+@log_exception
 def filter_data_callback(
         n_clicks,
         integrate_datasets_request,

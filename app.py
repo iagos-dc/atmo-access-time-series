@@ -22,6 +22,7 @@ from app_tabs.filter_data_tab.layout import FILTER_DATA_TAB_VALUE, FILTER_DATA_B
     get_filter_data_tab
 from app_tabs.data_analysis_tab.layout import DATA_ANALYSIS_TAB_VALUE, \
     get_data_analysis_tab
+from log import log_exception
 
 
 # Configuration of the app
@@ -132,6 +133,7 @@ app.layout = get_dashboard_layout()
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     Input(FILTER_DATA_BUTTON_ID, 'n_clicks')
 )
+@log_exception
 def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks, filter_data_button_clicks):
     # trigger = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
     trigger = dash.ctx.triggered_id

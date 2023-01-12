@@ -4,6 +4,8 @@ import functools
 import time
 import cProfile, pstats, io
 
+import dash
+
 
 _logger = None
 _streamHandler = logging.StreamHandler()
@@ -101,6 +103,25 @@ def log_callback_with_ret_value(log_callback_context=True):
 
         return log_callback_wrapper
     return _log_callback
+
+
+def log_exception(func):
+    @functools.wraps(func)
+    def log_exception_wrapper(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+        except dash.exceptions.PreventUpdate:
+            raise
+        except Exception as e:
+            logger().exception(
+                f'ooOOoo unhandled exception in {func.__module__}.{func.__qualname__} ooOOoo\n'
+                f'args={args}\n'
+                f'kwargs={kwargs}',
+                exc_info=e
+            )
+            raise
+        return result
+    return log_exception_wrapper
 
 
 def log_exectime(func):

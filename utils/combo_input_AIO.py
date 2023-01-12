@@ -2,6 +2,8 @@ from dash import dcc, html, callback, MATCH, ctx, ALL
 from dash.dependencies import Input, Output, State
 from dash.development.base_component import Component
 
+from log import log_exception
+
 
 def _component_id(group, aio_id, component_name):
     return {
@@ -40,6 +42,7 @@ def get_combo_input_data_store_id(group):
     Input(_component_id(MATCH, ALL, ALL), 'value'),
     State(_component_id(MATCH, ALL, ALL), 'id'),
 )
+@log_exception
 def get_combo_input_values(input_values, input_ids):
     subcomponents = [input_id['subcomponent'] for input_id in input_ids]
     aio_ids = [input_id['aio_id'] for input_id in input_ids]

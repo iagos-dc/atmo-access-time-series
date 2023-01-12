@@ -12,7 +12,8 @@ from app_tabs.common.layout import DATASETS_STORE_ID
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID
-from log import logger
+from log import logger, log_exception
+
 
 DEBUG_GET_DATASETS = False
 
@@ -21,6 +22,7 @@ DEBUG_GET_DATASETS = False
     Output(VARIABLES_CHECKLIST_ID, 'value'),
     Input(VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value')
 )
+@log_exception
 def toogle_variable_checklist(variables_checklist_all_none_switch):
     if variables_checklist_all_none_switch:
         return std_variables['value'].tolist()
@@ -39,6 +41,7 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
     State(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
     State(DATASETS_STORE_ID, 'data'),  # TODO: if no station or variable selected, do not launch Search datasets action; instead, return an old data
 )
+@log_exception
 def search_datasets(
         n_clicks, selected_variables, lon_min, lon_max, lat_min, lat_max,
         selected_stations_idx, previous_datasets_json
@@ -143,6 +146,7 @@ def _get_selected_stations_dropdown(selected_stations_df):
     Output(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
     Output(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
     Input(STATIONS_MAP_ID, 'selectedData'))
+@log_exception
 def get_selected_stations_bbox_and_dropdown(selected_stations):
     selected_stations_df = _get_selected_points(selected_stations)
     bbox = _get_bounding_box(selected_stations_df, selected_stations)

@@ -12,7 +12,7 @@ import data_processing
 from data_processing import analysis, metadata
 from utils import charts, combo_input_AIO
 from utils.broadcast import broadcast
-from log.log import log_exectime
+from log import log_exectime, log_exception
 
 
 
@@ -23,6 +23,7 @@ from log.log import log_exectime
     Input(layout.VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
     # prevent_initial_call=True,
 )
+@log_exception
 def get_variables_callback(filter_data_request, variables_checklist_all_none_switch):
     trigger = dash.ctx.triggered_id
     if trigger is None or filter_data_request is None:
@@ -50,6 +51,7 @@ def get_variables_callback(filter_data_request, variables_checklist_all_none_swi
     Output(layout.ANALYSIS_METHOD_PARAMETERS_CARD_BODY_ID, 'children'),
     Input(layout.ANALYSIS_METHOD_RADIO_ID, 'value'),
 )
+@log_exception
 def get_data_analysis_specification_store(analysis_method):
     if analysis_method == layout.GAUSSIAN_MEAN_AND_STD_METHOD:
         return layout.gaussian_mean_and_std_parameters_combo_input
@@ -67,7 +69,8 @@ def get_data_analysis_specification_store(analysis_method):
     State(layout.GRAPH_ID, 'relayoutData'),
     prevent_initial_call=True,
 )
-@log_exectime
+@log_exception
+#@log_exectime
 def get_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, analysis_method, relayout_data):
     # # print(f'relayout_data={relayout_data}')
     if any(map(

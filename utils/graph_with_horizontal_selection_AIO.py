@@ -8,7 +8,7 @@ from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 from dash.development.base_component import Component
 
-
+from log import log_exception
 from log import start_logging_callbacks, log_callback_with_ret_value
 
 
@@ -46,6 +46,7 @@ foo_container_id = _component_id('foo_asd')
     Input(selected_range_store_id(MATCH), 'data'),
     State(graph_id(MATCH), 'figure'),
 )
+@log_exception
 #@log_callback_with_ret_value()
 def update_graph_figure(fig_data, selected_range, fig):
     # TODO: since fig is now a figure, apply update_layout methods properly!
@@ -97,6 +98,7 @@ def update_graph_figure(fig_data, selected_range, fig):
     Input(to_input_id(MATCH), 'value'),
     State(selected_range_store_id(MATCH), 'data'),
 )
+@log_exception
 # @log_callback_with_ret_value()
 def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clicks, x0, x1, selected_range):
     if ctx.triggered_id is None:

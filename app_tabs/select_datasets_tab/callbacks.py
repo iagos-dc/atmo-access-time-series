@@ -13,7 +13,7 @@ from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
     DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID
-from log import logger
+from log import logger, log_exception
 from utils import charts
 
 
@@ -24,6 +24,7 @@ from utils import charts
     Input(DATASETS_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
+@log_exception
 def get_gantt_figure(gantt_view_type, datasets_json):
     selectedData = {'points': []}
 
@@ -59,6 +60,7 @@ def get_gantt_figure(gantt_view_type, datasets_json):
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
     prevent_initial_call=True,
 )
+@log_exception
 def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_none_switch,
                       datasets_json, previously_selected_row_ids):
     table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
@@ -123,6 +125,7 @@ def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_no
     State(DATASETS_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
+@log_exception
 def popup_graphs(active_cell, datasets_json):
     if datasets_json is None or active_cell is None:
         return None
@@ -202,6 +205,7 @@ def popup_graphs(active_cell, datasets_json):
 #     State(DATASET_MD_STORE_ID, 'data'),
 #     prevent_initial_call=True,
 # )
+@log_exception
 def download_csv(n_clicks, ds_md_json):
     try:
         s = pd.Series(json.loads(ds_md_json))
@@ -220,6 +224,7 @@ def download_csv(n_clicks, ds_md_json):
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
     prevent_initial_call=True,
 )
+@log_exception
 def select_datasets(n_clicks, datasets_json, selected_row_ids):
     if datasets_json is None or selected_row_ids is None:
         return None
