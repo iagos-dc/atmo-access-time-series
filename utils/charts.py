@@ -697,6 +697,234 @@ def multi_line(
     return fig
 
 
+def plotly_hexbin(
+        x, y, C=None,
+        mode=None,  # ['2d', '3d', '3d+sample_size', '3d+sample_size_as_hexagon_scaling']
+        reduce_function=np.mean,
+        cmin=None, cmax=None,
+        min_count=1,
+        gridsize=50,
+        cmap='jet',
+        sample_size_transform=np.log1p,
+        sample_size_inverse_transform=np.expm1,
+        opaque_hexagon_centers=0.3,      # only used when C is not None
+        xaxis_title=None,
+        yaxis_title=None,
+        colorbar_title=None,
+        height=400, width=520,
+        margin=dict(b=40, t=30, l=20, r=20),
+):
+    # TODO: manages missing values in x, y and C (do sth like ds.dropna? ask user to ensure this?)
+    # TODO: after filtering with min_count, the plot bbox can change (it particular its aspect ratio) and in consequence, aspect ratio of hexagon changes? can remedy this?
+
+    if mode is None:
+        mode = '2d' if C is None else '3d'
+
+    mode_options = ['2d', '3d', '3d+sample_size', '3d+sample_size_as_hexagon_scaling']
+    assert mode in mode_options, \
+        f'mode must be one of {mode_options}; got mode={mode}'
+    assert mode == '2d' or C is not None, \
+        f'C is None, so mode must be "2d"; got mode={mode}'
+    assert mode == '2d' or reduce_function is not None, \
+        f'mode={mode}, so reduce_function cannot be None'
+    assert mode == '3d' or sample_size_transform is not None, \
+        f'mode={mode}, so sample_size_transform cannot be None'
+    assert mode != '2d' or sample_size_inverse_transform is not None, \
+        f'mode is "2d", so sample_size_inverse_transform cannot be None'
+
+    import matplotlib.pyplot as plt
+    # dx = x.max() - x.min()
+    # dy = y.max() - y.min()
+
+    if isinstance(gridsize, int):
+        # define gridsize(x, y) so that the hexagons are approximately regular
+        # see: https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.hexbin.html
+        plot_width = max(width - 20 - margin['l'] - margin['r'], 10)
+        plot_height = max(height - margin['t'] - margin['b'], 10)
+        gridsize_x = gridsize
+        gridsize_y = max(round(gridsize_x / np.sqrt(3) * plot_height / plot_width), 1)
+        gridsize = (gridsize_x, gridsize_y)
+
+    mpl_hexbin = plt.hexbin(x, y, gridsize=gridsize, mincnt=max(min_count, 1))
+    plt.close()
+    counts = mpl_hexbin.get_array()
+    offsets = mpl_hexbin.get_offsets()
+    _hexagon, = mpl_hexbin.get_paths()
+    hexagon_vertices = np.array([vertex for vertex, _ in _hexagon.iter_segments()][:-1])
+
+    if mode != '2d':
+        mpl_hexbin = plt.hexbin(x, y, C=C, reduce_C_function=reduce_function, gridsize=gridsize,
+                                mincnt=max(min_count - 1, 0))
+        plt.close()
+        cs = mpl_hexbin.get_array()
+        _offsets = mpl_hexbin.get_offsets()
+        _hexagon, = mpl_hexbin.get_paths()
+        _hexagon_vertices = np.array([vertex for vertex, _ in _hexagon.iter_segments()][:-1])
+        np.testing.assert_allclose(_offsets, offsets)
+        np.testing.assert_allclose(_hexagon_vertices, hexagon_vertices)
+
+    _hexagons = np.expand_dims(offsets, 1) + np.expand_dims(hexagon_vertices, 0)  # hexagon, vertex, 2d-coord: shape is (n, 6, 2)
+    centers = _hexagons.mean(axis=1)
+
+    if mode in ['2d', '3d+sample_size', '3d+sample_size_as_hexagon_scaling']:
+        max_count = np.amax(counts) if len(counts) > 0 else 1
+        sample_size_transformed = sample_size_transform(counts)
+        max_sample_size_transformed = sample_size_transform(np.array(max_count))
+        relative_sample_size = sample_size_transformed / max_sample_size_transformed
+
+    if mode in ['2d', '3d', '3d+sample_size']:
+        hexagons = _hexagons
+        if mode == '3d+sample_size':
+            if opaque_hexagon_centers is not None and opaque_hexagon_centers > 0:
+                opaque_hexagons = opaque_hexagon_centers * _hexagons \
+                                  + (1 - opaque_hexagon_centers) * np.expand_dims(centers, 1)
+            else:
+                opaque_hexagons = None
+    elif mode == '3d+sample_size_as_hexagon_scaling':
+        _relative_sample_size = np.expand_dims(relative_sample_size, (1, 2))
+        hexagons = _relative_sample_size * _hexagons \
+                   + (1 - _relative_sample_size) * np.expand_dims(centers, 1)
+    else:
+        raise ValueError(f'mode={mode}')
+
+    if mode != '2d':
+        z = cs
+        z_high = cmax
+        if z_high is None:
+            z_high = np.amax(z) if len(z) > 0 else 1
+        z_low = cmin
+        if z_low is None:
+            z_low = np.amin(z) if len(z) > 0 else 0
+    else:  # mode == '2d'
+        z = sample_size_transformed
+        z_high = max_sample_size_transformed
+        z_low = sample_size_transform(np.array(0))
+
+    colors = plotly.colors.sample_colorscale(cmap, np.clip((z - z_low) / (z_high - z_low), 0, 1), colortype='tuple')
+    colors = np.round(np.array(colors) * 255).astype('i4')
+
+    if mode == '3d+sample_size':
+        hexagon_colors = [f'rgba({r}, {g}, {b}, {a})' for (r, g, b), a in zip(colors, relative_sample_size)]
+        if opaque_hexagons is not None:
+            opaque_hexagon_colors = [f'rgb({r}, {g}, {b})' for r, g, b in colors]
+    else:
+        hexagon_colors = [f'rgb({r}, {g}, {b})' for r, g, b in colors]
+
+    hexagon_x_centers, hexagon_y_centers = centers[:, 0], centers[:, 1]
+    if mode != '2d':
+        hover_text = [
+            f'x: {hexagon_x_center:.4g}<br>'
+            f'y: {hexagon_y_center:.4g}<br>'
+            f'c: {c:.4g}<br>'
+            f'samples: {int(count):.4g}'
+            for hexagon_x_center, hexagon_y_center, c, count in zip(hexagon_x_centers, hexagon_y_centers, cs, counts)
+        ]
+    else:  # mode == '2d'
+        hover_text = [
+            f'x: {hexagon_x_center:.4g}<br>'
+            f'y: {hexagon_y_center:.4g}<br>'
+            f'samples: {int(count):.4g}'
+            for hexagon_x_center, hexagon_y_center, count in zip(hexagon_x_centers, hexagon_y_centers, counts)
+        ]
+
+    colorbar = {
+        'ticklen': 6,
+        'ticks': 'inside',
+        'thickness': 20,
+        # 'orientation': 'h',
+        # 'x': 0.5, 'y': -0.2,
+        'title': {
+            'text': colorbar_title,
+            'side': 'right'
+        },
+    }
+    if mode == '2d':
+        tickvals = np.linspace(z_low, z_high, 11)
+        ticktext = [f'{sample_size_inverse_transform(_z):.4g}' for _z in tickvals]
+        colorbar.update({
+            'tickvals': tickvals,
+            'ticktext': ticktext,
+        })
+
+    trace = go.Scatter(
+        x=hexagon_x_centers,
+        y=hexagon_y_centers,
+        mode='markers',
+        marker={
+            'size': 0.01,
+            'color': z,
+            'cmin': z_low,
+            'cmax': z_high,
+            'colorscale': cmap,
+            'showscale': True,
+            'colorbar': colorbar,
+        },
+        text=hover_text,
+        hoverinfo='text',
+    )
+
+    def get_shape_path(hexagon, color):
+        path = 'M '
+        path += ' L '.join(f'{v[0]}, {v[1]}' for v in hexagon)
+        path += ' Z'
+        shape = {
+            'type': 'path',
+            'path': path,
+            'fillcolor': color,
+            'line_width': 0,
+        }
+        return shape
+
+    shapes = []
+    for hexagon, hexagon_color in zip(hexagons, hexagon_colors):
+        shapes.append(get_shape_path(hexagon, hexagon_color))
+
+    if mode == '3d+sample_size' and opaque_hexagons is not None:
+        for opaque_hexagon, color_rgb in zip(opaque_hexagons, opaque_hexagon_colors):
+            shapes.append(get_shape_path(opaque_hexagon, color_rgb))
+
+    # x_min, x_max = (x.min(), x.max()) if len(x) > 0 else (0, 1)
+    # y_min, y_max = (y.min(), y.max()) if len(y) > 0 else (0, 1)
+
+    fig = go.Figure(data=trace)
+    # fig.update_xaxes({
+    #    'range': [x_min, x_max],
+    # })
+    # fig.update_yaxes({
+    #    'range': [y_min, y_max],
+    # })
+    axis = dict(
+        showgrid=False,
+        showline=False,
+        zeroline=False,
+        ticks='inside',
+        ticklen=6,
+    )
+
+    if xaxis_title is not None:
+        xaxis = axis.copy()
+        xaxis.update(title=xaxis_title)
+    else:
+        xaxis = axis
+    if yaxis_title is not None:
+        yaxis = axis.copy()
+        yaxis.update(title=yaxis_title)
+    else:
+        yaxis = axis
+
+    fig.update_layout({
+        'width': width,
+        'height': height,
+        'xaxis': xaxis,
+        'yaxis': yaxis,
+        'hovermode': 'closest',
+        'shapes': shapes,
+        'margin': margin,
+    })
+
+    return fig
+
+
 def empty_figure():
     return go.Figure()
 

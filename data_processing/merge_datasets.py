@@ -168,7 +168,7 @@ def integrate_datasets(dss):
             var_id = tuple(map(lambda i: str(i) if i is not None else '', var_id))  # ensure all parts of var_id are strings
             tree_of_var_ids.add_path(var_id, da)
 
-    das_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=1)  # we want to keep v and ri in the var_id
+    das_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=1)  # we want to keep v_ri_freq in the var_id
     da_by_var_id = {}
     for var_id, das in das_by_var_id.items():
         if len(das) == 1:
