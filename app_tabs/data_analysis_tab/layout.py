@@ -255,11 +255,26 @@ def get_data_analysis_tab():
     data_analysis_tab_container_content = dbc.Row([
         dbc.Col(
             children=dbc.Container(
-                [
-                    dbc.Row(get_variables_checklist()),
-                    dbc.Row(get_analysis_method_radio()),
-                    dbc.Row(get_analysis_method_parameters_card()),
-                ],
+                dbc.Card([
+                    dbc.CardHeader(
+                        dbc.Tabs(
+                            [
+                                dbc.Tab(label='Exploratory analysis', tab_id='exploratory-analysis'),
+                                dbc.Tab(label='Trend analysis', tab_id='trend-analysis'),
+                                dbc.Tab(label='Multivariate analysis', tab_id='multivariate-analysis'),
+                            ],
+                            id='card-tabs',
+                            active_tab='exploratory-analysis',
+                        )
+                    ),
+                    dbc.CardBody(
+                        [
+                            dbc.Row(get_variables_checklist()),
+                            dbc.Row(get_analysis_method_radio()),
+                            dbc.Row(get_analysis_method_parameters_card()),
+                        ],
+                    ),
+                ]),
                 fluid=True,
             ),
             width=4,
