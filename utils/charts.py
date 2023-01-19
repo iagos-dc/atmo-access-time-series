@@ -746,17 +746,21 @@ def plotly_hexbin(
         gridsize = (gridsize_x, gridsize_y)
 
     mpl_hexbin = plt.hexbin(x, y, gridsize=gridsize, mincnt=max(min_count, 1))
-    plt.close()
-    counts = mpl_hexbin.get_array()
+    #plt.close()
+    counts = np.asarray(mpl_hexbin.get_array())
     offsets = mpl_hexbin.get_offsets()
     _hexagon, = mpl_hexbin.get_paths()
     hexagon_vertices = np.array([vertex for vertex, _ in _hexagon.iter_segments()][:-1])
 
     if mode != '2d':
-        mpl_hexbin = plt.hexbin(x, y, C=C, reduce_C_function=reduce_function, gridsize=gridsize,
-                                mincnt=max(min_count - 1, 0))
-        plt.close()
-        cs = mpl_hexbin.get_array()
+        mpl_hexbin = plt.hexbin(
+            x, y, C=C,
+            reduce_C_function=reduce_function,
+            gridsize=gridsize,
+            mincnt=max(min_count - 1, 0)
+        )
+        #plt.close()
+        cs = np.asarray(mpl_hexbin.get_array())
         _offsets = mpl_hexbin.get_offsets()
         _hexagon, = mpl_hexbin.get_paths()
         _hexagon_vertices = np.array([vertex for vertex, _ in _hexagon.iter_segments()][:-1])
@@ -800,7 +804,10 @@ def plotly_hexbin(
         z_high = max_sample_size_transformed
         z_low = sample_size_transform(np.array(0))
 
-    colors = plotly.colors.sample_colorscale(cmap, np.clip((z - z_low) / (z_high - z_low), 0, 1), colortype='tuple')
+    z_relative = (z - z_low) / (z_high - z_low)
+    # in case z_high == z_low:
+    z_relative = np.nan_to_num(z_relative, nan=0.5, posinf=0.5, neginf=0.5)
+    colors = plotly.colors.sample_colorscale(cmap, np.clip(z_relative, 0, 1), colortype='tuple')
     colors = np.round(np.array(colors) * 255).astype('i4')
 
     if mode == '3d+sample_size':
@@ -1001,13 +1008,7 @@ def apply_figure_xaxis_extent(fig, relayout_data):
     return fig
 
 
-def apply_figure_extent(fig, relayout_data):
-    """
-
-    :param fig: plotly.graphical_objects.Figure
-    :param relayout_data: dict, e.g. relayout_data={'xaxis.range[0]': '1987-03-28 07:16:06.9794', 'xaxis.range[1]': '2003-01-18 00:53:57.7486'}
-    :return: plotly.graphical_objects.Figure
-    """
+def get_figure_extent(relayout_data):
     if relayout_data is not None:
         layout_dict = {}
         try:
@@ -1019,9 +1020,21 @@ def apply_figure_extent(fig, relayout_data):
                         layout_dict.setdefault(axis, {'range': [None, None]})['range'][i] = v
                 except Exception as e:
                     logger().exception(f'Failed to parse relayout_data item k={k}, v={v}; relayout_data={relayout_data}', exc_info=e)
-            print(f'charts.apply_figure_extent: layout_dict={layout_dict}')
-            if layout_dict:
-                fig.update_layout(layout_dict)
+            print(f'charts.get_figure_extent: layout_dict={layout_dict}')
+            return layout_dict
         except Exception as e:
             logger().exception(f'Failed to apply relayout_data={relayout_data}', exc_info=e)
+    return None
+
+
+def apply_figure_extent(fig, relayout_data):
+    """
+
+    :param fig: plotly.graphical_objects.Figure
+    :param relayout_data: dict, e.g. relayout_data={'xaxis.range[0]': '1987-03-28 07:16:06.9794', 'xaxis.range[1]': '2003-01-18 00:53:57.7486'}
+    :return: plotly.graphical_objects.Figure
+    """
+    layout_dict = get_figure_extent(relayout_data)
+    if layout_dict:
+        fig.update_layout(layout_dict)
     return fig

@@ -1,20 +1,21 @@
 import functools
+import json
 from dash import callback, ALL, ALLSMALLER
 from dash.dependencies import Input, Output, State
 
 
-_ACTIVE = '_active'
-_ID = '_id'
+_ACTIVE = 'active_'
+_ID = 'id_'
 
 
-def add_active_to_component_id(component_id):
+def add_active_to_component_id(component_id, active=True):
     if isinstance(component_id, dict):
         component_id = dict(component_id)
         if _ACTIVE in component_id:
             raise ValueError(f'key \'{_ACTIVE}\' cannot be present in component_id={component_id}')
-        component_id[_ACTIVE] = True
+        component_id[_ACTIVE] = active
     else:
-        component_id = {_ID: component_id, _ACTIVE: True}
+        component_id = {_ID: component_id, _ACTIVE: active}
     return component_id
 
 
@@ -22,6 +23,27 @@ class _DynamicDashDependency:
     def __init__(self, component_id, component_property):
         self.component_id = component_id
         self.component_property = component_property
+
+    def __str__(self):
+        return f"{self.component_id_str()}.{self.component_property}"
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} `{self}`>"
+
+    def component_id_str(self):
+        i = self.component_id
+
+        def _dump(v):
+            return json.dumps(v, sort_keys=True, separators=(",", ":"))
+
+        def _json(k, v):
+            vstr = v.to_json() if hasattr(v, "to_json") else json.dumps(v)
+            return f"{json.dumps(k)}:{vstr}"
+
+        if isinstance(i, dict):
+            return "{" + ",".join(_json(k, i[k]) for k in sorted(i)) + "}"
+
+        return i
 
 
 class DynamicOutput(_DynamicDashDependency):
@@ -45,7 +67,7 @@ _dash_dependency_types_mapping = {
 
 def _transform_dash_dependency(dash_dependency):
     if isinstance(dash_dependency, _DynamicDashDependency):
-        new_component_id = add_active_to_component_id(dash_dependency.component_id)
+        new_component_id = add_active_to_component_id(dash_dependency.component_id, active=ALL)
         new_dash_dependency_type = _dash_dependency_types_mapping[type(dash_dependency)]
         return new_dash_dependency_type(new_component_id, dash_dependency.component_property)
     else:
@@ -57,7 +79,7 @@ def _does_dash_dependency_become_one_elem_list(dash_dependency):
         return False
     component_id = dash_dependency.component_id
     if not isinstance(component_id, dict):
-        return False
+        return True
     return all(v is not ALL and v is not ALLSMALLER for v in component_id.values())
 
 
@@ -93,6 +115,7 @@ def dynamic_callback(*args, **kwargs):
                 for arg, becomes_list in zip(func_args, input_become_one_elem_list)
             )
             callback_result = callback_func(*new_func_args)
+
             if len(output_become_one_elem_list) == 0:
                 if callback_result is not None:
                     raise RuntimeError(

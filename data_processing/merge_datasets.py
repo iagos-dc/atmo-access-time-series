@@ -202,17 +202,12 @@ def integrate_datasets(dss):
     return da_by_var_id
 
 
-def merge_datasets(dss):
-    """
-
-    :param dss: list of (string indicating RI, xarray.Dataset)
-    :return:
-    """
+def merge_datasets(da_by_varlabel):
     freqs_tmin_tmax = [
-        (da.attrs['_aats_freq'], da['time'].values.min(), da['time'].values.max())
-        for ri, ds in dss for v, da in ds.data_vars.items()
+        (da.attrs['_aats_freq'], da['time'].values.min(), da['time'].values.max()) for v, da in da_by_varlabel.items()
     ]
     freqs, tmin, tmax = zip(*freqs_tmin_tmax)
+    # TODO: we have already managed time resolution, have we?
     freqs = [
         pd.Timedelta(int(f[:-1]), unit=f[-1]) if f[-1] != 'M' else pd.Timedelta(30 * int(f[:-1]), unit='D')
         for f in freqs
@@ -222,22 +217,20 @@ def merge_datasets(dss):
     t_max = max(tmax)
     t = pd.date_range(t_min, t_max, freq=freq)
 
-    da_by_ri_var = {}
-    for ri, ds in dss:
-        for v, da in ds.data_vars.items():
-            da_interpolated = interpolate(da, {'time': t}, method='nearest')
-            da_interpolated['time'].attrs = {
-                'standard_name': 'time',
-                'long_name': 'time',
-            }
-            v_ri = f'{v}_{ri}'
-            da_interpolated.name = v_ri
-            attrs = dict(ds.attrs)
-            attrs.update(da.attrs)
-            da_interpolated.attrs = attrs
-            da_by_ri_var[v_ri] = da_interpolated  # TODO: can cause override the dictionary da_by_ri_var...; apply xr.concat in such a case?
+    interpolated_da_by_varlabel = {}
+    for v, da in da_by_varlabel.items():
+        # TODO: it is to avoid conflicts while merging; maybe we should drop aux coords earlier (during data integration?)
+        da = da.reset_coords(drop=True)
+        da_interpolated = interpolate(da, {'time': t}, method='nearest')
+        da_interpolated['time'].attrs = {
+            'standard_name': 'time',
+            'long_name': 'time',
+        }
+        da_interpolated.name = v
+        da_interpolated.attrs = dict(da.attrs)
+        interpolated_da_by_varlabel[v] = da_interpolated
 
-    ds = xr.merge(da_by_ri_var.values())
+    ds = xr.merge(interpolated_da_by_varlabel.values())
     # clear global attributes
     ds.attrs = {}
     return ds

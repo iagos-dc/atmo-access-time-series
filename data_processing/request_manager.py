@@ -208,42 +208,6 @@ class ReadDataRequest(Request):
         return ReadDataRequest(ri, url, ds_metadata, selector=selector)
 
 
-class MergeDatasetsRequest(Request):
-    def __init__(self, read_dataset_requests):
-        self.read_dataset_requests = read_dataset_requests
-
-    def execute(self):
-        print(f'execute {str(self)}')
-        dss = [
-            (read_dataset_request.ri, read_dataset_request.compute())
-            for read_dataset_request in self.read_dataset_requests
-        ]
-        return merge_datasets(dss)
-
-    def get_hashable(self):
-        rs = sorted(read_dataset_request.get_hashable() for read_dataset_request in self.read_dataset_requests)
-        return ('merge_datasets', ) + tuple(rs)
-
-    def to_dict(self):
-        return dict(
-            _action='merge_datasets',
-            read_dataset_requests=tuple(
-                read_dataset_request.to_dict() for read_dataset_request in self.read_dataset_requests
-            ),
-        )
-
-    @classmethod
-    def from_dict(cls, d):
-        try:
-            read_dataset_requests_as_dict = d['read_dataset_requests']
-        except KeyError:
-            raise ValueError(f'bad MergeDatasetsRequest: d={str(d)}')
-        return MergeDatasetsRequest(tuple(
-            request_from_dict(read_dataset_request_as_dict)
-            for read_dataset_request_as_dict in read_dataset_requests_as_dict
-        ))
-
-
 class IntegrateDatasetsRequest(Request):
     def __init__(self, read_dataset_requests):
         self.read_dataset_requests = read_dataset_requests
@@ -358,6 +322,33 @@ class FilterDataRequest(Request):
             cross_filtering,
             cross_filtering_time_coincidence_dt
         )
+
+
+class MergeDatasetsRequest(Request):
+    def __init__(self, filter_dataset_request):
+        self.filter_dataset_request = filter_dataset_request
+
+    def execute(self):
+        print(f'execute {str(self)}')
+        da_by_varlabel = self.filter_dataset_request.compute()
+        return merge_datasets(da_by_varlabel)
+
+    def get_hashable(self):
+        return 'merge_datasets', self.filter_dataset_request.get_hashable()
+
+    def to_dict(self):
+        return dict(
+            _action='merge_datasets',
+            filter_dataset_request=self.filter_dataset_request.to_dict(),
+        )
+
+    @classmethod
+    def from_dict(cls, d):
+        try:
+            filter_dataset_request_as_dict = d['filter_dataset_request']
+        except KeyError:
+            raise ValueError(f'bad MergeDatasetsRequest: d={str(d)}')
+        return MergeDatasetsRequest(request_from_dict(filter_dataset_request_as_dict))
 
 
 def request_from_dict(d):

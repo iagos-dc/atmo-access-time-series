@@ -20,7 +20,8 @@ DEBUG_GET_DATASETS = False
 
 @callback(
     Output(VARIABLES_CHECKLIST_ID, 'value'),
-    Input(VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value')
+    Input(VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
+    prevent_initial_call=True,
 )
 @log_exception
 def toogle_variable_checklist(variables_checklist_all_none_switch):

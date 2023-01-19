@@ -66,6 +66,8 @@ def get_variables_checklist():
         options=variables_options,
         value=variables_values,
         labelStyle={'display': 'flex'},  # display in column rather than in a row; not sure if it is the right way to do
+        persistence=True,
+        persistence_type='session',
     )
     return variables_checklist
 
