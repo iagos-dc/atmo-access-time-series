@@ -69,6 +69,29 @@ def log_callback(log_callback_context=True):
     return _log_callback
 
 
+def print_callback(log_callback_context=True):
+    def _log_callback(func):
+        @functools.wraps(func)
+        def log_callback_wrapper(*args, **kwargs):
+            #args_as_json = [json.dumps(arg) for arg in args]
+            #kwargs_as_json = {kw: json.dumps(arg) for kw, arg in kwargs.items()}
+            d = {
+                'module': func.__module__,
+                'name': func.__qualname__,
+                'args': args,
+                'kwargs': kwargs,
+            }
+            if log_callback_context:
+                from dash import ctx
+                d['ctx'] = (ctx.triggered_id, ctx.triggered_prop_ids)
+
+            print(d)
+
+            return func(*args, **kwargs)
+        return log_callback_wrapper
+    return _log_callback
+
+
 def log_callback_with_ret_value(log_callback_context=True):
     def _log_callback(func):
         @functools.wraps(func)

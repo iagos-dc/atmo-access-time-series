@@ -84,14 +84,12 @@ def request_cache(func):
                     print(f'req_map[{i}] = {str(req)}')
                     req_map[i] = req
             if is_id_new:
-                # print(f'prepare to execute req={str(req)}')
                 res = func(req)
                 res_map[i] = res
             else:
                 while i not in res_map:
                     time.sleep(0.1)
                 res = res_map[i]
-                # print(f'retrieved req={str(req)}')
             return res
         except Exception as e:
             print(repr(ValueError(f'req={str(req)}')))
@@ -213,7 +211,7 @@ class IntegrateDatasetsRequest(Request):
         self.read_dataset_requests = read_dataset_requests
 
     def execute(self):
-        print(f'execute {str(self)}')
+        # print(f'execute {str(self)}')
         dss = [
             (
                 read_dataset_request.ri,
@@ -263,7 +261,7 @@ class FilterDataRequest(Request):
         self.cross_filtering_time_coincidence_dt = cross_filtering_time_coincidence_dt
 
     def execute(self):
-        print(f'execute {str(self)}')
+        # print(f'execute {str(self)}')
         ds = self.integrate_datasets_request.compute()
 
         ds_filtered_by_var = filter_dataset(
@@ -329,7 +327,7 @@ class MergeDatasetsRequest(Request):
         self.filter_dataset_request = filter_dataset_request
 
     def execute(self):
-        print(f'execute {str(self)}')
+        # print(f'execute {str(self)}')
         da_by_varlabel = self.filter_dataset_request.compute()
         return merge_datasets(da_by_varlabel)
 

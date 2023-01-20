@@ -136,7 +136,6 @@ class _Tree:
 
 def integrate_datasets(dss):
     tree_of_var_ids = _Tree()
-    print(f'integrate_datasets with len(dss)={len(dss)}')
     for ri, selector, md, ds in dss:
         print(f'ri={ri}, selector={selector}, md={md}')
         for v, da in ds.data_vars.items():
@@ -181,8 +180,6 @@ def integrate_datasets(dss):
                 logger().info(f'{da}')
             try:
                 da = xr.concat(das, dim='time')
-                print(f'got da={da}')
-                print(f'with time={da.time}')
             except Exception as e:
                 logger().exception(
                     f'var_id={var_id}: concatenate of {len(das)} DataArrays failed; '

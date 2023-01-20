@@ -277,7 +277,6 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         if isinstance(ds, xr.Dataset):
             ds_avail = ds.notnull().resample({'time': freq}).mean()
         else:
-            print(f'ds={ds}')
             # ds is a dictionary {var_label: xr.DataArray}
             ds_avail = xr.merge(
                 [
@@ -767,7 +766,7 @@ def plotly_hexbin(
         np.testing.assert_allclose(_offsets, offsets)
         np.testing.assert_allclose(_hexagon_vertices, hexagon_vertices)
 
-    _hexagons = np.expand_dims(offsets, 1) + np.expand_dims(hexagon_vertices, 0)  # hexagon, vertex, 2d-coord: shape is (n, 6, 2)
+    _hexagons = np.expand_dims(offsets, 1) + np.expand_dims(hexagon_vertices, 0)  # _hexagon, vertex, 2d-coord: shape is (n, 6, 2)
     centers = _hexagons.mean(axis=1)
 
     if mode in ['2d', '3d+sample_size', '3d+sample_size_as_hexagon_scaling']:
@@ -1009,18 +1008,42 @@ def apply_figure_xaxis_extent(fig, relayout_data):
 
 
 def get_figure_extent(relayout_data):
+    """
+
+    :param relayout_data:
+    :return: dict or True; True if autosize=True is within relayout_data
+    """
     if relayout_data is not None:
         layout_dict = {}
         try:
             for k, v in relayout_data.items():
                 try:
+                    if k in ['dragmode', 'selections']:
+                        continue
+                    if k == 'autosize':
+                        if v:
+                            return True
+                        else:
+                            raise RuntimeError('unknown relayout command 1')
+
                     axis, rng = k.split('.')
+
                     if rng.startswith('range[') and len(rng) == 8 and rng[-1] == ']':
                         i = int(rng[-2])
+                        assert i in [0, 1]
                         layout_dict.setdefault(axis, {'range': [None, None]})['range'][i] = v
+                    elif rng == 'autorange':
+                        if v:
+                            layout_dict[axis] = {'range': [None, None]}
+                        else:
+                            raise RuntimeError('unknown relayout command 2')
+                    elif rng == 'showspikes':
+                        continue
+                    else:
+                        raise RuntimeError('unknown relayout command 3')
+
                 except Exception as e:
                     logger().exception(f'Failed to parse relayout_data item k={k}, v={v}; relayout_data={relayout_data}', exc_info=e)
-            print(f'charts.get_figure_extent: layout_dict={layout_dict}')
             return layout_dict
         except Exception as e:
             logger().exception(f'Failed to apply relayout_data={relayout_data}', exc_info=e)
@@ -1035,6 +1058,7 @@ def apply_figure_extent(fig, relayout_data):
     :return: plotly.graphical_objects.Figure
     """
     layout_dict = get_figure_extent(relayout_data)
-    if layout_dict:
+    print(f'charts.apply_figure_extent: relayout_data={relayout_data}, layout_dict={layout_dict}')
+    if isinstance(layout_dict, dict) and layout_dict:
         fig.update_layout(layout_dict)
     return fig

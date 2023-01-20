@@ -15,7 +15,6 @@ from utils.broadcast import broadcast
 from log import log_exectime, log_exception
 
 
-
 @callback(
     Output(layout.DATA_ANALYSIS_PARAMETERS_CARDBODY_ID, 'children'),
     Output(layout.DATA_ANALYSIS_FIGURE_CONTAINER_ID, 'children'),
@@ -125,8 +124,8 @@ def get_multivariate_analysis_variables_cardbody_callback(filter_data_request):
     if filter_data_request is None:
         raise dash.exceptions.PreventUpdate
 
-    req = data_processing.FilterDataRequest.from_dict(filter_data_request)
-    da_by_var = req.compute()
+    filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
+    da_by_var = filter_data_request.compute()
     da_by_var = {v: da_by_var[v] for v in sorted(da_by_var)}
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
 
@@ -137,16 +136,21 @@ def get_multivariate_analysis_variables_cardbody_callback(filter_data_request):
     options = [{'label': f'{v} : {md[metadata.VARIABLE_LABEL]}', 'value': v} for v, md in metadata_by_var.items()]
     options_c = ([{'label': '---', 'value': '---'}] + options) if len(vs) >= 3 else None
 
+    integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
+
     return [
         layout.get_variable_dropdown(
             dropdown_id=ddc.add_active_to_component_id(dropdown_id),
             axis_label=axis_label,
             options=options,
+            value=value,
+            persistence_id=f'{axis_label}:{integrate_datasets_request_hash}'
         )
-        for dropdown_id, axis_label, options in zip(
+        for dropdown_id, axis_label, options, value in zip(
             [layout.X_VARIABLE_SELECT_ID, layout.Y_VARIABLE_SELECT_ID, layout.C_VARIABLE_SELECT_ID],
             ['X axis', 'Y axis', 'Colour'],
             [options, options] + ([options_c] if options_c else []),
+            [options[0]['value'], options[1]['value'], '---'],
         )
     ]
 
@@ -178,16 +182,12 @@ def get_data_analysis_specification_store(analysis_method):
     prevent_initial_call=True,
 )
 @log_exception
-#@log_exectime
 def get_exploratory_plot_callback(vs, filter_data_request, method_inputs, scatter_mode, analysis_method, relayout_data):
-    # # print(f'relayout_data={relayout_data}')
     if any(map(
             lambda obj: obj is None,
             (dash.ctx.triggered_id, vs, filter_data_request, analysis_method, method_inputs)
     )):
         raise dash.exceptions.PreventUpdate
-
-    # # print(f'method_inputs={method_inputs}')
 
     req = data_processing.FilterDataRequest.from_dict(filter_data_request)
     da_by_var = req.compute()
@@ -299,11 +299,11 @@ def get_exploratory_plot_callback(vs, filter_data_request, method_inputs, scatte
     )
     fig = charts.add_watermark(fig)
 
-    print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
-
     if dash.ctx.triggered_id != common_layout.FILTER_DATA_REQUEST_ID:
         # we reset the zoom only if a new filter data request was launched
         fig = charts.apply_figure_extent(fig, relayout_data)
+
+    # print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
     return fig
 
 
@@ -316,75 +316,89 @@ def get_exploratory_plot_callback(vs, filter_data_request, method_inputs, scatte
     ddc.DynamicInput(layout.DATA_ANALYSIS_METHOD_RADIO_ID, 'value'),
     ddc.DynamicInput(layout.SCATTER_PLOT_PARAMS_RADIO_ID, 'value'),
     ddc.DynamicInput(layout.MULTIVARIATE_GRAPH_ID, 'relayoutData'),
-    prevent_initial_call=True,
+    #prevent_initial_call=True,
 )
 @log_exception
 #@log_exectime
 def get_multivariate_plot_callback(x_var, y_var, color_var, filter_data_request, analysis_method, scatter_plot_params, relayout_data):
-    # # print(f'relayout_data={relayout_data}')
-    if any(map(
-            lambda obj: obj is None,
-            (dash.ctx.triggered_id, x_var, y_var, color_var, filter_data_request, analysis_method)
-    )):
+    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
+
+    # ignore callback fired by relayout_data if it is abount zoom, pan, selectes, etc.
+    figure_extent = charts.get_figure_extent(relayout_data)
+    if dash_ctx == [ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID)] and not figure_extent:
+        print(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
         raise dash.exceptions.PreventUpdate
 
-    # # print(f'method_inputs={method_inputs}')
+    if not dash_ctx or any(map(lambda obj: obj is None, (x_var, y_var, filter_data_request, analysis_method))):
+        raise dash.exceptions.PreventUpdate
+
+    if color_var == '---':
+        color_var = None
 
     filter_datasets_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
     ds = data_processing.MergeDatasetsRequest(filter_datasets_request).compute()
 
     selected_vars = [x_var, y_var]
-    if color_var != '---':
+    if color_var is not None:
         selected_vars.append(color_var)
     ds = ds[selected_vars]
 
     plot_title = 'Hexbin plot'
     #from {len(ds["time"]):.4g} samples'
 
-    if dash.ctx.triggered_id == ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID)\
-            or dash.ctx.triggered_id == ddc.add_active_to_component_id(layout.SCATTER_PLOT_PARAMS_RADIO_ID):
+#    if dash.ctx.triggered_id == ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID)\
+#            or dash.ctx.triggered_id == ddc.add_active_to_component_id(layout.SCATTER_PLOT_PARAMS_RADIO_ID):
+
+    if ddc.add_active_to_component_id(layout.X_VARIABLE_SELECT_ID) not in dash_ctx and \
+            ddc.add_active_to_component_id(layout.Y_VARIABLE_SELECT_ID) not in dash_ctx and \
+            (
+                    ddc.add_active_to_component_id(layout.SCATTER_PLOT_PARAMS_RADIO_ID) in dash_ctx or
+                    ddc.add_active_to_component_id(layout.C_VARIABLE_SELECT_ID) in dash_ctx or
+                    ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID) in dash_ctx
+            ):
         # apply x- and y-data filtering according to figure extent (zoom)
-        xy_extent = charts.get_figure_extent(relayout_data)
-        x_min, x_max = xy_extent.get('xaxis', {}).get('range', [None, None])
-        y_min, y_max = xy_extent.get('yaxis', {}).get('range', [None, None])
-        xy_extent_cond = True
-        xy_extent_cond_as_str = []
+        xy_extent = figure_extent if isinstance(figure_extent, dict) else {}
+        if xy_extent is not None:
+            x_min, x_max = xy_extent.get('xaxis', {}).get('range', [None, None])
+            y_min, y_max = xy_extent.get('yaxis', {}).get('range', [None, None])
+            xy_extent_cond = True
+            xy_extent_cond_as_str = []
 
-        if x_min is not None:
-            xy_extent_cond &= (ds[x_var] >= x_min)
-        if x_max is not None:
-            xy_extent_cond &= (ds[x_var] <= x_max)
+            if x_min is not None:
+                xy_extent_cond &= (ds[x_var] >= x_min)
+            if x_max is not None:
+                xy_extent_cond &= (ds[x_var] <= x_max)
 
-        if x_min is not None and x_max is not None:
-            xy_extent_cond_as_str.append(f'{x_min:.4g} <= {x_var} <= {x_max:.4g}')
-        elif x_min is not None:
-            xy_extent_cond_as_str.append(f'{x_min:.4g} <= {x_var}')
-        elif x_max is not None:
-            xy_extent_cond_as_str.append(f'{x_var} <= {x_max:.4g}')
+            if x_min is not None and x_max is not None:
+                xy_extent_cond_as_str.append(f'{x_min:.4g} <= {x_var} <= {x_max:.4g}')
+            elif x_min is not None:
+                xy_extent_cond_as_str.append(f'{x_min:.4g} <= {x_var}')
+            elif x_max is not None:
+                xy_extent_cond_as_str.append(f'{x_var} <= {x_max:.4g}')
 
-        if y_min is not None:
-            xy_extent_cond &= (ds[y_var] >= y_min)
-        if y_max is not None:
-            xy_extent_cond &= (ds[y_var] <= y_max)
+            if y_min is not None:
+                xy_extent_cond &= (ds[y_var] >= y_min)
+            if y_max is not None:
+                xy_extent_cond &= (ds[y_var] <= y_max)
 
-        if y_min is not None and y_max is not None:
-            xy_extent_cond_as_str.append(f'{y_min:.4g} <= {y_var} <= {y_max:.4g}')
-        elif y_min is not None:
-            xy_extent_cond_as_str.append(f'{y_min:.4g} <= {y_var}')
-        elif y_max is not None:
-            xy_extent_cond_as_str.append(f'{y_var} <= {y_max:.4g}')
+            if y_min is not None and y_max is not None:
+                xy_extent_cond_as_str.append(f'{y_min:.4g} <= {y_var} <= {y_max:.4g}')
+            elif y_min is not None:
+                xy_extent_cond_as_str.append(f'{y_min:.4g} <= {y_var}')
+            elif y_max is not None:
+                xy_extent_cond_as_str.append(f'{y_var} <= {y_max:.4g}')
 
-        if xy_extent_cond is not True:
-            ds = ds.where(xy_extent_cond)
-            xy_extent_cond_as_str = ' and '.join(xy_extent_cond_as_str)
-            plot_title = f'{plot_title} for {xy_extent_cond_as_str}'
+            if xy_extent_cond is not True:
+                ds = ds.where(xy_extent_cond)
+                xy_extent_cond_as_str = ' and '.join(xy_extent_cond_as_str)
+                plot_title = f'{plot_title} for {xy_extent_cond_as_str}'
+
+    # drop all nan's (take into account only complete observations)
     ds = ds.dropna('time')
-
-    # colors_by_var = charts.get_color_mapping(ds.data_vars)
 
     X = ds[x_var].values
     Y = ds[y_var].values
-    if color_var != '---':
+    if color_var is not None:
         C = ds[color_var].values
     else:
         C = None
@@ -426,9 +440,10 @@ def get_multivariate_plot_callback(x_var, y_var, color_var, filter_data_request,
     )
     fig = charts.add_watermark(fig)
 
-    print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
-
-    if dash.ctx.triggered_id == ddc.add_active_to_component_id(layout.SCATTER_PLOT_PARAMS_RADIO_ID):
-        # we keep the zoom only if a scatter plot parameters have changed
+    if ddc.add_active_to_component_id(layout.SCATTER_PLOT_PARAMS_RADIO_ID) in dash_ctx or \
+            ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID) in dash_ctx:
+        # we keep the zoom only if a scatter plot parameters have changed or the zoom has changed
         fig = charts.apply_figure_extent(fig, relayout_data)
+
+    # print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
     return fig

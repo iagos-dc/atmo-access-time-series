@@ -4,6 +4,7 @@ from .log import (
     log_args,
     log_exception,
     log_exectime,
+    print_callback,
     log_profiler_info,
     start_logging_callbacks,
     log_callback,

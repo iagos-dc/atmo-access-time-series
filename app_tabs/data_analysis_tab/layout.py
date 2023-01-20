@@ -1,6 +1,6 @@
 from dash import dcc, html
 import dash_bootstrap_components as dbc
-from utils import combo_input_AIO, dash_dynamic_components as ddc
+from utils import combo_input_AIO, dash_dynamic_components as ddc, dash_persistence
 
 
 DATA_ANALYSIS_TAB_VALUE = 'data-analysis-tab'
@@ -103,16 +103,16 @@ def get_message_not_enough_variables_for_multivariate_analysis():
     return 'For multivariate analysis choose at least 2 variables'
 
 
-def get_variable_dropdown(dropdown_id, axis_label, options):
-    vs = sorted(option['value'] for option in options)
+def get_variable_dropdown(dropdown_id, axis_label, options, value, persistence_id=None):
+    persistence_kwargs = dash_persistence.get_dash_persistence_kwargs(persistence_id)
+
     return dbc.InputGroup([
         dbc.InputGroupText(axis_label),
         dbc.Select(
             id=dropdown_id,
             options=options,
-            value=options[0]['value'],
-            persistence=f'{axis_label}: {vs}',
-            persistence_type='session',
+            value=value,
+            **persistence_kwargs,
         ),
     ])
 
