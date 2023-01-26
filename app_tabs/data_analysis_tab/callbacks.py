@@ -1,55 +1,18 @@
 import toolz
-import numpy as np
-import xarray as xr
-import pandas as pd
 import dash
-from dash import Input, State, Output, callback
-import plotly.express as px
+from dash import Input, callback, Output
 
+from app_tabs.data_analysis_tab.layout import DATA_ANALYSIS_PARAMETERS_CARDBODY_ID, DATA_ANALYSIS_FIGURE_CONTAINER_ID, \
+    KIND_OF_ANALYSIS_TABS_ID, EXPLORATORY_ANALYSIS_TAB_ID, get_exploratory_analysis_cardbody, get_exploratory_plot, \
+    TREND_ANALYSIS_TAB_ID, MULTIVARIATE_ANALYSIS_TAB_ID
+from app_tabs.data_analysis_tab.multivariate_analysis_layout import multivariate_analysis_cardbody, multivariate_plot
 from ..common import layout as common_layout
-from . import layout
+from . import layout, multivariate_analysis_layout
 import data_processing
 from data_processing import analysis, metadata
 from utils import charts, combo_input_AIO, dash_dynamic_components as ddc
 from utils.broadcast import broadcast
-from log import log_exectime, log_exception
-
-
-@callback(
-    Output(layout.DATA_ANALYSIS_PARAMETERS_CARDBODY_ID, 'children'),
-    Output(layout.DATA_ANALYSIS_FIGURE_CONTAINER_ID, 'children'),
-    Input(layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
-)
-@log_exception
-def get_parameters_carbody_content(tab_id):
-    if tab_id == layout.EXPLORATORY_ANALYSIS_TAB_ID:
-        param_cardbody_children = layout.get_exploratory_analysis_parameters()
-        figure_container_children = layout.get_exploratory_plot()
-    elif tab_id == layout.TREND_ANALYSIS_TAB_ID:
-        param_cardbody_children = []
-        figure_container_children = []
-    elif tab_id == layout.MULTIVARIATE_ANALYSIS_TAB_ID:
-        param_cardbody_children = layout.get_multivariate_analysis_parameters()
-        figure_container_children = layout.get_multivariate_plot()
-    else:
-        raise ValueError(f'unknown tab_id={tab_id}')
-    return param_cardbody_children, figure_container_children
-
-
-@ddc.dynamic_callback(
-    ddc.DynamicOutput(layout.DATA_ANALYSIS_METHOD_RADIO_ID, 'options'),
-    ddc.DynamicOutput(layout.DATA_ANALYSIS_METHOD_RADIO_ID, 'value'),
-    Input(layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
-)
-@log_exception
-def get_analysis_method_options(tab_id):
-    analysis_methods = layout.ANALYSIS_METHOD_LABELS_BY_KIND_OF_ANALYSIS_TABS_ID[tab_id]
-    options = [
-        {'label': analysis_method, 'value': analysis_method}
-        for analysis_method in analysis_methods
-    ]
-    value = analysis_methods[0] if len(analysis_methods) > 0 else None
-    return options, value
+from log import log_exception
 
 
 @ddc.dynamic_callback(
@@ -115,47 +78,6 @@ def get_variables_callback(filter_data_request, variables_checklist_all_none_swi
 
 
 @ddc.dynamic_callback(
-    ddc.DynamicOutput(layout.MULTIVARIATE_ANALYSIS_VARIABLES_CARDBODY_ID, 'children'),
-    Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
-    # prevent_initial_call=False,
-)
-@log_exception
-def get_multivariate_analysis_variables_cardbody_callback(filter_data_request):
-    if filter_data_request is None:
-        raise dash.exceptions.PreventUpdate
-
-    filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
-    da_by_var = filter_data_request.compute()
-    da_by_var = {v: da_by_var[v] for v in sorted(da_by_var)}
-    metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
-
-    vs = list(metadata_by_var)
-    if len(vs) <= 1:
-        return layout.get_message_not_enough_variables_for_multivariate_analysis()
-
-    options = [{'label': f'{v} : {md[metadata.VARIABLE_LABEL]}', 'value': v} for v, md in metadata_by_var.items()]
-    options_c = ([{'label': '---', 'value': '---'}] + options) if len(vs) >= 3 else None
-
-    integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
-
-    return [
-        layout.get_variable_dropdown(
-            dropdown_id=ddc.add_active_to_component_id(dropdown_id),
-            axis_label=axis_label,
-            options=options,
-            value=value,
-            persistence_id=f'{axis_label}:{integrate_datasets_request_hash}'
-        )
-        for dropdown_id, axis_label, options, value in zip(
-            [layout.X_VARIABLE_SELECT_ID, layout.Y_VARIABLE_SELECT_ID, layout.C_VARIABLE_SELECT_ID],
-            ['X axis', 'Y axis', 'Colour'],
-            [options, options] + ([options_c] if options_c else []),
-            [options[0]['value'], options[1]['value'], '---'],
-        )
-    ]
-
-
-@ddc.dynamic_callback(
     ddc.DynamicOutput(layout.DATA_ANALYSIS_METHOD_PARAMETERS_CARDBODY_ID, 'children'),
     ddc.DynamicInput(layout.DATA_ANALYSIS_METHOD_RADIO_ID, 'value'),
 )
@@ -165,9 +87,9 @@ def get_data_analysis_specification_store(analysis_method):
         return layout.gaussian_mean_and_std_parameters_combo_input
     elif analysis_method == layout.PERCENTILES_METHOD:
         return layout.percentiles_parameters_combo_input
-    elif analysis_method == layout.SCATTER_PLOT_METHOD:
-        return layout.get_scatter_plot_parameters()
-    elif analysis_method == layout.LINEAR_REGRESSION_METHOD:
+    elif analysis_method == multivariate_analysis_layout.SCATTER_PLOT_METHOD:
+        raise RuntimeError(f'analysis_method={multivariate_analysis_layout.SCATTER_PLOT_METHOD}')
+    elif analysis_method == multivariate_analysis_layout.LINEAR_REGRESSION_METHOD:
         return None
 
 
@@ -307,143 +229,23 @@ def get_exploratory_plot_callback(vs, filter_data_request, method_inputs, scatte
     return fig
 
 
-@ddc.dynamic_callback(
-    ddc.DynamicOutput(layout.MULTIVARIATE_GRAPH_ID, 'figure'),
-    ddc.DynamicInput(layout.X_VARIABLE_SELECT_ID, 'value'),
-    ddc.DynamicInput(layout.Y_VARIABLE_SELECT_ID, 'value'),
-    ddc.DynamicInput(layout.C_VARIABLE_SELECT_ID, 'value'),
-    Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
-    ddc.DynamicInput(layout.DATA_ANALYSIS_METHOD_RADIO_ID, 'value'),
-    ddc.DynamicInput(layout.SCATTER_PLOT_PARAMS_RADIO_ID, 'value'),
-    ddc.DynamicInput(layout.MULTIVARIATE_GRAPH_ID, 'relayoutData'),
-    #prevent_initial_call=True,
+# NEW
+@callback(
+    Output(DATA_ANALYSIS_PARAMETERS_CARDBODY_ID, 'children'),
+    Output(DATA_ANALYSIS_FIGURE_CONTAINER_ID, 'children'),
+    Input(KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
 )
 @log_exception
-#@log_exectime
-def get_multivariate_plot_callback(x_var, y_var, color_var, filter_data_request, analysis_method, scatter_plot_params, relayout_data):
-    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
-
-    # ignore callback fired by relayout_data if it is abount zoom, pan, selectes, etc.
-    figure_extent = charts.get_figure_extent(relayout_data)
-    if dash_ctx == [ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID)] and not figure_extent:
-        print(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
-        raise dash.exceptions.PreventUpdate
-
-    if not dash_ctx or any(map(lambda obj: obj is None, (x_var, y_var, filter_data_request, analysis_method))):
-        raise dash.exceptions.PreventUpdate
-
-    if color_var == '---':
-        color_var = None
-
-    filter_datasets_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
-    ds = data_processing.MergeDatasetsRequest(filter_datasets_request).compute()
-
-    selected_vars = [x_var, y_var]
-    if color_var is not None:
-        selected_vars.append(color_var)
-    ds = ds[selected_vars]
-
-    plot_title = 'Hexbin plot'
-    #from {len(ds["time"]):.4g} samples'
-
-#    if dash.ctx.triggered_id == ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID)\
-#            or dash.ctx.triggered_id == ddc.add_active_to_component_id(layout.SCATTER_PLOT_PARAMS_RADIO_ID):
-
-    if ddc.add_active_to_component_id(layout.X_VARIABLE_SELECT_ID) not in dash_ctx and \
-            ddc.add_active_to_component_id(layout.Y_VARIABLE_SELECT_ID) not in dash_ctx and \
-            (
-                    ddc.add_active_to_component_id(layout.SCATTER_PLOT_PARAMS_RADIO_ID) in dash_ctx or
-                    ddc.add_active_to_component_id(layout.C_VARIABLE_SELECT_ID) in dash_ctx or
-                    ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID) in dash_ctx
-            ):
-        # apply x- and y-data filtering according to figure extent (zoom)
-        xy_extent = figure_extent if isinstance(figure_extent, dict) else {}
-        if xy_extent is not None:
-            x_min, x_max = xy_extent.get('xaxis', {}).get('range', [None, None])
-            y_min, y_max = xy_extent.get('yaxis', {}).get('range', [None, None])
-            xy_extent_cond = True
-            xy_extent_cond_as_str = []
-
-            if x_min is not None:
-                xy_extent_cond &= (ds[x_var] >= x_min)
-            if x_max is not None:
-                xy_extent_cond &= (ds[x_var] <= x_max)
-
-            if x_min is not None and x_max is not None:
-                xy_extent_cond_as_str.append(f'{x_min:.4g} <= {x_var} <= {x_max:.4g}')
-            elif x_min is not None:
-                xy_extent_cond_as_str.append(f'{x_min:.4g} <= {x_var}')
-            elif x_max is not None:
-                xy_extent_cond_as_str.append(f'{x_var} <= {x_max:.4g}')
-
-            if y_min is not None:
-                xy_extent_cond &= (ds[y_var] >= y_min)
-            if y_max is not None:
-                xy_extent_cond &= (ds[y_var] <= y_max)
-
-            if y_min is not None and y_max is not None:
-                xy_extent_cond_as_str.append(f'{y_min:.4g} <= {y_var} <= {y_max:.4g}')
-            elif y_min is not None:
-                xy_extent_cond_as_str.append(f'{y_min:.4g} <= {y_var}')
-            elif y_max is not None:
-                xy_extent_cond_as_str.append(f'{y_var} <= {y_max:.4g}')
-
-            if xy_extent_cond is not True:
-                ds = ds.where(xy_extent_cond)
-                xy_extent_cond_as_str = ' and '.join(xy_extent_cond_as_str)
-                plot_title = f'{plot_title} for {xy_extent_cond_as_str}'
-
-    # drop all nan's (take into account only complete observations)
-    ds = ds.dropna('time')
-
-    X = ds[x_var].values
-    Y = ds[y_var].values
-    if color_var is not None:
-        C = ds[color_var].values
+def get_data_analysis_carbody_content(tab_id):
+    if tab_id == EXPLORATORY_ANALYSIS_TAB_ID:
+        param_cardbody_children = get_exploratory_analysis_cardbody()
+        figure_container_children = get_exploratory_plot()
+    elif tab_id == TREND_ANALYSIS_TAB_ID:
+        param_cardbody_children = []
+        figure_container_children = []
+    elif tab_id == MULTIVARIATE_ANALYSIS_TAB_ID:
+        param_cardbody_children = multivariate_analysis_cardbody
+        figure_container_children = multivariate_plot
     else:
-        C = None
-    # return charts.empty_figure()
-
-    metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), ds.data_vars)
-    # variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
-    units_by_var = toolz.valmap(lambda md: md[metadata.YAXIS_LABEL], metadata_by_var)
-
-    if analysis_method == layout.SCATTER_PLOT_METHOD:
-        if scatter_plot_params == layout.SCATTER_PLOT_PARAM_INDIVIDUAL_OBSERVATIONS:
-            return charts.empty_figure()
-        elif scatter_plot_params == layout.SCATTER_PLOT_PARAM_HEXBIN:
-            fig = charts.plotly_hexbin(
-                x=X, y=Y, C=C,
-                reduce_function=np.mean,
-                # reduce_function=lambda a: np.quantile(a, 0.75),
-                mode='3d+sample_size_as_hexagon_scaling' if C is not None else '2d',
-                gridsize=20,
-                min_count=1,
-                xaxis_title=f'{x_var} ({units_by_var.get(x_var, "???")})',
-                yaxis_title=f'{y_var} ({units_by_var.get(y_var, "???")})',
-                colorbar_title=f'{color_var} ({units_by_var.get(color_var, "???")})' if C is not None else 'Sample size',
-                width=1000, height=700,
-            )
-        else:
-            raise ValueError(f'scatter_plot_params={scatter_plot_params}')
-    elif analysis_method == layout.LINEAR_REGRESSION_METHOD:
-        return charts.empty_figure()
-    else:
-        raise ValueError(f'analysis_method={analysis_method}')
-
-    plot_title = f'{plot_title} from {len(ds["time"]):.4g} samples'
-    # show title, legend, watermark, etc.
-    fig.update_layout(
-        legend=dict(orientation='h'),
-        title=plot_title.capitalize(),
-        # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
-    )
-    fig = charts.add_watermark(fig)
-
-    if ddc.add_active_to_component_id(layout.SCATTER_PLOT_PARAMS_RADIO_ID) in dash_ctx or \
-            ddc.add_active_to_component_id(layout.MULTIVARIATE_GRAPH_ID) in dash_ctx:
-        # we keep the zoom only if a scatter plot parameters have changed or the zoom has changed
-        fig = charts.apply_figure_extent(fig, relayout_data)
-
-    # print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
-    return fig
+        raise ValueError(f'unknown tab_id={tab_id}')
+    return param_cardbody_children, figure_container_children

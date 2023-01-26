@@ -696,6 +696,83 @@ def multi_line(
     return fig
 
 
+def plotly_scatter2d(
+        x, y, C=None,
+        cmin=None, cmax=None,
+        cmap='jet',
+        xaxis_title=None,
+        yaxis_title=None,
+        colorbar_title=None,
+        height=400, width=520,
+        margin=dict(b=40, t=30, l=20, r=20),
+):
+    marker_size = np.round(8 * np.log1p(10_000 / len(x))) if len(x) > 0 else 5
+
+    if C is not None:
+        colorbar = {
+            'ticklen': 6,
+            'ticks': 'inside',
+            'thickness': 20,
+            # 'orientation': 'h',
+            # 'x': 0.5, 'y': -0.2,
+            'title': {
+                'text': colorbar_title,
+                'side': 'right'
+            },
+        }
+        marker_kwargs = {
+            'size': marker_size,
+            'color': C,
+            'colorscale': cmap,
+            'showscale': True,
+            'colorbar': colorbar,
+        }
+        if cmin is not None and cmax is not None:
+            marker_kwargs.update({'cmin': cmin, 'cmax': cmax})
+    else:
+        marker_kwargs = {}
+
+    trace = go.Scattergl(
+        x=x, y=y,
+        mode='markers',
+        marker={
+            #'size': 0.01,
+            **marker_kwargs
+        },
+    )
+    fig = go.Figure(data=trace)
+
+    axis = dict(
+        showgrid=True,
+        showline=True,
+        # zeroline=False,
+        ticks='inside',
+        ticklen=6,
+    )
+
+    if xaxis_title is not None:
+        xaxis = axis.copy()
+        xaxis.update(title=xaxis_title)
+    else:
+        xaxis = axis
+    if yaxis_title is not None:
+        yaxis = axis.copy()
+        yaxis.update(title=yaxis_title)
+    else:
+        yaxis = axis
+
+    fig.update_layout({
+        'width': width,
+        'height': height,
+        'xaxis': xaxis,
+        'yaxis': yaxis,
+        # 'hovermode': 'closest',
+        'margin': margin,
+    })
+
+    return fig
+
+
 def plotly_hexbin(
         x, y, C=None,
         mode=None,  # ['2d', '3d', '3d+sample_size', '3d+sample_size_as_hexagon_scaling']
@@ -732,6 +809,7 @@ def plotly_hexbin(
         f'mode is "2d", so sample_size_inverse_transform cannot be None'
 
     import matplotlib.pyplot as plt
+    # import utils.matplotlib_pyplot as plt
     # dx = x.max() - x.min()
     # dy = y.max() - y.min()
 

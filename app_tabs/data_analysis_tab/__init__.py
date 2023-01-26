@@ -1,1 +1,1 @@
-from . import callbacks  # noq
+from . import callbacks, multivariate_analysis_callbacks  # noq

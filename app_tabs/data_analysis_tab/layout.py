@@ -1,22 +1,20 @@
 from dash import dcc, html
 import dash_bootstrap_components as dbc
+
 from utils import combo_input_AIO, dash_dynamic_components as ddc, dash_persistence
 
 
 DATA_ANALYSIS_TAB_VALUE = 'data-analysis-tab'
 KIND_OF_ANALYSIS_TABS_ID = 'kind-of-analysis-tabs'
 DATA_ANALYSIS_PARAMETERS_CARDBODY_ID = 'data-analysis-parameters-cardbody'
+DATA_ANALYSIS_FIGURE_CONTAINER_ID = 'data-analysis-figure-container'
+
 EXPLORATORY_ANALYSIS_TAB_ID = 'exploratory-analysis'
 TREND_ANALYSIS_TAB_ID = 'trend-analysis'
 MULTIVARIATE_ANALYSIS_TAB_ID = 'multivariate-analysis'
 
 VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID = 'data-analysis-variables-checklist-all-none-switch'
 VARIABLES_CHECKLIST_ID = 'data-analysis-variables-checklist'
-
-MULTIVARIATE_ANALYSIS_VARIABLES_CARDBODY_ID = 'multivariate-analysis-variables-cardbody'
-X_VARIABLE_SELECT_ID = 'x-variable-select'
-Y_VARIABLE_SELECT_ID = 'y-variable-select'
-C_VARIABLE_SELECT_ID = 'c-variable-select'
 
 EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID = 'exploratory-analysis-inputs-group'
 DATA_ANALYSIS_METHOD_RADIO_ID = 'data-analysis-method-radio'
@@ -32,24 +30,13 @@ PERCENTILE_USER_DEF_INPUT_ID = 'data-analsysis-percentile-user-def-input'
 SHOW_STD_SWITCH_ID = 'data-analysis-show-std-switch'
 STD_MODE_RADIO_ID = 'data-analysis-std-mode-radio'
 
-SCATTER_PLOT_PARAMS_RADIO_ID = 'scatter-plot-param-radio'
-SCATTER_PLOT_PARAM_INDIVIDUAL_OBSERVATIONS = 'scatter-plot-param-individual-observations'
-SCATTER_PLOT_PARAM_HEXBIN = 'scatter-plot-param-hexbin'
-
-DATA_ANALYSIS_FIGURE_CONTAINER_ID = 'data-analysis-figure-container'
-
 EXPLORATORY_GRAPH_ID = 'data-analysis-exploratory-graph'
 GRAPH_SCATTER_MODE_RADIO_ID = 'data-analysis-graph-scatter-mode-radio'
-
-MULTIVARIATE_GRAPH_ID = 'data-analysis-multivariate-graph'
 
 GAUSSIAN_MEAN_AND_STD_METHOD = 'Gaussian mean and std'
 PERCENTILES_METHOD = 'Percentiles'
 MOVING_AVERAGES_METHOD = 'Moving average'
 AUTOCORRELATION_METHOD = 'Autocorrelation'
-
-SCATTER_PLOT_METHOD = 'Scatter plot'
-LINEAR_REGRESSION_METHOD = 'Linear regression'
 
 ANALYSIS_METHOD_LABELS_BY_KIND_OF_ANALYSIS_TABS_ID = {
     EXPLORATORY_ANALYSIS_TAB_ID: [
@@ -58,12 +45,8 @@ ANALYSIS_METHOD_LABELS_BY_KIND_OF_ANALYSIS_TABS_ID = {
         MOVING_AVERAGES_METHOD,
         AUTOCORRELATION_METHOD,
     ],
-    TREND_ANALYSIS_TAB_ID: [
-    ],
-    MULTIVARIATE_ANALYSIS_TAB_ID: [
-        SCATTER_PLOT_METHOD,
-        LINEAR_REGRESSION_METHOD,
-    ],
+    TREND_ANALYSIS_TAB_ID: [],
+    MULTIVARIATE_ANALYSIS_TAB_ID: [],
 }
 
 AGGREGATION_PERIOD_WORDINGS = {
@@ -99,11 +82,7 @@ def get_variables_checklist():
     ])
 
 
-def get_message_not_enough_variables_for_multivariate_analysis():
-    return 'For multivariate analysis choose at least 2 variables'
-
-
-def get_variable_dropdown(dropdown_id, axis_label, options, value, persistence_id=None):
+def get_variable_dropdown(dropdown_id, axis_label, options, value, disabled=False, persistence_id=None):
     persistence_kwargs = dash_persistence.get_dash_persistence_kwargs(persistence_id)
 
     return dbc.InputGroup([
@@ -112,6 +91,7 @@ def get_variable_dropdown(dropdown_id, axis_label, options, value, persistence_i
             id=dropdown_id,
             options=options,
             value=value,
+            disabled=disabled,
             **persistence_kwargs,
         ),
     ])
@@ -134,9 +114,7 @@ def get_analysis_method_radio():
 def get_analysis_method_parameters_card():
     return dbc.Card([
         dbc.CardHeader('Parameters'),
-        dbc.CardBody(
-            id=ddc.add_active_to_component_id(DATA_ANALYSIS_METHOD_PARAMETERS_CARDBODY_ID),
-        ),
+        dbc.CardBody(id=ddc.add_active_to_component_id(DATA_ANALYSIS_METHOD_PARAMETERS_CARDBODY_ID)),
     ])
 
 
@@ -293,22 +271,6 @@ def get_percentiles_parameters_combo_input(parent_component):
     )
 
 
-def get_scatter_plot_parameters():
-    return [
-        dbc.Label('Plot type:'),
-        dbc.RadioItems(
-            id=ddc.add_active_to_component_id(SCATTER_PLOT_PARAMS_RADIO_ID),
-            options=[
-                {'label': 'hexagonal bins', 'value': SCATTER_PLOT_PARAM_HEXBIN},
-                {'label': 'individual observations', 'value': SCATTER_PLOT_PARAM_INDIVIDUAL_OBSERVATIONS},
-            ],
-            value=SCATTER_PLOT_PARAM_INDIVIDUAL_OBSERVATIONS,
-#            persistence=True,
-#            persistence_type='session',
-        )
-    ]
-
-
 def get_exploratory_plot():
     graph = dcc.Graph(id=ddc.add_active_to_component_id(EXPLORATORY_GRAPH_ID)) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     scatter_mode_radio = dbc.RadioItems(
@@ -334,12 +296,7 @@ def get_exploratory_plot():
     ]
 
 
-def get_multivariate_plot():
-    graph = dcc.Graph(id=ddc.add_active_to_component_id(MULTIVARIATE_GRAPH_ID)) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
-    return dbc.Row(graph)
-
-
-def get_exploratory_analysis_parameters():
+def get_exploratory_analysis_cardbody():
     return [
         dbc.Row(get_variables_checklist()),
         dbc.Row(get_analysis_method_radio()),
@@ -347,22 +304,9 @@ def get_exploratory_analysis_parameters():
     ]
 
 
-def get_multivariate_analysis_parameters():
-    return [
-        dbc.Row(
-            dbc.Card([
-                dbc.CardHeader('Variables'),
-                dbc.CardBody(id=ddc.add_active_to_component_id(MULTIVARIATE_ANALYSIS_VARIABLES_CARDBODY_ID)),
-            ]),
-        ),
-        dbc.Row(get_analysis_method_radio()),
-        dbc.Row(get_analysis_method_parameters_card()),
-    ]
-
-
 def get_data_analysis_tab():
-    global gaussian_mean_and_std_parameters_combo_input, gaussian_mean_and_std_extra_graph_controllers_combo_input
-    global percentiles_parameters_combo_input
+    #global gaussian_mean_and_std_parameters_combo_input, gaussian_mean_and_std_extra_graph_controllers_combo_input
+    #global percentiles_parameters_combo_input
 
     data_analysis_tab_container_content = dbc.Row([
         dbc.Col(
@@ -377,8 +321,8 @@ def get_data_analysis_tab():
                             ],
                             id=KIND_OF_ANALYSIS_TABS_ID,
                             active_tab=EXPLORATORY_ANALYSIS_TAB_ID,
-#                            persistence=True,
-#                            persistence_type='session',
+                            persistence=True,
+                            persistence_type='session',
                         )
                     ),
                     dbc.CardBody(
@@ -408,10 +352,9 @@ def get_data_analysis_tab():
                     fluid=True,
                 )
             ),
-        ]
+        ],
     )
-
-    gaussian_mean_and_std_parameters_combo_input = get_gaussian_mean_and_std_parameters_combo_input(data_analysis_tab)
-    percentiles_parameters_combo_input = get_percentiles_parameters_combo_input(data_analysis_tab)
+    #gaussian_mean_and_std_parameters_combo_input = get_gaussian_mean_and_std_parameters_combo_input(data_analysis_tab)
+    #percentiles_parameters_combo_input = get_percentiles_parameters_combo_input(data_analysis_tab)
 
     return data_analysis_tab
