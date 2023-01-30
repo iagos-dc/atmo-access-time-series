@@ -1102,29 +1102,27 @@ def get_figure_extent(relayout_data):
                         if v:
                             return True
                         else:
-                            raise RuntimeError('unknown relayout command 1')
+                            continue
 
-                    axis, rng = k.split('.')
+                    k_split = k.split('.')
+                    if len(k_split) != 2:
+                        continue
+                    axis, rng = k_split
 
                     if rng.startswith('range[') and len(rng) == 8 and rng[-1] == ']':
                         i = int(rng[-2])
                         assert i in [0, 1]
                         layout_dict.setdefault(axis, {'range': [None, None]})['range'][i] = v
-                    elif rng == 'autorange':
-                        if v:
+                    elif rng == 'autorange' and v:
                             layout_dict[axis] = {'range': [None, None]}
-                        else:
-                            raise RuntimeError('unknown relayout command 2')
-                    elif rng == 'showspikes':
-                        continue
                     else:
-                        raise RuntimeError('unknown relayout command 3')
+                        continue
 
                 except Exception as e:
                     logger().exception(f'Failed to parse relayout_data item k={k}, v={v}; relayout_data={relayout_data}', exc_info=e)
             return layout_dict
         except Exception as e:
-            logger().exception(f'Failed to apply relayout_data={relayout_data}', exc_info=e)
+            logger().exception(f'Failed to parse relayout_data={relayout_data}', exc_info=e)
     return None
 
 

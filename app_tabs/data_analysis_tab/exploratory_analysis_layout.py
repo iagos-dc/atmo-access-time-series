@@ -1,14 +1,18 @@
 import dash_bootstrap_components as dbc
 from dash import dcc
 
-from utils import dash_dynamic_components as ddc, combo_input_AIO
+from utils import dash_dynamic_components as ddc, dash_persistence
+from app_tabs.common import layout as common_layout
 
-EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID = 'data-analysis-variables-checklist-all-none-switch'
-EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ID = 'data-analysis-variables-checklist'
-EXPLORATORY_ANALYSIS_METHOD_RADIO_ID = 'data-analysis-method-radio'
-EXPLORATORY_ANALYSIS_METHOD_PARAMETERS_CARDBODY_ID = 'data-analysis-method-parameters-cardbody'
-EXPLORATORY_GRAPH_ID = 'data-analysis-exploratory-graph'
-EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID = 'data-analysis-graph-scatter-mode-radio'
+
+EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID = 'exploratory-analysis-variables-checklist-all-none-switch'
+EXPLORATORY_ANALYSIS_VARIABLES_CARDBODY_ROW_2_ID = 'exploratory-analysis-variables-cardbody-row-2'
+
+EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ID = 'exploratory-analysis-variables-checklist'
+EXPLORATORY_ANALYSIS_METHOD_RADIO_ID = 'exploratory-analysis-method-radio'
+EXPLORATORY_ANALYSIS_METHOD_PARAMETERS_CARDBODY_ID = 'exploratory-analysis-method-parameters-cardbody'
+EXPLORATORY_GRAPH_ID = 'exploratory-analysis-exploratory-graph'
+EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID = 'exploratory-analysis-graph-scatter-mode-radio'
 
 GAUSSIAN_MEAN_AND_STD_METHOD = 'Gaussian mean and std'
 PERCENTILES_METHOD = 'Percentiles'
@@ -21,14 +25,11 @@ EXPLORATORY_ANALYSIS_METHODS = [
 EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_1_ID = 'exploratory-analysis-parameters-form-row-1'
 EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_2_ID = 'exploratory-analysis-parameters-form-row-2'
 EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_3_ID = 'exploratory-analysis-parameters-form-row-3'
-EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_4_ID = 'exploratory-analysis-parameters-form-row-4'
 
-EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID = 'exploratory-analysis-inputs-group'
-GAUSSIAN_MEAN_AND_STD_COMBO_INPUT_AIO_ID = 'data-analysis-gaussian-mean-and-std-combo-input-aio'
-AGGREGATION_PERIOD_RADIO_ID = 'data-analysis-parameter-radio'
-MIN_SAMPLE_SIZE_INPUT_ID = 'data-analysis-min-sample-size'
-SHOW_STD_SWITCH_ID = 'data-analysis-show-std-switch'
-STD_MODE_RADIO_ID = 'data-analysis-std-mode-radio'
+AGGREGATION_PERIOD_RADIO_ID = 'exploratory-analysis-parameter-radio'
+MIN_SAMPLE_SIZE_INPUT_ID = 'exploratory-analysis-min-sample-size'
+SHOW_STD_SWITCH_ID = 'exploratory-analysis-show-std-switch'
+STD_MODE_RADIO_ID = 'exploratory-analysis-std-mode-radio'
 AGGREGATION_PERIOD_WORDINGS = {
     'D': ('day', 'daily'),
     'W': ('week', 'weekly'),
@@ -37,8 +38,22 @@ AGGREGATION_PERIOD_WORDINGS = {
 }
 DEFAULT_AGGREGATION_PERIOD = 'M'
 
+PERCENTILES_CHECKLIST_ID = 'data-analsysis-percentiles-checklist'
+PERCENTILE_USER_DEF_INPUT_ID = 'data-analsysis-percentile-user-def-input'
 
-def get_variables_checklist():
+LINE_DASH_STYLE_BY_PERCENTILE = {
+    'min': 'dot',
+    '5': 'dash',
+    '25': 'dashdot',
+    '50': 'solid',
+    '75': 'dashdot',
+    '95': 'dash',
+    'max': 'dot',
+    'other': 'longdashdot'
+}
+
+
+def _get_exploratory_analysis_cardbody():
     select_all_none_variable_switch = dbc.Switch(
         id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID),
         label='Select all / none',
@@ -46,20 +61,15 @@ def get_variables_checklist():
         value=True,
     )
 
-    return dbc.Card([
+    variables_checklist = dbc.Card([
         dbc.CardHeader('Variables'),
         dbc.CardBody([
-            select_all_none_variable_switch,
-            dbc.Checklist(
-                id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ID),
-            ),
+            dbc.Row(select_all_none_variable_switch),
+            dbc.Row(id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_VARIABLES_CARDBODY_ROW_2_ID)),
         ]),
     ])
 
-
-def get_exploratory_analysis_method_radio():
     analysis_method_radio = dbc.RadioItems(
-        inline=False,
         id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_METHOD_RADIO_ID),
         options=[
             {'label': analysis_method, 'value': analysis_method}
@@ -71,36 +81,37 @@ def get_exploratory_analysis_method_radio():
         persistence_type='session',
     ),
 
-    return dbc.Card([
+    exploratory_analysis_method_radio = dbc.Card([
         dbc.CardHeader('Analysis method'),
         dbc.CardBody(analysis_method_radio),
     ])
 
-
-def get_exploratory_analysis_method_parameters_card():
-    return dbc.Card([
+    exploratory_analysis_method_parameters_card = dbc.Card([
         dbc.CardHeader('Parameters'),
         dbc.CardBody(
             dbc.Form([
                 dbc.Row(id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_1_ID)),
                 dbc.Row(id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_2_ID)),
                 dbc.Row(id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_3_ID)),
-                dbc.Row(id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_4_ID)),
             ])
         ),
     ])
 
-
-def get_exploratory_analysis_cardbody():
     return [
-        dbc.Row(get_variables_checklist()),
-        dbc.Row(get_exploratory_analysis_method_radio()),
-        dbc.Row(get_exploratory_analysis_method_parameters_card()),
+        dbc.Row(variables_checklist),
+        dbc.Row(exploratory_analysis_method_radio),
+        dbc.Row(exploratory_analysis_method_parameters_card),
     ]
 
 
-def get_exploratory_plot():
-    graph = dcc.Graph(id=ddc.add_active_to_component_id(EXPLORATORY_GRAPH_ID)) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
+exploratory_analysis_cardbody = _get_exploratory_analysis_cardbody()
+
+
+def _get_exploratory_plot():
+    graph = dcc.Graph(
+        id=ddc.add_active_to_component_id(EXPLORATORY_GRAPH_ID),
+        config=common_layout.GRAPH_CONFIG,
+    ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     scatter_mode_radio = dbc.RadioItems(
         id=ddc.add_active_to_component_id(EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID),
         options=[
@@ -110,8 +121,8 @@ def get_exploratory_plot():
         ],
         value='lines',
         inline=True,
-#        persistence=True,
-#        persistence_type='session',
+        persistence=True,
+        persistence_type='session',
     )
     scatter_mode_input_group = [
         dbc.Label('Plot mode:', width='auto'),
@@ -124,79 +135,101 @@ def get_exploratory_plot():
     ]
 
 
-def _get_aggregation_period_input(id_):
-    return [
-        dbc.Label('Aggregation period:'),
-        dbc.RadioItems(
-            id=id_,
-            options=[
-                {'label': period_label, 'value': period_id}
-                for period_id, (period_label, _) in AGGREGATION_PERIOD_WORDINGS.items()
-            ],
-            value=DEFAULT_AGGREGATION_PERIOD,
-#            persistence=True,
-#            persistence_type='session',
-        )
-    ]
+exploratory_plot = _get_exploratory_plot()
 
 
-def _get_minimal_sample_size_input(id_):
-    return [
-        dbc.InputGroup(
-            [
-                dbc.InputGroupText('Minimal sample size for period:'),
-                dbc.Input(
-                    id=id_,
-                    type='number',
-                    min=1, step=1, value=5,
-                    debounce=True,
-#                    persistence=True,
-#                    persistence_type='session',
-                ),
-            ]
-        )
-    ]
-
-
-def get_gaussian_mean_and_std_parameters_combo_input(parent_component):
-    std_style_inputs = dbc.Row([
-        dbc.Col(
-            dbc.Switch(
-                id=SHOW_STD_SWITCH_ID,
-                label='Show standard deviation with',
-                # style={'margin-top': '10px'},
-                value=True,
-#                persistence=True,
-#                persistence_type='session',
-            ),
-            width='auto',
-        ),
-        dbc.Col(
-            dbc.RadioItems(
-                id=STD_MODE_RADIO_ID,
-                options=[
-                    {'label': 'fill', 'value': 'fill'},
-                    {'label': 'error bars', 'value': 'error_bars'},
-                ],
-                value='fill',
-                inline=True,
-#                persistence=True,
-#                persistence_type='session',
-            ),
-            width='auto',
-        ),
-    ])
-
-    combo_inputs = [
-        *_get_aggregation_period_input(AGGREGATION_PERIOD_RADIO_ID),
-        *_get_minimal_sample_size_input(MIN_SAMPLE_SIZE_INPUT_ID),
-        std_style_inputs,
-    ]
-
-    return combo_input_AIO.ComboInputAIO(
-        children=combo_inputs,
-        parent_component=parent_component,
-        group_id=EXPLORATORY_ANALYSIS_INPUTS_GROUP_ID,
-        aio_id=GAUSSIAN_MEAN_AND_STD_COMBO_INPUT_AIO_ID,
-        input_component_ids=[AGGREGATION_PERIOD_RADIO_ID, MIN_SAMPLE_SIZE_INPUT_ID, SHOW_STD_SWITCH_ID, STD_MODE_RADIO_ID]
+aggregation_period_input = [
+    dbc.Label('Aggregation period:'),
+    dbc.RadioItems(
+        id=ddc.add_active_to_component_id(AGGREGATION_PERIOD_RADIO_ID),
+        options=[
+            {'label': period_label, 'value': period_id}
+            for period_id, (period_label, _) in AGGREGATION_PERIOD_WORDINGS.items()
+        ],
+        value=DEFAULT_AGGREGATION_PERIOD,
+        **dash_persistence.get_dash_persistence_kwargs(True)
     )
+]
+
+
+minimal_sample_size_input = dbc.InputGroup(
+    [
+        dbc.InputGroupText('Minimal sample size for period:'),
+        dbc.Input(
+            id=ddc.add_active_to_component_id(MIN_SAMPLE_SIZE_INPUT_ID),
+            type='number',
+            min=1, step=1, value=5,
+            debounce=True,
+            **dash_persistence.get_dash_persistence_kwargs(True)
+        ),
+    ]
+)
+
+
+std_style_inputs = dbc.Row([
+    dbc.Col(
+        dbc.Switch(
+            id=ddc.add_active_to_component_id(SHOW_STD_SWITCH_ID),
+            label='Show standard deviation with',
+            # style={'margin-top': '10px'},
+            value=True,
+            **dash_persistence.get_dash_persistence_kwargs(True)
+        ),
+        width='auto',
+    ),
+    dbc.Col(
+        dbc.RadioItems(
+            id=ddc.add_active_to_component_id(STD_MODE_RADIO_ID),
+            options=[
+                {'label': 'fill', 'value': 'fill'},
+                {'label': 'error bars', 'value': 'error_bars'},
+            ],
+            value='fill',
+            inline=True,
+            **dash_persistence.get_dash_persistence_kwargs(True)
+        ),
+        width='auto',
+    ),
+])
+
+
+def _get_percentiles_input_params():
+    percentile_user_input = dbc.Input(
+        id=ddc.add_active_to_component_id(PERCENTILE_USER_DEF_INPUT_ID),
+        type='number',
+        placeholder='percentile',
+        min=0, max=100, step=None, value=None,
+        debounce=True,
+    )
+
+    return [
+        dbc.Row(
+            dbc.Col(
+                dbc.Label('Percentiles'),
+            ),
+        ),
+        dbc.Row([
+            dbc.Checklist(
+                id=ddc.add_active_to_component_id(PERCENTILES_CHECKLIST_ID),
+                options=[
+                    {'label': 'min', 'value': 0},
+                    {'label': 5, 'value': 5},
+                    {'label': 25, 'value': 25},
+                    {'label': 50, 'value': 50},
+                    {'label': 75, 'value': 75},
+                    {'label': 95, 'value': 95},
+                    {'label': 'max', 'value': 100},
+                ],
+                value=[5, 50, 95],
+                inline=True,
+                **dash_persistence.get_dash_persistence_kwargs(True)
+            ),
+            dbc.InputGroup([
+                dbc.InputGroupText('other'),
+                percentile_user_input,
+            ]),
+        ]),
+    ]
+
+
+percentiles_input_params = _get_percentiles_input_params()

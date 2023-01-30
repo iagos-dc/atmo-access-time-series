@@ -10,6 +10,22 @@ INTEGRATE_DATASETS_REQUEST_ID = 'integrate-datasets-request'
 FILTER_DATA_REQUEST_ID = 'filter-data-request'
 # 'data' stores a JSON representation of a request executed
 
+GRAPH_CONFIG = {
+    #'editSelection': True,
+    #'editable': False,
+    #'modeBarButtons': [['pan2d']],
+    'edits': {
+        'titleText': True,
+        'axisTitleText': True,
+        'legendText': True,
+        'colorbarTitleText': True,
+    },
+    'showAxisDragHandles': True,
+    'showAxisRangeEntryBoxes': True,
+    'showTips': True,
+    'displaylogo': False,
+}  # for more see: help(dcc.Graph)
+
 
 def get_app_data_stores():
     # these are special Dash components used for transferring data from one callback to other callback(s)

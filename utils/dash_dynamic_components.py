@@ -3,6 +3,7 @@ import json
 from dash import callback, ALL, ALLSMALLER
 from dash.dependencies import Input, Output, State
 
+from log import log_exception
 
 _ACTIVE = 'active_'
 _ID = 'id_'
@@ -100,6 +101,7 @@ def dynamic_callback(*args, **kwargs):
     output_become_one_elem_list = list(map(_does_dash_dependency_become_one_elem_list, outputs))
 
     def callback_dynamic_with_args(callback_func):
+        @log_exception
         @functools.wraps(callback_func)
         def new_callback_func(*func_args):
             def get_single_item(l):
