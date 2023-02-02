@@ -1,3 +1,4 @@
+import pandas as pd
 import dash_bootstrap_components as dbc
 from dash import dcc
 
@@ -35,6 +36,12 @@ AGGREGATION_PERIOD_WORDINGS = {
     'W': ('week', 'weekly'),
     'M': ('month', 'monthly'),
     'Q': ('season', 'seasonal'),
+}
+AGGREGATION_PERIOD_TIMEDELTA = {
+    'D': pd.Timedelta(1, 'D').to_timedelta64(),
+    'W': pd.Timedelta(7, 'D').to_timedelta64(),
+    'M': pd.Timedelta(31, 'D').to_timedelta64(),
+    'Q': pd.Timedelta(92, 'D').to_timedelta64(),
 }
 DEFAULT_AGGREGATION_PERIOD = 'M'
 
@@ -111,6 +118,7 @@ def _get_exploratory_plot():
     graph = dcc.Graph(
         id=ddc.add_active_to_component_id(EXPLORATORY_GRAPH_ID),
         config=common_layout.GRAPH_CONFIG,
+        # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
     ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     scatter_mode_radio = dbc.RadioItems(
         id=ddc.add_active_to_component_id(EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID),

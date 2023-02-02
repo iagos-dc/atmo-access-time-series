@@ -122,6 +122,7 @@ def _get_multivariate_plot():
     graph = dcc.Graph(
         id=ddc.add_active_to_component_id(MULTIVARIATE_GRAPH_ID),
         config=common_layout.GRAPH_CONFIG,
+        # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
     )  # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     return dbc.Row(graph)
 

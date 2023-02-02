@@ -87,8 +87,7 @@ def get_extra_parameters(analysis_method):
     ddc.DynamicInput(exploratory_analysis_layout.PERCENTILES_CHECKLIST_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.PERCENTILE_USER_DEF_INPUT_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID, 'value'),
-    # ddc.DynamicState(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID, 'relayoutData'),
-    # prevent_initial_call=True,
+    ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID, 'relayoutData'),
 )
 @log_exception
 @print_callback()
@@ -103,8 +102,10 @@ def get_exploratory_plot_callback(
         percentiles,
         user_def_percentile,
         scatter_mode,
-        # relayout_data
+        relayout_data
 ):
+    print(f'relayoutData={relayout_data}')
+
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
     print(f'get_exploratory_plot_callback dash_ctx={dash_ctx}')
 
@@ -113,6 +114,13 @@ def get_exploratory_plot_callback(
             and helper.any_is_None(aggregation_period, min_sample_size, show_std, std_mode, scatter_mode) \
             or analysis_method == exploratory_analysis_layout.PERCENTILES_METHOD \
             and helper.any_is_None(aggregation_period, min_sample_size, percentiles, scatter_mode):
+        raise dash.exceptions.PreventUpdate
+
+    figure_extent = charts.get_figure_extent(relayout_data)
+    print(f'figure_extent={figure_extent}')
+
+    if dash_ctx == [ddc.add_active_to_component_id(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID)] and not figure_extent:
+        print(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
         raise dash.exceptions.PreventUpdate
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
@@ -127,6 +135,13 @@ def get_exploratory_plot_callback(
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
     variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
     yaxis_label_by_var = toolz.valmap(lambda md: md[metadata.YAXIS_LABEL], metadata_by_var)
+
+    apply_existing_figure_extent = common_layout.FILTER_DATA_REQUEST_ID not in dash_ctx
+    if apply_existing_figure_extent:
+        time_margin = exploratory_analysis_layout.AGGREGATION_PERIOD_TIMEDELTA[aggregation_period]
+        filtering_on_figure_extent = lambda series: charts.filter_series_on_x_extent(series, figure_extent, time_margin=time_margin)
+    else:
+        filtering_on_figure_extent = None
 
     if analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
         get_gaussian_mean_and_std_by_var = broadcast([0])(analysis.gaussian_mean_and_std)
@@ -156,6 +171,8 @@ def get_exploratory_plot_callback(
             variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
             color_mapping=colors_by_var,
+            filtering_on_figure_extent=filtering_on_figure_extent,
+            subsampling=5_000,
         )
     elif analysis_method == exploratory_analysis_layout.PERCENTILES_METHOD:
         if user_def_percentile is not None:
@@ -200,6 +217,8 @@ def get_exploratory_plot_callback(
             yaxis_label_by_var=yaxis_label_by_var,
             color_mapping=colors_by_var,
             line_dash_style_by_sublabel=exploratory_analysis_layout.LINE_DASH_STYLE_BY_PERCENTILE,
+            filtering_on_figure_extent=filtering_on_figure_extent,
+            subsampling=5_000,
         )
     else:
         # raise dash.exceptions.PreventUpdate

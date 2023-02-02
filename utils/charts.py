@@ -6,7 +6,8 @@ from plotly import express as px, graph_objects as go
 import plotly.colors
 
 from log.log import logger
-
+from data_processing.utils import get_subsampling_mask
+from utils import helper
 
 # Color codes
 ACTRIS_COLOR_HEX = '#00adb7'
@@ -49,7 +50,7 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
     # print(f'plotly_scatter: len(x)={len(x)}')
 
     # TODO: test if we can mix traces of scatter and scattergl type on a single go.Figure
-    if len(x) <= 1_000:
+    if len(x) <= 500 or y_std is not None and std_mode == 'fill':
         go_Scatter = go.Scatter
         go_scatter_ErrorY = go.scatter.ErrorY
     else:
@@ -86,7 +87,7 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
         kwargs_lo['hoverinfo'] = 'skip'
         kwargs_lo['showlegend'] = False
 
-        y_max = np.nanmax(np.abs(y) + y_std)
+        y_max = np.nanmax(np.abs(y) + y_std) if len(y) > 0 else 1
         # this is a not very elegant workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
         y_lo = np.nan_to_num(y - y_std, nan=y_max * 1e10)
         y_scatter_lo = plotly_scatter(x, y_lo, *args, **kwargs_lo)
@@ -502,6 +503,8 @@ def multi_line(
         color_mapping=None,
         range_tick0_dtick_by_var=None,
         line_dash_style_by_sublabel=None,
+        filtering_on_figure_extent=None,
+        subsampling=None,
 ):
     """
 
@@ -522,6 +525,9 @@ def multi_line(
     :param range_tick0_dtick_by_var: dict or None;
     :param line_dash_style_by_sublabel: None or dict of the form {sublabel: str}, where values are from
     [‘solid’, ‘dot’, ‘dash’, ‘longdash’, ‘dashdot’, ‘longdashdot’]
+    :param filtering_on_figure_extent: callable or None; a callable takes a pandas Series as an argument and
+    returns either a mask (boolean) series with the same index or True (no masking)
+    :param subsampling: int or None; indicates the size of an eventual subsample
     :return:
     """
     def ensurelist(obj):
@@ -586,8 +592,8 @@ def multi_line(
         for j, (sublabel, variable_values) in enumerate(variable_values_by_sublabel.items()):
             if df_std is not None and variable_id in df_std:
                 y_std = df_std[variable_id]
-                assert y_std.index.equals(variable_values.index)
-                y_std = y_std.values
+                if not y_std.index.equals(variable_values.index):
+                    y_std, _ = y_std.align(variable_values, join='right')
             else:
                 y_std = None
 
@@ -607,10 +613,23 @@ def multi_line(
                 if line_dash_style is not None:
                     extra_kwargs['line_dash'] = line_dash_style
 
+            if filtering_on_figure_extent is not None:
+                figure_extent_mask = filtering_on_figure_extent(variable_values)
+                if figure_extent_mask is not True:
+                    variable_values = variable_values[figure_extent_mask]
+                    if y_std is not None:
+                        y_std = y_std[figure_extent_mask]
+
+            if subsampling is not None:
+                subsampling_mask = get_subsampling_mask(~np.isnan(variable_values.values), n=subsampling)
+                variable_values = variable_values[subsampling_mask]
+                if y_std is not None:
+                    y_std = y_std[subsampling_mask]
+
             scatter = plotly_scatter(
                 x=variable_values.index.values,
                 y=variable_values.values,
-                y_std=y_std,
+                y_std=y_std.values if y_std is not None else None,
                 std_mode=std_mode,
                 legendgroup=variable_id,
                 mode=scatter_mode,
@@ -706,7 +725,8 @@ def plotly_scatter2d(
         height=400, width=520,
         margin=dict(b=40, t=30, l=20, r=20),
 ):
-    marker_size = np.round(8 * np.log1p(10_000 / len(x))) if len(x) > 0 else 5
+    # TODO: parametrize the hard-coded 30_000 ?
+    marker_size = np.round(8 * np.log1p(30_000 / len(x))) if len(x) > 0 else 5
 
     if C is not None:
         colorbar = {
@@ -1138,3 +1158,71 @@ def apply_figure_extent(fig, relayout_data):
     if isinstance(layout_dict, dict) and layout_dict:
         fig.update_layout(layout_dict)
     return fig
+
+
+def filter_ds_on_xy_extent(ds, figure_extent, x_var=None, y_var=None, x_rel_margin=None, y_rel_margin=None):
+    xy_extent_cond = True
+    xy_extent_cond_as_str = None
+
+    if isinstance(figure_extent, dict):
+        # apply x- and y-data filtering according to figure extent (zoom)
+        if x_var is not None:
+            x_min, x_max = figure_extent.get('xaxis', {}).get('range', [None, None])
+        else:
+            x_min, x_max = None, None
+        x_margin = (x_max - x_min) * x_rel_margin if not helper.any_is_None(x_min, x_max, x_rel_margin) else 0
+
+        if y_var is not None:
+            y_min, y_max = figure_extent.get('yaxis', {}).get('range', [None, None])
+        else:
+            y_min, y_max = None, None
+        y_margin = (y_max - y_min) * y_rel_margin if not helper.any_is_None(y_min, y_max, y_rel_margin) else 0
+
+        xy_extent_cond_as_str = []
+
+        if x_min is not None:
+            xy_extent_cond &= (ds[x_var] >= x_min - x_margin)
+        if x_max is not None:
+            xy_extent_cond &= (ds[x_var] <= x_max + x_margin)
+
+        if x_min is not None and x_max is not None:
+            xy_extent_cond_as_str.append(f'{x_min:.4g} <= X <= {x_max:.4g}')
+        elif x_min is not None:
+            xy_extent_cond_as_str.append(f'{x_min:.4g} <= X')
+        elif x_max is not None:
+            xy_extent_cond_as_str.append(f'X <= {x_max:.4g}')
+
+        if y_min is not None:
+            xy_extent_cond &= (ds[y_var] >= y_min - y_margin)
+        if y_max is not None:
+            xy_extent_cond &= (ds[y_var] <= y_max + y_margin)
+
+        if y_min is not None and y_max is not None:
+            xy_extent_cond_as_str.append(f'{y_min:.4g} <= Y <= {y_max:.4g}')
+        elif y_min is not None:
+            xy_extent_cond_as_str.append(f'{y_min:.4g} <= Y')
+        elif y_max is not None:
+            xy_extent_cond_as_str.append(f'Y <= {y_max:.4g}')
+
+        if xy_extent_cond is not True:
+            xy_extent_cond_as_str = ' and '.join(xy_extent_cond_as_str)
+
+    return xy_extent_cond, xy_extent_cond_as_str
+
+
+def filter_series_on_x_extent(series, figure_extent, time_margin=None):
+    if time_margin is None:
+        time_margin = np.timedelta64(0)
+
+    cond = True
+    if isinstance(figure_extent, dict):
+        # apply x- and y-data filtering according to figure extent (zoom)
+        x_min, x_max = figure_extent.get('xaxis', {}).get('range', [None, None])
+        time = series.index.to_series()
+
+        if x_min is not None:
+            cond &= (time >= pd.Timestamp(x_min).to_datetime64() - time_margin)
+        if x_max is not None:
+            cond &= (time <= pd.Timestamp(x_max).to_datetime64() + time_margin)
+
+    return cond

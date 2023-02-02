@@ -82,46 +82,6 @@ def get_extra_parameters(analysis_method, plot_type, c_variable):
         )
 
 
-def _filter_ds_on_xy_extent(ds, x_var, y_var, figure_extent):
-    xy_extent_cond = True
-    xy_extent_cond_as_str = None
-
-    if isinstance(figure_extent, dict):
-        # apply x- and y-data filtering according to figure extent (zoom)
-        x_min, x_max = figure_extent.get('xaxis', {}).get('range', [None, None])
-        y_min, y_max = figure_extent.get('yaxis', {}).get('range', [None, None])
-        xy_extent_cond_as_str = []
-
-        if x_min is not None:
-            xy_extent_cond &= (ds[x_var] >= x_min)
-        if x_max is not None:
-            xy_extent_cond &= (ds[x_var] <= x_max)
-
-        if x_min is not None and x_max is not None:
-            xy_extent_cond_as_str.append(f'{x_min:.4g} <= X <= {x_max:.4g}')
-        elif x_min is not None:
-            xy_extent_cond_as_str.append(f'{x_min:.4g} <= {x_var}')
-        elif x_max is not None:
-            xy_extent_cond_as_str.append(f'{x_var} <= {x_max:.4g}')
-
-        if y_min is not None:
-            xy_extent_cond &= (ds[y_var] >= y_min)
-        if y_max is not None:
-            xy_extent_cond &= (ds[y_var] <= y_max)
-
-        if y_min is not None and y_max is not None:
-            xy_extent_cond_as_str.append(f'{y_min:.4g} <= Y <= {y_max:.4g}')
-        elif y_min is not None:
-            xy_extent_cond_as_str.append(f'{y_min:.4g} <= {y_var}')
-        elif y_max is not None:
-            xy_extent_cond_as_str.append(f'{y_var} <= {y_max:.4g}')
-
-        if xy_extent_cond is not True:
-            xy_extent_cond_as_str = ' and '.join(xy_extent_cond_as_str)
-
-    return xy_extent_cond, xy_extent_cond_as_str
-
-
 @ddc.dynamic_callback(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_VARIABLES_CARDHEADER_ID, 'children'),
@@ -153,12 +113,16 @@ def get_multivariate_plot_callback(
     print(f'analysis_method={analysis_method}, plot_type={plot_type}')
     print(f'relayoutData={relayout_data}')
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
+    print(f'dash_ctx={dash_ctx}')
 
     if helper.any_is_None(x_var, y_var, filter_data_request, analysis_method):
+        print(f'x_var, y_var, filter_data_request, analysis_method is None={x_var is None, y_var is None, filter_data_request is None, analysis_method is None}')
         raise dash.exceptions.PreventUpdate
 
     # ignore callback fired by relayout_data if it is abount zoom, pan, selectes, etc.
     figure_extent = charts.get_figure_extent(relayout_data)
+    print(f'figure_extent={figure_extent}')
+
     if dash_ctx == [ddc.add_active_to_component_id(multivariate_analysis_layout.MULTIVARIATE_GRAPH_ID)] and not figure_extent:
         print(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
         raise dash.exceptions.PreventUpdate
@@ -188,7 +152,11 @@ def get_multivariate_plot_callback(
     ])
 
     if apply_existing_figure_extent:
-        xy_extent_cond, xy_extent_cond_as_str = _filter_ds_on_xy_extent(ds, x_var, y_var, figure_extent)
+        xy_extent_cond, xy_extent_cond_as_str = charts.filter_ds_on_xy_extent(
+            ds, figure_extent,
+            x_var=x_var, y_var=y_var,
+            x_rel_margin=0.1, y_rel_margin=0.1,
+        )
         if xy_extent_cond is not True:
             ds = ds.where(xy_extent_cond, drop=True)
     else:
@@ -214,11 +182,11 @@ def get_multivariate_plot_callback(
             else:
                 cmin, cmax = None, None
 
-            if len(X) > 10_000:
+            if len(X) > 30_000:
                 _var_dict = {'X': X, 'Y': Y}
                 if C is not None:
                     _var_dict['C'] = C
-                _df = pd.DataFrame.from_dict(_var_dict).sample(10_000)
+                _df = pd.DataFrame.from_dict(_var_dict).sample(30_000)
                 _X = _df['X'].values
                 _Y = _df['Y'].values
                 _C = _df['C'].values if C is not None else None
@@ -269,24 +237,6 @@ def get_multivariate_plot_callback(
     )
     fig = charts.add_watermark(fig)
 
-    #if ddc.add_active_to_component_id(multivariate_analysis_layout.PLOT_TYPE_RADIO_ID) in dash_ctx or \
-    #        ddc.add_active_to_component_id(multivariate_analysis_layout.MULTIVARIATE_GRAPH_ID) in dash_ctx:
-        # we keep the zoom only if a scatter plot parameters have changed or the zoom has changed
-    # if apply_existing_figure_extent:
-        # fig = charts.apply_figure_extent(fig, relayout_data)
-        # fig.update_layout(
-        #     uirevision=True,
-        # )
-        # try:
-        #     fig.update_layout(relayout_data)
-        # except Exception as e:
-        #     print(f'bad_relayout_data={relayout_data}')
-
-
-    # print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
-
-    # fig.update_layout(
-    #     dragmode=dragmode
-    # )
+    print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
 
     return fig, nb_observations_as_str
