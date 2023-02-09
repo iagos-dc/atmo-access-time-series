@@ -5,6 +5,7 @@ import toolz
 from dash import Input
 
 import data_processing
+import data_processing.analysis
 from app_tabs.common import layout as common_layout
 from app_tabs.data_analysis_tab import multivariate_analysis_layout
 from data_processing import metadata
@@ -64,22 +65,24 @@ def get_multivariate_analysis_variables_cardbody_callback(analysis_method, filte
 @ddc.dynamic_callback(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_PARAMETERS_FORM_ROW_2_ID, 'children'),
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_PARAMETERS_FORM_ROW_3_ID, 'children'),
-    ddc.DynamicInput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_METHOD_RADIO_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.PLOT_TYPE_RADIO_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'value'),
+    ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'disabled'),
 )
 @log_exception
-def get_extra_parameters(analysis_method, plot_type, c_variable):
-    if analysis_method != multivariate_analysis_layout.SCATTER_PLOT_METHOD or plot_type != multivariate_analysis_layout.HEXBIN_PLOT:
+def get_extra_parameters(plot_type, c_variable, c_variable_disabled):
+    if plot_type == multivariate_analysis_layout.INDIVIDUAL_OBSERVATIONS_PLOT:
         return None, None
-
-    if c_variable == '---':
-        return multivariate_analysis_layout.hexbin_plot_resolution_slider, None
+    elif plot_type == multivariate_analysis_layout.HEXBIN_PLOT:
+        if c_variable == '---' or c_variable_disabled:
+            return multivariate_analysis_layout.hexbin_plot_resolution_slider, None
+        else:
+            return (
+                multivariate_analysis_layout.hexbin_plot_resolution_slider,
+                multivariate_analysis_layout.choice_of_aggregators,
+            )
     else:
-        return (
-            multivariate_analysis_layout.hexbin_plot_resolution_slider,
-            multivariate_analysis_layout.choice_of_aggregators,
-        )
+        raise ValueError(f'unknown plot_type={plot_type}')
 
 
 @ddc.dynamic_callback(
@@ -158,75 +161,97 @@ def get_multivariate_plot_callback(
             x_rel_margin=0.1, y_rel_margin=0.1,
         )
         if xy_extent_cond is not True:
-            ds = ds.where(xy_extent_cond, drop=True)
+            ds_in_figure_extent = ds.where(xy_extent_cond, drop=True)
+        else:
+            ds_in_figure_extent = ds
     else:
+        ds_in_figure_extent = ds
         xy_extent_cond_as_str = None
 
-    X = ds[x_var].values
-    Y = ds[y_var].values
+    X = ds_in_figure_extent[x_var].values
+    Y = ds_in_figure_extent[y_var].values
     if color_var is not None:
-        C = ds[color_var].values
+        C = ds_in_figure_extent[color_var].values
     else:
         C = None
 
-    metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), ds.data_vars)
+    metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), ds_in_figure_extent.data_vars)
     # variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
     units_by_var = toolz.valmap(lambda md: md[metadata.YAXIS_LABEL], metadata_by_var)
 
-    if analysis_method == multivariate_analysis_layout.SCATTER_PLOT_METHOD:
-        if plot_type == multivariate_analysis_layout.INDIVIDUAL_OBSERVATIONS_PLOT:
-            plot_type = 'Scatter plot'
+    # if analysis_method == multivariate_analysis_layout.SCATTER_PLOT_METHOD:
+    if plot_type == multivariate_analysis_layout.INDIVIDUAL_OBSERVATIONS_PLOT:
+        plot_type = 'Scatter plot'
 
-            if C is not None and len(C) > 0:
-                cmin, cmax = np.amin(C), np.amax(C)
-            else:
-                cmin, cmax = None, None
-
-            if len(X) > 30_000:
-                _var_dict = {'X': X, 'Y': Y}
-                if C is not None:
-                    _var_dict['C'] = C
-                _df = pd.DataFrame.from_dict(_var_dict).sample(30_000)
-                _X = _df['X'].values
-                _Y = _df['Y'].values
-                _C = _df['C'].values if C is not None else None
-            else:
-                _X, _Y, _C = X, Y, C
-            fig = charts.plotly_scatter2d(
-                x=_X, y=_Y, C=_C,
-                cmin=cmin, cmax=cmax,
-                xaxis_title=f'{x_var} ({units_by_var.get(x_var, "???")})',
-                yaxis_title=f'{y_var} ({units_by_var.get(y_var, "???")})',
-                colorbar_title=f'{color_var} ({units_by_var.get(color_var, "???")})' if C is not None else None,
-                width=1000, height=700,
-            )
-        elif plot_type == multivariate_analysis_layout.HEXBIN_PLOT:
-            plot_type = 'Hex-bin plot'
-            if C is not None and agg_func is None or hexbin_resolution is None:
-                return dash.no_update, nb_observations_as_str
-            fig = charts.plotly_hexbin(
-                x=X, y=Y, C=C,
-                reduce_function=multivariate_analysis_layout.AGGREGATOR_FUNCTIONS.get(agg_func),
-                mode='3d+sample_size_as_hexagon_scaling' if C is not None else '2d',
-                gridsize=hexbin_resolution,
-                min_count=1,
-                xaxis_title=f'{x_var} ({units_by_var.get(x_var, "???")})',
-                yaxis_title=f'{y_var} ({units_by_var.get(y_var, "???")})',
-                colorbar_title=f'{color_var} ({units_by_var.get(color_var, "???")})' if C is not None else 'Sample size',
-                width=1000, height=700,
-            )
+        if C is not None and len(C) > 0:
+            cmin, cmax = np.amin(C), np.amax(C)
         else:
-            raise ValueError(f'plot_type={plot_type}')
-    elif analysis_method == multivariate_analysis_layout.LINEAR_REGRESSION_METHOD:
-        plot_type = 'Linear regression'
-        return charts.empty_figure(), nb_observations_as_str
+            cmin, cmax = None, None
+
+        if len(X) > 30_000:
+            _var_dict = {'X': X, 'Y': Y}
+            if C is not None:
+                _var_dict['C'] = C
+            _df = pd.DataFrame.from_dict(_var_dict).sample(30_000)
+            _X = _df['X'].values
+            _Y = _df['Y'].values
+            _C = _df['C'].values if C is not None else None
+        else:
+            _X, _Y, _C = X, Y, C
+        fig = charts.plotly_scatter2d(
+            x=_X, y=_Y, C=_C,
+            cmin=cmin, cmax=cmax,
+            xaxis_title=f'{x_var} ({units_by_var.get(x_var, "???")})',
+            yaxis_title=f'{y_var} ({units_by_var.get(y_var, "???")})',
+            colorbar_title=f'{color_var} ({units_by_var.get(color_var, "???")})' if C is not None else None,
+            width=1000, height=700,
+            marker_size=np.round(np.sqrt(40 * np.log1p(30_000 / len(_X)))) if len(_X) > 0 else 5
+        )
+    elif plot_type == multivariate_analysis_layout.HEXBIN_PLOT:
+        plot_type = 'Hex-bin plot'
+        if C is not None and agg_func is None or hexbin_resolution is None:
+            return dash.no_update, nb_observations_as_str
+        fig = charts.plotly_hexbin(
+            x=X, y=Y, C=C,
+            reduce_function=multivariate_analysis_layout.AGGREGATOR_FUNCTIONS.get(agg_func),
+            mode='3d+sample_size_as_hexagon_scaling' if C is not None else '2d',
+            gridsize=hexbin_resolution,
+            min_count=1,
+            xaxis_title=f'{x_var} ({units_by_var.get(x_var, "???")})',
+            yaxis_title=f'{y_var} ({units_by_var.get(y_var, "???")})',
+            colorbar_title=f'{color_var} ({units_by_var.get(color_var, "???")})' if C is not None else 'Sample size',
+            width=1000, height=700,
+        )
     else:
-        raise ValueError(f'analysis_method={analysis_method}')
+        raise ValueError(f'plot_type={plot_type}')
+
+    if analysis_method == multivariate_analysis_layout.LINEAR_REGRESSION_METHOD:
+        df = ds.to_dataframe()
+        a, b, r2 = data_processing.analysis.linear_regression(df, x_var, y_var)
+        if not (np.isnan(a) or np.isnan(b) or np.isnan(r2)):
+            def y_by_x(x):
+                return a * x + b
+            x_min, x_max = df[x_var].min(), df[x_var].max()
+            x0, y0 = x_min, y_by_x(x_min)
+            x1, y1 = x_max, y_by_x(x_max)
+
+            fig.add_shape(
+                type='line',
+                x0=x0, y0=y0, x1=x1, y1=y1,
+                line={
+                    'color': 'Red',
+                    'width': 4,
+                }
+            )
+            plot_type = f'Linear regression from {nb_observations:.4g} samples: Y = {a:.4g} X + {b:.4g}; R2 = {r2:.4g}'
+        else:
+            plot_type = f'Linear regression from {nb_observations:.4g} samples: N/A'
 
     plot_title = f'{plot_type}'
-    if xy_extent_cond_as_str:
-        plot_title = f'{plot_title} for {xy_extent_cond_as_str}'
-    plot_title = f'{plot_title} from {len(ds["time"]):.4g} samples'
+    if analysis_method != multivariate_analysis_layout.LINEAR_REGRESSION_METHOD:
+        if xy_extent_cond_as_str:
+            plot_title = f'{plot_title} for {xy_extent_cond_as_str}'
+        plot_title = f'{plot_title} from {len(ds_in_figure_extent["time"]):.4g} samples'
 
     # show title, legend, watermark, etc.
     fig.update_layout(

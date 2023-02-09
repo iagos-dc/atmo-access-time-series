@@ -9,6 +9,11 @@ from log.log import logger
 from data_processing.utils import get_subsampling_mask
 from utils import helper
 
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use('agg')
+
+
 # Color codes
 ACTRIS_COLOR_HEX = '#00adb7'
 IAGOS_COLOR_HEX = '#456096'
@@ -724,10 +729,8 @@ def plotly_scatter2d(
         colorbar_title=None,
         height=400, width=520,
         margin=dict(b=40, t=30, l=20, r=20),
+        marker_size=5,
 ):
-    # TODO: parametrize the hard-coded 30_000 ?
-    marker_size = np.round(8 * np.log1p(30_000 / len(x))) if len(x) > 0 else 5
-
     if C is not None:
         colorbar = {
             'ticklen': 6,
@@ -741,7 +744,6 @@ def plotly_scatter2d(
             },
         }
         marker_kwargs = {
-            'size': marker_size,
             'color': C,
             'colorscale': cmap,
             'showscale': True,
@@ -751,6 +753,7 @@ def plotly_scatter2d(
             marker_kwargs.update({'cmin': cmin, 'cmax': cmax})
     else:
         marker_kwargs = {}
+    marker_kwargs.update({'size': marker_size})
 
     trace = go.Scattergl(
         x=x, y=y,
@@ -828,7 +831,6 @@ def plotly_hexbin(
     assert mode != '2d' or sample_size_inverse_transform is not None, \
         f'mode is "2d", so sample_size_inverse_transform cannot be None'
 
-    import matplotlib.pyplot as plt
     # import utils.matplotlib_pyplot as plt
     # dx = x.max() - x.min()
     # dy = y.max() - y.min()
@@ -843,7 +845,7 @@ def plotly_hexbin(
         gridsize = (gridsize_x, gridsize_y)
 
     mpl_hexbin = plt.hexbin(x, y, gridsize=gridsize, mincnt=max(min_count, 1))
-    #plt.close()
+    # plt.close()
     counts = np.asarray(mpl_hexbin.get_array())
     offsets = mpl_hexbin.get_offsets()
     _hexagon, = mpl_hexbin.get_paths()
@@ -856,7 +858,7 @@ def plotly_hexbin(
             gridsize=gridsize,
             mincnt=max(min_count - 1, 0)
         )
-        #plt.close()
+        # plt.close()
         cs = np.asarray(mpl_hexbin.get_array())
         _offsets = mpl_hexbin.get_offsets()
         _hexagon, = mpl_hexbin.get_paths()

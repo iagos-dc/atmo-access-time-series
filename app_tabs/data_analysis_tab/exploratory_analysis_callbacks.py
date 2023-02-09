@@ -70,7 +70,11 @@ def get_extra_parameters(analysis_method):
             exploratory_analysis_layout.percentiles_input_params,
         ]
     elif analysis_method == exploratory_analysis_layout.MOVING_AVERAGE_METHOD:
-        raise NotImplementedError(analysis_method)
+        return [
+            exploratory_analysis_layout.aggregation_period_input,
+            exploratory_analysis_layout.minimal_sample_size_input,
+            None
+        ]
     else:
         raise RuntimeError(f'invalid analysis method: {analysis_method}')
 
@@ -157,7 +161,7 @@ def get_exploratory_plot_callback(
         )
 
         _, period_adjective = exploratory_analysis_layout.AGGREGATION_PERIOD_WORDINGS[aggregation_period]
-        plot_title = f'{period_adjective} mean'
+        plot_title = f'{period_adjective.title()} mean'
         if show_std:
             plot_title += ' and standard deviation'
 
@@ -206,7 +210,7 @@ def get_exploratory_plot_callback(
         )
 
         _, period_adjective = exploratory_analysis_layout.AGGREGATION_PERIOD_WORDINGS[aggregation_period]
-        plot_title = f'{period_adjective} percentiles: ' + ', '.join(map(percentile_to_str, percentiles))
+        plot_title = f'{period_adjective.title()} percentiles: ' + ', '.join(map(percentile_to_str, percentiles))
 
         width = 1200
         fig = charts.multi_line(
@@ -221,13 +225,38 @@ def get_exploratory_plot_callback(
             subsampling=5_000,
         )
     else:
-        # raise dash.exceptions.PreventUpdate
-        raise NotImplementedError(analysis_method)
+        window_size = exploratory_analysis_layout.AGGREGATION_PERIOD_TIMEDELTA[aggregation_period]
+        get_gaussian_mean_and_std_by_rolling_window_by_var = broadcast([0])(analysis.gaussian_mean_and_std_by_rolling_window)
+        mean_std_count_by_var = get_gaussian_mean_and_std_by_rolling_window_by_var(
+            da_by_var,
+            window_size,
+            min_sample_size=min_sample_size
+        )
+
+        mean_by_var, _, _ = (
+            toolz.valmap(lambda t: t[i], mean_std_count_by_var)
+            for i in range(3)
+        )
+
+        _, period_adjective = exploratory_analysis_layout.AGGREGATION_PERIOD_WORDINGS[aggregation_period]
+        plot_title = f'{period_adjective.title()} moving average'
+
+        width = 1200
+        fig = charts.multi_line(
+            mean_by_var,
+            width=width, height=600,
+            scatter_mode=scatter_mode,
+            variable_label_by_var=variable_label_by_var,
+            yaxis_label_by_var=yaxis_label_by_var,
+            color_mapping=colors_by_var,
+            filtering_on_figure_extent=filtering_on_figure_extent,
+            subsampling=5_000,
+        )
 
     # show title, legend, watermark, etc.
     fig.update_layout(
         legend=dict(orientation='h'),
-        title=plot_title, #.capitalize(),
+        title=plot_title,
         xaxis={'title': 'time'},
         uirevision=integrate_datasets_request_hash,
         # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230

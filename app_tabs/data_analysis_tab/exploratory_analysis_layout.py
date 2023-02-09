@@ -12,7 +12,7 @@ EXPLORATORY_ANALYSIS_VARIABLES_CARDBODY_ROW_2_ID = 'exploratory-analysis-variabl
 EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ID = 'exploratory-analysis-variables-checklist'
 EXPLORATORY_ANALYSIS_METHOD_RADIO_ID = 'exploratory-analysis-method-radio'
 EXPLORATORY_ANALYSIS_METHOD_PARAMETERS_CARDBODY_ID = 'exploratory-analysis-method-parameters-cardbody'
-EXPLORATORY_GRAPH_ID = 'exploratory-analysis-exploratory-graph'
+EXPLORATORY_GRAPH_ID = 'exploratory-analysis-graph'
 EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID = 'exploratory-analysis-graph-scatter-mode-radio'
 
 GAUSSIAN_MEAN_AND_STD_METHOD = 'Gaussian mean and std'
@@ -36,12 +36,14 @@ AGGREGATION_PERIOD_WORDINGS = {
     'W': ('week', 'weekly'),
     'M': ('month', 'monthly'),
     'Q': ('season', 'seasonal'),
+    'Y': ('year', 'yearly'),
 }
 AGGREGATION_PERIOD_TIMEDELTA = {
     'D': pd.Timedelta(1, 'D').to_timedelta64(),
     'W': pd.Timedelta(7, 'D').to_timedelta64(),
     'M': pd.Timedelta(31, 'D').to_timedelta64(),
     'Q': pd.Timedelta(92, 'D').to_timedelta64(),
+    'Y': pd.Timedelta(365, 'D').to_timedelta64(),
 }
 DEFAULT_AGGREGATION_PERIOD = 'M'
 

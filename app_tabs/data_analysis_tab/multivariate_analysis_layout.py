@@ -35,11 +35,11 @@ AGGREGATOR_DISPLAY_BUTTONS_FORM_ID = 'aggregator-display-buttons-form'
 AGGREGATOR_DISPLAY_BUTTONS_ID = 'aggregator_display_buttons'
 
 MIN_AGG = 'min'
-Q5_AGG = 'q5'
+Q5_AGG = 'p5'
 MEAN_MINUS_STD_AGG = 'mean-std'
 MEAN_AGG = 'mean'
 MEAN_PLUS_STD_AGG = 'mean+std'
-Q95_AGG = 'q95'
+Q95_AGG = 'p95'
 MAX_AGG = 'max'
 AGGREGATOR_FUNCTIONS = {
     MIN_AGG: np.amin,
