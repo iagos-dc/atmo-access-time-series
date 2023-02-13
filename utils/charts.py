@@ -9,9 +9,9 @@ from log.log import logger
 from data_processing.utils import get_subsampling_mask
 from utils import helper
 
-import matplotlib
-import matplotlib.pyplot as plt
-matplotlib.use('agg')
+#import matplotlib
+#import matplotlib.pyplot as plt
+#matplotlib.use('agg')
 
 
 # Color codes
@@ -831,7 +831,7 @@ def plotly_hexbin(
     assert mode != '2d' or sample_size_inverse_transform is not None, \
         f'mode is "2d", so sample_size_inverse_transform cannot be None'
 
-    # import utils.matplotlib_pyplot as plt
+    import utils.matplotlib_pyplot as plt
     # dx = x.max() - x.min()
     # dy = y.max() - y.min()
 
