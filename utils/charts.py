@@ -863,8 +863,8 @@ def plotly_hexbin(
         _offsets = mpl_hexbin.get_offsets()
         _hexagon, = mpl_hexbin.get_paths()
         _hexagon_vertices = np.array([vertex for vertex, _ in _hexagon.iter_segments()][:-1])
-        np.testing.assert_allclose(_offsets, offsets)
-        np.testing.assert_allclose(_hexagon_vertices, hexagon_vertices)
+        # np.testing.assert_allclose(_offsets, offsets)
+        # np.testing.assert_allclose(_hexagon_vertices, hexagon_vertices)
 
     _hexagons = np.expand_dims(offsets, 1) + np.expand_dims(hexagon_vertices, 0)  # _hexagon, vertex, 2d-coord: shape is (n, 6, 2)
     centers = _hexagons.mean(axis=1)

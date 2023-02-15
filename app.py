@@ -14,6 +14,7 @@ import dash_bootstrap_components as dbc
 
 # Local imports
 from app_tabs.common.layout import get_app_data_stores
+from app_tabs.information_tab.layout import INFORMATION_TAB_VALUE, get_information_tab
 from app_tabs.search_datasets_tab.layout import SEARCH_DATASETS_TAB_VALUE, SEARCH_DATASETS_BUTTON_ID, \
     get_search_datasets_tab
 from app_tabs.select_datasets_tab.layout import SELECT_DATASETS_TAB_VALUE, SELECT_DATASETS_BUTTON_ID, \
@@ -77,8 +78,13 @@ def get_dashboard_layout():
 
     app_tabs = dcc.Tabs(
         id=APP_TABS_ID,
-        value=SEARCH_DATASETS_TAB_VALUE,
+        value=INFORMATION_TAB_VALUE,
         children=[
+            get_information_tab(
+                actris_logo=app.get_asset_url('actris_logo.png'),
+                iagos_logo=app.get_asset_url('iagos_logo.png'),
+                icos_logo=app.get_asset_url('icos_logo.png'),
+            ),
             get_search_datasets_tab(),
             get_select_datasets_tab(),
             get_filter_data_tab(),
@@ -117,7 +123,6 @@ app = Dash(
 
 server = app.server
 
-
 app.layout = get_dashboard_layout()
 
 # Begin of callback definitions and their helper routines.
@@ -144,10 +149,11 @@ def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks,
     elif trigger == FILTER_DATA_BUTTON_ID:
         return DATA_ANALYSIS_TAB_VALUE
     else:
-        return SEARCH_DATASETS_TAB_VALUE
+        raise dash.exceptions.PreventUpdate
+        # return SEARCH_DATASETS_TAB_VALUE
 
 
 # Launch the Dash application.
 # app_conf['debug'] = False
 if __name__ == "__main__":
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    app.run_server(debug=False, host='0.0.0.0', port=8050)

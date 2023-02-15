@@ -45,5 +45,3 @@ def get_app_data_stores():
         dcc.Store(id=INTEGRATE_DATASETS_REQUEST_ID, storage_type='session'),
         dcc.Store(id=FILTER_DATA_REQUEST_ID, storage_type='session'),
     ]
-
-# Initialization of global objects

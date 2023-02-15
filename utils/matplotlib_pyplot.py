@@ -43,16 +43,16 @@ def _hexbin(
         p = (x, y, C)
     else:
         p = (x, y)
-    p = np.vstack(p)
-    mask_notnan = ~np.any(np.isnan(p), axis=0)
-    p = p[:, mask_notnan]
+    p_and_C = np.vstack(p)
+    mask_notnan = ~np.any(np.isnan(p_and_C), axis=0)
+    p_and_C = p_and_C[:, mask_notnan]
 
-    if p.shape[1] == 0:
+    if p_and_C.shape[1] == 0:
         return None
 
-    p = p[0:2, :]
+    p = p_and_C[0:2, :]
     if C is not None:
-        C = p[2, :]
+        C = p_and_C[2, :]
 
     p_min = np.amin(p, axis=1)
     p_max = np.amax(p, axis=1)
@@ -95,7 +95,11 @@ def _hexbin(
     _hexagon_y_coords = np.array([1, 2, 1, -1, -2, -1]) * np.sqrt(3) / 6
     hexagon = np.vstack((_hexagon_x_coords, _hexagon_y_coords))
 
-    values = np.ones(centers.shape[1])
+    cnt = pd.Series(idx).groupby(idx).count()
+    if C is not None and reduce_C_function is not None:
+        values = pd.Series(C).groupby(idx).aggregate(reduce_C_function)
+    else:
+        values = cnt
 
     return centers, values, hexagon * scale[:, np.newaxis]
 
