@@ -9,10 +9,6 @@ from log.log import logger
 from data_processing.utils import get_subsampling_mask
 from utils import helper
 
-#import matplotlib
-#import matplotlib.pyplot as plt
-#matplotlib.use('agg')
-
 
 # Color codes
 ACTRIS_COLOR_HEX = '#00adb7'
@@ -796,6 +792,80 @@ def plotly_scatter2d(
     return fig
 
 
+def _get_hexagonal_binning(
+        x, y,
+        C=None,
+        reduce_C_function=None,
+        gridsize=20,
+        aspect_ratio=1,
+):
+    x = np.asanyarray(x)
+    y = np.asanyarray(y)
+    if C is not None:
+        C = np.asanyarray(C)
+        p = (x, y, C)
+    else:
+        p = (x, y)
+    p_and_C = np.vstack(p)
+    mask_notnan = ~np.any(np.isnan(p_and_C), axis=0)
+    p_and_C = p_and_C[:, mask_notnan]
+
+    if p_and_C.shape[1] == 0:
+        return None
+
+    p = p_and_C[0:2, :]
+    if C is not None:
+        C = p_and_C[2, :]
+
+    p_min = np.amin(p, axis=1)
+    p_max = np.amax(p, axis=1)
+    p0 = (p_max + p_min) / 2
+
+    if isinstance(gridsize, (list, tuple)):
+        x_gridsize, y_gridsize = gridsize
+        y_gridsize *= 2
+    else:
+        x_gridsize = gridsize
+        y_gridsize = int(x_gridsize / aspect_ratio / np.sqrt(3) * 2)
+
+    if x_gridsize % 2 == 0:
+        x_gridsize -= 1
+    if y_gridsize % 2 == 0:
+        y_gridsize -= 1
+
+    resol = np.array([x_gridsize, y_gridsize])
+    scale = np.maximum((p_max - p_min), 1) / resol
+
+    e = np.array([[1, 0], [-0.5, np.sqrt(3) / 2]])
+    e_scaled = e * scale
+    e_scaled_inv = np.linalg.inv(e_scaled).T
+
+    i = (
+            (e_scaled_inv[:, :, np.newaxis] * p).sum(axis=1)
+            - (e_scaled_inv[:, :] * p0).sum(axis=1)[:, np.newaxis]
+    ).round().astype('i4')
+    # i = (e_scaled_inv[:, :, np.newaxis] * (p - p0[:, np.newaxis])).sum(axis=1).round().astype('i4')
+
+    idx = i[0, :] * (2 * y_gridsize + 7) + i[1, :] + (y_gridsize + 3)
+    idx_unique = np.unique(idx)
+    i0_unique = idx_unique // (2 * y_gridsize + 7)
+    i1_unique = idx_unique % (2 * y_gridsize + 7) - (y_gridsize + 3)
+    i_unique = np.vstack((i0_unique, i1_unique))
+
+    centers = p0[:, np.newaxis] + (i_unique[:, np.newaxis, :] * e_scaled[:, :, np.newaxis]).sum(axis=0)
+
+    _hexagon_x_coords = np.array([1, 0, -1, -1, 0, 1]) * 0.5
+    _hexagon_y_coords = np.array([1, 2, 1, -1, -2, -1]) * np.sqrt(3) / 6
+    hexagon = np.vstack((_hexagon_x_coords, _hexagon_y_coords))
+
+    if C is not None and reduce_C_function is not None:
+        values = pd.Series(C).groupby(idx).agg(**reduce_C_function)
+    else:
+        values = pd.Series(idx).groupby(idx).agg(count='count')
+
+    return centers.T, values, (hexagon * scale[:, np.newaxis]).T
+
+
 def plotly_hexbin(
         x, y, C=None,
         mode=None,  # ['2d', '3d', '3d+sample_size', '3d+sample_size_as_hexagon_scaling']
@@ -811,10 +881,14 @@ def plotly_hexbin(
         yaxis_title=None,
         colorbar_title=None,
         height=400, width=520,
-        margin=dict(b=40, t=30, l=20, r=20),
+        margin=(('b', 40), ('t', 30), ('l', 20), ('r', 20))
 ):
     # TODO: manages missing values in x, y and C (do sth like ds.dropna? ask user to ensure this?)
     # TODO: after filtering with min_count, the plot bbox can change (it particular its aspect ratio) and in consequence, aspect ratio of hexagon changes? can remedy this?
+
+    margin = dict(margin)
+    plot_width = max(width - 20 - margin['l'] - margin['r'], 10)
+    plot_height = max(height - margin['t'] - margin['b'], 10)
 
     if mode is None:
         mode = '2d' if C is None else '3d'
@@ -831,43 +905,26 @@ def plotly_hexbin(
     assert mode != '2d' or sample_size_inverse_transform is not None, \
         f'mode is "2d", so sample_size_inverse_transform cannot be None'
 
-    import utils.matplotlib_pyplot as plt
-    # dx = x.max() - x.min()
-    # dy = y.max() - y.min()
-
-    if isinstance(gridsize, int):
-        # define gridsize(x, y) so that the hexagons are approximately regular
-        # see: https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.hexbin.html
-        plot_width = max(width - 20 - margin['l'] - margin['r'], 10)
-        plot_height = max(height - margin['t'] - margin['b'], 10)
-        gridsize_x = gridsize
-        gridsize_y = max(round(gridsize_x / np.sqrt(3) * plot_height / plot_width), 1)
-        gridsize = (gridsize_x, gridsize_y)
-
-    mpl_hexbin = plt.hexbin(x, y, gridsize=gridsize, mincnt=max(min_count, 1))
-    # plt.close()
-    counts = np.asarray(mpl_hexbin.get_array())
-    offsets = mpl_hexbin.get_offsets()
-    _hexagon, = mpl_hexbin.get_paths()
-    hexagon_vertices = np.array([vertex for vertex, _ in _hexagon.iter_segments()][:-1])
-
     if mode != '2d':
-        mpl_hexbin = plt.hexbin(
-            x, y, C=C,
-            reduce_C_function=reduce_function,
-            gridsize=gridsize,
-            mincnt=max(min_count - 1, 0)
-        )
-        # plt.close()
-        cs = np.asarray(mpl_hexbin.get_array())
-        _offsets = mpl_hexbin.get_offsets()
-        _hexagon, = mpl_hexbin.get_paths()
-        _hexagon_vertices = np.array([vertex for vertex, _ in _hexagon.iter_segments()][:-1])
-        # np.testing.assert_allclose(_offsets, offsets)
-        # np.testing.assert_allclose(_hexagon_vertices, hexagon_vertices)
+        reduce_C_function = {
+            'C': reduce_function,
+            'q5': lambda a: np.quantile(a, 0.05),
+            'q95': lambda a: np.quantile(a, 0.95),
+            'count': 'count'
+        }
+    else:
+        reduce_C_function = None
 
-    _hexagons = np.expand_dims(offsets, 1) + np.expand_dims(hexagon_vertices, 0)  # _hexagon, vertex, 2d-coord: shape is (n, 6, 2)
-    centers = _hexagons.mean(axis=1)
+    centers, values, hexagon_vertices = _get_hexagonal_binning(
+        x, y,
+        C=C if mode != '2d' else None,
+        reduce_C_function=reduce_C_function,
+        gridsize=gridsize,
+        aspect_ratio=plot_width / plot_height,
+    )
+
+    counts = values['count'].values
+    _hexagons = centers[:, np.newaxis, :] + hexagon_vertices[np.newaxis, :, :]  # _hexagon, vertex, 2d-coord: shape is (n, 6, 2)
 
     if mode in ['2d', '3d+sample_size', '3d+sample_size_as_hexagon_scaling']:
         max_count = np.amax(counts) if len(counts) > 0 else 1
@@ -891,13 +948,15 @@ def plotly_hexbin(
         raise ValueError(f'mode={mode}')
 
     if mode != '2d':
-        z = cs
+        z = values['C'].values
         z_high = cmax
         if z_high is None:
-            z_high = np.amax(z) if len(z) > 0 else 1
+            q95 = values['q95'].values
+            z_high = np.amax(q95) if len(q95) > 0 else 1
         z_low = cmin
         if z_low is None:
-            z_low = np.amin(z) if len(z) > 0 else 0
+            q5 = values['q5'].values
+            z_low = np.amin(q5) if len(q5) > 0 else 0
     else:  # mode == '2d'
         z = sample_size_transformed
         z_high = max_sample_size_transformed
@@ -923,7 +982,7 @@ def plotly_hexbin(
             f'y: {hexagon_y_center:.4g}<br>'
             f'c: {c:.4g}<br>'
             f'samples: {int(count):.4g}'
-            for hexagon_x_center, hexagon_y_center, c, count in zip(hexagon_x_centers, hexagon_y_centers, cs, counts)
+            for hexagon_x_center, hexagon_y_center, c, count in zip(hexagon_x_centers, hexagon_y_centers, z, counts)
         ]
     else:  # mode == '2d'
         hover_text = [

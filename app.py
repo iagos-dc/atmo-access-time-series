@@ -156,4 +156,4 @@ def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks,
 # Launch the Dash application.
 # app_conf['debug'] = False
 if __name__ == "__main__":
-    app.run_server(debug=False, host='0.0.0.0', port=8050)
+    app.run_server(debug=True, host='0.0.0.0', port=8050)
