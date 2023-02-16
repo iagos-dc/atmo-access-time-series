@@ -846,24 +846,32 @@ def _get_hexagonal_binning(
     ).round().astype('i4')
     # i = (e_scaled_inv[:, :, np.newaxis] * (p - p0[:, np.newaxis])).sum(axis=1).round().astype('i4')
 
-    idx = i[0, :] * (2 * y_gridsize + 7) + i[1, :] + (y_gridsize + 3)
-    idx_unique = np.unique(idx)
-    i0_unique = idx_unique // (2 * y_gridsize + 7)
-    i1_unique = idx_unique % (2 * y_gridsize + 7) - (y_gridsize + 3)
-    i_unique = np.vstack((i0_unique, i1_unique))
+    df_dict = {'i': i[0, :], 'j': i[1, :]}
+    if C is not None:
+        df_dict['C'] = C
+    else:
+        df_dict['C'] = 0  # just to apply count on the column 'C'
+    df = pd.DataFrame.from_dict(df_dict)
+    df_grouped = df['C'].groupby(by=[df['i'], df['j']])
 
-    centers = p0[:, np.newaxis] + (i_unique[:, np.newaxis, :] * e_scaled[:, :, np.newaxis]).sum(axis=0)
+    df_agg = {}
+    if reduce_C_function is not None:
+        for label, f in reduce_C_function.items():
+            df_agg[label] = f(df_grouped)
+    else:
+        df_agg['count'] = df_grouped.count()
+    df_agg = pd.DataFrame.from_dict(df_agg)
+
+    i = df_agg.index.get_level_values('i')
+    j = df_agg.index.get_level_values('j')
+    ij = np.vstack((i.values, j.values))
+    centers = p0[:, np.newaxis] + (ij[:, np.newaxis, :] * e_scaled[:, :, np.newaxis]).sum(axis=0)
 
     _hexagon_x_coords = np.array([1, 0, -1, -1, 0, 1]) * 0.5
     _hexagon_y_coords = np.array([1, 2, 1, -1, -2, -1]) * np.sqrt(3) / 6
     hexagon = np.vstack((_hexagon_x_coords, _hexagon_y_coords))
 
-    if C is not None and reduce_C_function is not None:
-        values = pd.Series(C).groupby(idx).agg(**reduce_C_function)
-    else:
-        values = pd.Series(idx).groupby(idx).agg(count='count')
-
-    return centers.T, values, (hexagon * scale[:, np.newaxis]).T
+    return centers.T, df_agg, (hexagon * scale[:, np.newaxis]).T
 
 
 def plotly_hexbin(
@@ -908,9 +916,11 @@ def plotly_hexbin(
     if mode != '2d':
         reduce_C_function = {
             'C': reduce_function,
-            'q5': lambda a: np.quantile(a, 0.05),
-            'q95': lambda a: np.quantile(a, 0.95),
-            'count': 'count'
+            'q5': lambda a: pd.core.groupby.DataFrameGroupBy.quantile(a, q=0.1),
+            # 'q5': lambda a: pd.core.groupby.DataFrameGroupBy.min(a),
+            # 'q95': lambda a: pd.core.groupby.DataFrameGroupBy.max(a),
+            'q95': lambda a: pd.core.groupby.DataFrameGroupBy.quantile(a, q=0.9),
+            'count': lambda a: pd.core.groupby.DataFrameGroupBy.count(a)
         }
     else:
         reduce_C_function = None

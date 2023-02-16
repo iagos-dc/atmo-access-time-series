@@ -59,7 +59,7 @@ def linear_regression(df, x_var, y_var):
 
     a = cxy / vx
     b = my - a * mx
-    r2 = 1 - cxy / vx * cxy / vy
+    r2 = cxy / vx * cxy / vy
 
     return a, b, r2
 

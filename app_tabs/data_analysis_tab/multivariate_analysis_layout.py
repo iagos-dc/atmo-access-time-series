@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
@@ -42,13 +43,13 @@ MEAN_PLUS_STD_AGG = 'mean+std'
 Q95_AGG = 'p95'
 MAX_AGG = 'max'
 AGGREGATOR_FUNCTIONS = {
-    MIN_AGG: np.amin,
-    Q5_AGG: lambda a: np.quantile(a, 0.05),
-    MEAN_MINUS_STD_AGG: lambda a: np.mean(a) - np.std(a),
-    MEAN_AGG: np.mean,
-    MEAN_PLUS_STD_AGG: lambda a: np.mean(a) + np.std(a),
-    Q95_AGG: lambda a: np.quantile(a, 0.95),
-    MAX_AGG: np.amax,
+    MIN_AGG: lambda a: pd.core.groupby.DataFrameGroupBy.min(a),
+    Q5_AGG: lambda a: pd.core.groupby.DataFrameGroupBy.quantile(a, q=0.05),
+    MEAN_MINUS_STD_AGG: lambda a: pd.core.groupby.DataFrameGroupBy.mean(a) - pd.core.groupby.DataFrameGroupBy.std(a, ddof=0),
+    MEAN_AGG: lambda a: pd.core.groupby.DataFrameGroupBy.mean(a),
+    MEAN_PLUS_STD_AGG: lambda a: pd.core.groupby.DataFrameGroupBy.mean(a) + pd.core.groupby.DataFrameGroupBy.std(a, ddof=0),
+    Q95_AGG: lambda a: pd.core.groupby.DataFrameGroupBy.quantile(a, q=0.95),
+    MAX_AGG: lambda a: pd.core.groupby.DataFrameGroupBy.max(a),
 }
 AGGREGATOR_RADIOITEMS_OPTIONS = list(AGGREGATOR_FUNCTIONS)
 
