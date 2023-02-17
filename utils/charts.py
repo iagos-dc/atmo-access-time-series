@@ -801,24 +801,19 @@ def _get_hexagonal_binning(
 ):
     x = np.asanyarray(x)
     y = np.asanyarray(y)
+    mask_notnan = ~(np.isnan(x) | np.isnan(y))
     if C is not None:
-        C = np.asanyarray(C)
-        p = (x, y, C)
-    else:
-        p = (x, y)
-    p_and_C = np.vstack(p)
-    mask_notnan = ~np.any(np.isnan(p_and_C), axis=0)
-    p_and_C = p_and_C[:, mask_notnan]
+        mask_notnan &= ~np.isnan(C)
+    x = x[mask_notnan]
+    y = y[mask_notnan]
+    if C is not None:
+        C = C[mask_notnan]
 
-    if p_and_C.shape[1] == 0:
+    if x.shape[0] == 0:
         return None
 
-    p = p_and_C[0:2, :]
-    if C is not None:
-        C = p_and_C[2, :]
-
-    p_min = np.amin(p, axis=1)
-    p_max = np.amax(p, axis=1)
+    p_min = np.array([np.amin(x), np.amin(y)])
+    p_max = np.array([np.amax(x), np.amax(y)])
     p0 = (p_max + p_min) / 2
 
     if isinstance(gridsize, (list, tuple)):
@@ -841,10 +836,9 @@ def _get_hexagonal_binning(
     e_scaled_inv = np.linalg.inv(e_scaled).T
 
     i = (
-            (e_scaled_inv[:, :, np.newaxis] * p).sum(axis=1)
+            e_scaled_inv[:, 0, np.newaxis] * x + e_scaled_inv[:, 1, np.newaxis] * y
             - (e_scaled_inv[:, :] * p0).sum(axis=1)[:, np.newaxis]
     ).round().astype('i4')
-    # i = (e_scaled_inv[:, :, np.newaxis] * (p - p0[:, np.newaxis])).sum(axis=1).round().astype('i4')
 
     df_dict = {'i': i[0, :], 'j': i[1, :]}
     if C is not None:
