@@ -21,7 +21,7 @@ from app_tabs.select_datasets_tab.layout import SELECT_DATASETS_TAB_VALUE, SELEC
     get_select_datasets_tab
 from app_tabs.filter_data_tab.layout import FILTER_DATA_TAB_VALUE, FILTER_DATA_BUTTON_ID, \
     get_filter_data_tab
-from app_tabs.data_analysis_tab.layout import DATA_ANALYSIS_TAB_VALUE, \
+from app_tabs.data_analysis_tab.tabs_layout import DATA_ANALYSIS_TAB_VALUE, \
     get_data_analysis_tab
 from log import log_exception
 

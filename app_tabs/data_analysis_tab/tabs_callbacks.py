@@ -1,6 +1,6 @@
 from dash import Input, callback, Output
 
-from app_tabs.data_analysis_tab.layout import DATA_ANALYSIS_PARAMETERS_CARDBODY_ID, DATA_ANALYSIS_FIGURE_CONTAINER_ID, \
+from app_tabs.data_analysis_tab.tabs_layout import DATA_ANALYSIS_PARAMETERS_CARDBODY_ID, DATA_ANALYSIS_FIGURE_CONTAINER_ID, \
     KIND_OF_ANALYSIS_TABS_ID, EXPLORATORY_ANALYSIS_TAB_ID, TREND_ANALYSIS_TAB_ID, MULTIVARIATE_ANALYSIS_TAB_ID
 from app_tabs.data_analysis_tab.exploratory_analysis_layout import exploratory_analysis_cardbody, \
     exploratory_plot

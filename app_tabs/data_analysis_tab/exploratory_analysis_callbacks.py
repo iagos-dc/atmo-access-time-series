@@ -1,51 +1,15 @@
 import dash
 import toolz
 from dash import Input
-import dash_bootstrap_components as dbc
 
+from . import common_layout
 import data_processing
 from data_processing import metadata, analysis
-from app_tabs.common import layout as common_layout
+from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from app_tabs.data_analysis_tab import exploratory_analysis_layout
 from log import log_exception, print_callback
-from utils import dash_dynamic_components as ddc, charts, dash_persistence, helper
+from utils import dash_dynamic_components as ddc, charts, helper
 from utils.broadcast import broadcast
-
-
-@ddc.dynamic_callback(
-    ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_VARIABLES_CARDBODY_ROW_2_ID, 'children'),
-    Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
-    ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
-    prevent_initial_call=False,
-)
-@log_exception
-def get_variables_callback(filter_data_request, variables_checklist_all_none_switch):
-    if filter_data_request is None:
-        raise dash.exceptions.PreventUpdate
-
-    filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
-    da_by_var = filter_data_request.compute()
-    da_by_var = {v: da_by_var[v] for v in sorted(da_by_var)}
-    metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
-
-    vs = list(metadata_by_var)
-    if len(vs) == 0:
-        raise dash.exceptions.PreventUpdate
-
-    options = [{'label': f'{v} : {md[metadata.VARIABLE_LABEL]}', 'value': v} for v, md in metadata_by_var.items()]
-    if variables_checklist_all_none_switch:
-        value = vs
-    else:
-        value = []
-
-    integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
-
-    return dbc.Checklist(
-        id=ddc.add_active_to_component_id(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ID),
-        options=options,
-        value=value,
-        **dash_persistence.get_dash_persistence_kwargs(persistence_id=integrate_datasets_request_hash)
-    )
 
 
 @ddc.dynamic_callback(
@@ -81,8 +45,8 @@ def get_extra_parameters(analysis_method):
 
 @ddc.dynamic_callback(
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID, 'figure'),
-    Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
-    ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
+    Input(FILTER_DATA_REQUEST_ID, 'data'),
+    ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_METHOD_RADIO_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.AGGREGATION_PERIOD_RADIO_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.MIN_SAMPLE_SIZE_INPUT_ID, 'value'),
@@ -140,7 +104,7 @@ def get_exploratory_plot_callback(
     variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
     yaxis_label_by_var = toolz.valmap(lambda md: md[metadata.YAXIS_LABEL], metadata_by_var)
 
-    apply_existing_figure_extent = common_layout.FILTER_DATA_REQUEST_ID not in dash_ctx
+    apply_existing_figure_extent = FILTER_DATA_REQUEST_ID not in dash_ctx
     if apply_existing_figure_extent:
         time_margin = exploratory_analysis_layout.AGGREGATION_PERIOD_TIMEDELTA[aggregation_period]
         filtering_on_figure_extent = lambda series: charts.filter_series_on_x_extent(series, figure_extent, time_margin=time_margin)
@@ -263,7 +227,7 @@ def get_exploratory_plot_callback(
     )
     fig = charts.add_watermark(fig)
 
-    # if dash.ctx.triggered_id != common_layout.FILTER_DATA_REQUEST_ID:
+    # if dash.ctx.triggered_id != FILTER_DATA_REQUEST_ID:
     #     # we reset the zoom only if a new filter data request was launched
     #     fig = charts.apply_figure_extent(fig, relayout_data)
 

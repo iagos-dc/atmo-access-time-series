@@ -9,7 +9,11 @@ def gaussian_mean_and_std(da, aggregation_period, min_sample_size=1):
     count = series_resampled.count()
     mean = series_resampled.mean()
     std = series_resampled.std(ddof=1)
-    return mean.where(count >= min_sample_size), std.where(count >= min_sample_size), count
+    return (
+        mean.where(count >= min_sample_size),
+        std.where(count >= min_sample_size), # / np.sqrt(count),
+        count
+    )
 
 
 def gaussian_mean_and_std_by_rolling_window(da, window, min_sample_size=1):
@@ -17,7 +21,7 @@ def gaussian_mean_and_std_by_rolling_window(da, window, min_sample_size=1):
     series_rolled = da.to_series().rolling(window, min_periods=min_sample_size)  # center=True, closed='both'
     count = series_rolled.count()
     mean = series_rolled.mean()
-    std = series_rolled.std(ddof=1)
+    std = series_rolled.std(ddof=1) # / np.sqrt(count)
     return mean, std, count
 
 

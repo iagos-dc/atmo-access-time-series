@@ -2,14 +2,11 @@ import pandas as pd
 import dash_bootstrap_components as dbc
 from dash import dcc
 
+from . import common_layout
 from utils import dash_dynamic_components as ddc, dash_persistence
-from app_tabs.common import layout as common_layout
+from app_tabs.common.layout import GRAPH_CONFIG
 
 
-EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID = 'exploratory-analysis-variables-checklist-all-none-switch'
-EXPLORATORY_ANALYSIS_VARIABLES_CARDBODY_ROW_2_ID = 'exploratory-analysis-variables-cardbody-row-2'
-
-EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ID = 'exploratory-analysis-variables-checklist'
 EXPLORATORY_ANALYSIS_METHOD_RADIO_ID = 'exploratory-analysis-method-radio'
 EXPLORATORY_ANALYSIS_METHOD_PARAMETERS_CARDBODY_ID = 'exploratory-analysis-method-parameters-cardbody'
 EXPLORATORY_GRAPH_ID = 'exploratory-analysis-graph'
@@ -63,21 +60,6 @@ LINE_DASH_STYLE_BY_PERCENTILE = {
 
 
 def _get_exploratory_analysis_cardbody():
-    select_all_none_variable_switch = dbc.Switch(
-        id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID),
-        label='Select all / none',
-        # style={'margin-top': '10px'},
-        value=True,
-    )
-
-    variables_checklist = dbc.Card([
-        dbc.CardHeader('Variables'),
-        dbc.CardBody([
-            dbc.Row(select_all_none_variable_switch),
-            dbc.Row(id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_VARIABLES_CARDBODY_ROW_2_ID)),
-        ]),
-    ])
-
     analysis_method_radio = dbc.RadioItems(
         id=ddc.add_active_to_component_id(EXPLORATORY_ANALYSIS_METHOD_RADIO_ID),
         options=[
@@ -107,7 +89,7 @@ def _get_exploratory_analysis_cardbody():
     ])
 
     return [
-        dbc.Row(variables_checklist),
+        dbc.Row(common_layout.variables_checklist),
         dbc.Row(exploratory_analysis_method_radio),
         dbc.Row(exploratory_analysis_method_parameters_card),
     ]
@@ -119,7 +101,7 @@ exploratory_analysis_cardbody = _get_exploratory_analysis_cardbody()
 def _get_exploratory_plot():
     graph = dcc.Graph(
         id=ddc.add_active_to_component_id(EXPLORATORY_GRAPH_ID),
-        config=common_layout.GRAPH_CONFIG,
+        config=GRAPH_CONFIG,
         # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
     ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     scatter_mode_radio = dbc.RadioItems(

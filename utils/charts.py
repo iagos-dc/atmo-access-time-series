@@ -5,7 +5,7 @@ import xarray as xr
 from plotly import express as px, graph_objects as go
 import plotly.colors
 
-from log.log import logger
+from log.log import logger, log_exectime
 from data_processing.utils import get_subsampling_mask
 from utils import helper
 
@@ -792,6 +792,7 @@ def plotly_scatter2d(
     return fig
 
 
+@log_exectime
 def _get_hexagonal_binning(
         x, y,
         C=None,
@@ -868,6 +869,7 @@ def _get_hexagonal_binning(
     return centers.T, df_agg, (hexagon * scale[:, np.newaxis]).T
 
 
+# @log_exectime
 def plotly_hexbin(
         x, y, C=None,
         mode=None,  # ['2d', '3d', '3d+sample_size', '3d+sample_size_as_hexagon_scaling']
