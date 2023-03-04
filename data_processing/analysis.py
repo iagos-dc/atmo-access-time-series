@@ -3,6 +3,12 @@ import pandas as pd
 # from log.log import log_exectime
 
 
+def aggregate(da, aggregation_period, aggregation_function, min_sample_size=1):
+    series_resampled = da.to_series().resample(rule=aggregation_period)
+    count = series_resampled.count()
+    return aggregation_function(series_resampled).where(count >= min_sample_size)
+
+
 # @log_exectime
 def gaussian_mean_and_std(da, aggregation_period, min_sample_size=1):
     series_resampled = da.to_series().resample(rule=aggregation_period)

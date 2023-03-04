@@ -25,7 +25,6 @@ EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_2_ID = 'exploratory-analysis-parameters
 EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_3_ID = 'exploratory-analysis-parameters-form-row-3'
 
 AGGREGATION_PERIOD_RADIO_ID = 'exploratory-analysis-parameter-radio'
-MIN_SAMPLE_SIZE_INPUT_ID = 'exploratory-analysis-min-sample-size'
 SHOW_STD_SWITCH_ID = 'exploratory-analysis-show-std-switch'
 STD_MODE_RADIO_ID = 'exploratory-analysis-std-mode-radio'
 AGGREGATION_PERIOD_WORDINGS = {
@@ -142,20 +141,6 @@ aggregation_period_input = [
         **dash_persistence.get_dash_persistence_kwargs(True)
     )
 ]
-
-
-minimal_sample_size_input = dbc.InputGroup(
-    [
-        dbc.InputGroupText('Minimal sample size for period:'),
-        dbc.Input(
-            id=ddc.add_active_to_component_id(MIN_SAMPLE_SIZE_INPUT_ID),
-            type='number',
-            min=1, step=1, value=5,
-            debounce=True,
-            **dash_persistence.get_dash_persistence_kwargs(True)
-        ),
-    ]
-)
 
 
 std_style_inputs = dbc.Row([

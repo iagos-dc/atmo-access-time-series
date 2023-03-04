@@ -18,6 +18,9 @@ from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, sele
 from log import log_exception
 
 
+DATA_FILTER_AIO_CLASS = 'data_filter'
+
+
 def _get_min_max_time(da_by_var):
     t_min, t_max = None, None
     for _, da in da_by_var.items():
@@ -37,17 +40,17 @@ def _get_min_max_time(da_by_var):
 
 
 @callback(
-    Output(figure_data_store_id(ALL), 'data'),
+    Output(figure_data_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
     Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'disabled'),
     Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'style'),
-    Input(selected_range_store_id(ALL), 'data'),
-    Input(selected_range_store_id(ALL), 'id'),
+    Input(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
+    Input(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'id'),
     Input({'subcomponent': 'time_granularity_radio', 'aio_id': ALL}, 'value'),
     Input(FILTER_TYPE_RADIO_ID, 'value'),
     Input(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'value'),
     Input({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'value'),
     Input({'subcomponent': 'nbars_slider', 'aio_id': ALL}, 'value'),
-    State(figure_data_store_id(ALL), 'id'),
+    State(figure_data_store_id(ALL, DATA_FILTER_AIO_CLASS), 'id'),
     State({'subcomponent': 'log_scale_switch', 'aio_id': ALL}, 'id'),
     State({'subcomponent': 'nbars_slider', 'aio_id': ALL}, 'id'),
     State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
@@ -180,8 +183,9 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
     t_min, t_max = _get_min_max_time(ds)
 
     time_filter = GraphWithHorizontalSelectionAIO(
-        'time_filter',
-        'time',
+        aio_id='time_filter',
+        aio_class=DATA_FILTER_AIO_CLASS,
+        x_axis_type='time',
         variable_label='time',
         x_min=t_min,
         x_max=t_max,
@@ -197,8 +201,9 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
         x_max = da.max().item()
 
         var_filter = GraphWithHorizontalSelectionAIO(
-            f'{v}_filter',
-            'scalar',
+            aio_id=f'{v}_filter',
+            aio_class=DATA_FILTER_AIO_CLASS,
+            x_axis_type='scalar',
             variable_label=v,
             x_min=x_min,
             x_max=x_max,
@@ -216,12 +221,39 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
             title = f'{title}, {city_or_station_name}'
         filter_and_title_by_v[v] = var_filter, f'{v} : {title}'
 
+    accordion_items = []
+    for v, (v_filter, title) in filter_and_title_by_v.items():
+        data_stores = v_filter.get_data_stores()
+        range_controller = v_filter.get_range_controller()
+        graph = v_filter.get_graph()
+        accordion_item_children = dbc.Container(
+           [
+               data_stores,
+               dbc.Row(
+                   [
+                       dbc.Col(
+                           range_controller,
+                           width=4,
+                           align='start',
+                       ),
+                       dbc.Col(
+                           graph,
+                           width=8,
+                           align='start',
+                       ),
+                   ],
+                   align='start',
+               ),
+           ],
+           fluid=True,
+        )
+        accordion_items.append(
+            dbc.AccordionItem(accordion_item_children, title=title, item_id=f'filter-{v}')
+        )
+
     # TODO: maybe the accordion should go to layout ???
     return dbc.Accordion(
-        [
-            dbc.AccordionItem(v_filter, title=title, item_id=f'filter-{v}')
-            for v, (v_filter, title) in filter_and_title_by_v.items()
-        ],
+        accordion_items,
         always_open=True,
         active_item=[f'filter-{v}' for v in filter_and_title_by_v.keys()],
         # style={'text-transform': None},
@@ -233,8 +265,8 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
     Output(FILTER_DATA_REQUEST_ID, 'data'),
     Input(FILTER_DATA_BUTTON_ID, 'n_clicks'),
     State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
-    State(selected_range_store_id(ALL), 'data'),
-    State(selected_range_store_id(ALL), 'id'),
+    State(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
+    State(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'id'),
     State(FILTER_TYPE_RADIO_ID, 'value'),
     State(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'value'),
     prevent_initial_call=True,

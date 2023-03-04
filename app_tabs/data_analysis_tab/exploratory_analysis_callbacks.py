@@ -24,19 +24,19 @@ def get_extra_parameters(analysis_method):
     if analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
         return [
             exploratory_analysis_layout.aggregation_period_input,
-            exploratory_analysis_layout.minimal_sample_size_input,
+            common_layout.minimal_sample_size_input,
             exploratory_analysis_layout.std_style_inputs,
         ]
     elif analysis_method == exploratory_analysis_layout.PERCENTILES_METHOD:
         return [
             exploratory_analysis_layout.aggregation_period_input,
-            exploratory_analysis_layout.minimal_sample_size_input,
+            common_layout.minimal_sample_size_input,
             exploratory_analysis_layout.percentiles_input_params,
         ]
     elif analysis_method == exploratory_analysis_layout.MOVING_AVERAGE_METHOD:
         return [
             exploratory_analysis_layout.aggregation_period_input,
-            exploratory_analysis_layout.minimal_sample_size_input,
+            common_layout.minimal_sample_size_input,
             None
         ]
     else:
@@ -49,7 +49,7 @@ def get_extra_parameters(analysis_method):
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_METHOD_RADIO_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.AGGREGATION_PERIOD_RADIO_ID, 'value'),
-    ddc.DynamicInput(exploratory_analysis_layout.MIN_SAMPLE_SIZE_INPUT_ID, 'value'),
+    ddc.DynamicInput(common_layout.MIN_SAMPLE_SIZE_INPUT_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.SHOW_STD_SWITCH_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.STD_MODE_RADIO_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.PERCENTILES_CHECKLIST_ID, 'value'),
