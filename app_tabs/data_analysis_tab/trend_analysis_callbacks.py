@@ -13,8 +13,7 @@ from app_tabs.data_analysis_tab import trend_analysis_layout
 from log import log_exception, print_callback
 from utils import dash_dynamic_components as ddc, charts, dash_persistence, helper
 from utils.broadcast import broadcast
-from utils.graph_with_horizontal_selection_AIO import figure_data_store_id
-from .trend_analysis_layout import TREND_ANALYSIS_AIO_ID, TREND_ANALYSIS_AIO_CLASS
+from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id
 
 
 def _get_min_max_time(da_by_var):
@@ -36,12 +35,30 @@ def _get_min_max_time(da_by_var):
 
 
 @ddc.dynamic_callback(
+    ddc.DynamicOutput(trend_analysis_layout.AGGREGATE_COLLAPSE_ID, 'is_open'),
+    ddc.DynamicInput(trend_analysis_layout.AGGREGATE_CHECKBOX_ID, 'value'),
+)
+@log_exception
+def show_aggregate_card(aggregate_checkbox):
+    return aggregate_checkbox
+
+
+@ddc.dynamic_callback(
+    ddc.DynamicOutput(trend_analysis_layout.DESEASONIZE_COLLAPSE_ID, 'is_open'),
+    ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
+)
+@log_exception
+def show_deseasonize_card(deseasonize_checkbox):
+    return deseasonize_checkbox
+
+
+@ddc.dynamic_callback(
     ddc.DynamicOutput(trend_analysis_layout.TREND_SUMMARY_CONTAINER_ID, 'children'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
 )
 @log_exception
 @print_callback()
-def get_trend_plot_callback_old(
+def get_trend_summary(
         filter_data_request,
 ):
     if helper.any_is_None(filter_data_request):
@@ -74,31 +91,43 @@ def get_trend_plot_callback_old(
 
 
 @ddc.dynamic_callback(
-    #ddc.DynamicOutput(figure_data_store_id(TREND_ANALYSIS_AIO_ID + '-time', TREND_ANALYSIS_AIO_CLASS), 'data'),
-    Output(figure_data_store_id(TREND_ANALYSIS_AIO_ID + '-time', TREND_ANALYSIS_AIO_CLASS), 'data'),
+    Output(figure_data_store_id(trend_analysis_layout.TREND_ANALYSIS_AIO_ID + '-time', trend_analysis_layout.TREND_ANALYSIS_AIO_CLASS), 'data'),
+    ddc.DynamicOutput(trend_analysis_layout.TREND_GRAPH_ID, 'figure'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.TREND_ANALYSIS_METHOD_RADIO_ID, 'value'),
-    ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
+    Input(selected_range_store_id(trend_analysis_layout.TREND_ANALYSIS_AIO_ID + '-time', trend_analysis_layout.TREND_ANALYSIS_AIO_CLASS), 'data'),
+    ddc.DynamicInput(trend_analysis_layout.AGGREGATE_CHECKBOX_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.AGGREGATION_PERIOD_SELECT_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.AGGREGATION_FUNCTION_SELECT_ID, 'value'),
     ddc.DynamicInput(common_layout.MIN_SAMPLE_SIZE_INPUT_ID, 'value'),
+    ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
+    ddc.DynamicInput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'value')
 )
 @log_exception
 @print_callback()
-def get_trend_plot_callback(
+def get_trend_plots_callback(
         filter_data_request,
         vs,
         analysis_method,
-        deseasonize,
+        time_rng,
+        do_aggregate,
         aggregation_period,
         aggregation_function,
-        min_sample_size
+        min_sample_size,
+        do_deseasonize,
+        moving_average_period
 ):
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
     print(f'get_trend_plot_callback dash_ctx={dash_ctx}')
 
-    if helper.any_is_None(filter_data_request, vs, analysis_method, deseasonize, aggregation_period, aggregation_function):
+    if helper.any_is_None(
+        filter_data_request,
+        vs,
+        analysis_method,
+        do_aggregate, aggregation_period, aggregation_function, min_sample_size,
+        do_deseasonize, moving_average_period
+    ):
         raise dash.exceptions.PreventUpdate
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
@@ -109,10 +138,10 @@ def get_trend_plot_callback(
     da_by_var = toolz.keyfilter(lambda v: v in vs, da_by_var)
     if len(da_by_var) == 0:
         raise dash.exceptions.PreventUpdate
-        return {
-            'fig': charts.empty_figure(),
-            'rng': [0, 1]
-        }
+        # return {
+        #     'fig': charts.empty_figure(),
+        #     'rng': [0, 1]
+        # }
 
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
     variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
@@ -120,13 +149,9 @@ def get_trend_plot_callback(
 
     t_min, t_max = _get_min_max_time(da_by_var)
 
-    if aggregation_period != trend_analysis_layout.NO_AGGREGATION:
-        agg_func = trend_analysis_layout.AGGREGATION_FUNCTIONS[aggregation_function]
-        get_aggregated_da_by_var = broadcast([0])(analysis.aggregate)
-        series_by_var = get_aggregated_da_by_var(da_by_var, aggregation_period, agg_func, min_sample_size=min_sample_size)
-    else:
-        series_by_var = toolz.valmap(lambda da: da.to_series(), da_by_var)
+    series_by_var = toolz.valmap(lambda da: da.to_series(), da_by_var)
 
+    # ORIGINAL TIME SERIES
     width = 1200
     height = 400
     orig_timeseries_fig = charts.multi_line(
@@ -141,7 +166,7 @@ def get_trend_plot_callback(
     # show title, legend, watermark, etc.
     orig_timeseries_fig.update_layout(
         legend=dict(orientation='h'),
-        title='foo title',
+        title='Original timeseries',
         xaxis={'title': 'time'},
         uirevision=integrate_datasets_request_hash,
         # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
@@ -152,8 +177,64 @@ def get_trend_plot_callback(
     #     # we reset the zoom only if a new filter data request was launched
     #     fig = charts.apply_figure_extent(fig, relayout_data)
 
-    print(f'get_plot_callback fig size={len(orig_timeseries_fig.to_json()) / 1e3}k')
-    return {
+    # print(f'get_plot_callback fig size={len(orig_timeseries_fig.to_json()) / 1e3}k')
+    orig_timeseries_fig_data = {
         'fig': orig_timeseries_fig,
         'rng': [t_min, t_max],
     }
+
+    # TREND
+    if time_rng is not None:
+        sel_variable, sel_t_min, sel_t_max = time_rng['variable_label'], time_rng['x_sel_min'], time_rng['x_sel_max']
+        da_by_var = toolz.valmap(
+            lambda da: da.sel({sel_variable: slice(sel_t_min, sel_t_max)}),
+            da_by_var
+        )
+    else:
+        sel_t_min, sel_t_max = None, None
+
+    series_by_var = toolz.valmap(analysis._to_series, da_by_var)
+
+    if do_aggregate:
+        agg_func = trend_analysis_layout.AGGREGATION_FUNCTIONS[aggregation_function]
+        get_aggregated_da_by_var = broadcast([0])(analysis.aggregate)
+        series_by_var = get_aggregated_da_by_var(series_by_var, aggregation_period, agg_func, min_sample_size=min_sample_size)
+
+    if do_deseasonize:
+        series_by_var = toolz.valmap(
+            lambda series: series - analysis.extract_seasonality(series),
+            series_by_var
+        )
+        series_by_var = toolz.valmap(
+            lambda series: analysis.moving_average(
+                series,
+                window=trend_analysis_layout.AGGREGATION_PERIOD_TIMEDELTA[moving_average_period]
+            ),
+            series_by_var
+        )
+
+    width = 1200
+    height = 400
+    trend_fig = charts.multi_line(
+        series_by_var,
+        width=width, height=height,
+        variable_label_by_var=variable_label_by_var,
+        yaxis_label_by_var=yaxis_label_by_var,
+        color_mapping=colors_by_var,
+        subsampling=5_000,
+    )
+
+    # show title, legend, watermark, etc.
+    trend_fig.update_layout(
+        legend=dict(orientation='h'),
+        title='Trend',
+        xaxis={'title': 'time'},
+        # uirevision=integrate_datasets_request_hash,
+        # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
+    )
+    trend_fig = charts.add_watermark(trend_fig)
+
+    return (
+        orig_timeseries_fig_data,
+        trend_fig,
+    )

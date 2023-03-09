@@ -1,17 +1,32 @@
 import numpy as np
 import pandas as pd
+import xarray as xr
 # from log.log import log_exectime
+
+from data_access.data_access import _infer_ts_frequency
+
+
+def _to_series(da):
+    if isinstance(da, xr.DataArray):
+        series = da.to_series()
+    elif isinstance(da, pd.Series):
+        series = da
+    else:
+        raise TypeError(f'da must be either xarray.DataArray or pandas.Series; got type(da)={type(da)}')
+    return series
 
 
 def aggregate(da, aggregation_period, aggregation_function, min_sample_size=1):
-    series_resampled = da.to_series().resample(rule=aggregation_period)
+    series = _to_series(da)
+    series_resampled = series.resample(rule=aggregation_period)
     count = series_resampled.count()
     return aggregation_function(series_resampled).where(count >= min_sample_size)
 
 
 # @log_exectime
 def gaussian_mean_and_std(da, aggregation_period, min_sample_size=1):
-    series_resampled = da.to_series().resample(rule=aggregation_period)
+    series = _to_series(da)
+    series_resampled = series.resample(rule=aggregation_period)
     count = series_resampled.count()
     mean = series_resampled.mean()
     std = series_resampled.std(ddof=1)
@@ -22,19 +37,37 @@ def gaussian_mean_and_std(da, aggregation_period, min_sample_size=1):
     )
 
 
-def gaussian_mean_and_std_by_rolling_window(da, window, min_sample_size=1):
+def _gaussian_mean_and_std_by_rolling_window(da, window, min_sample_size=1):
     window = pd.Timedelta(window)
-    series_rolled = da.to_series().rolling(window, min_periods=min_sample_size)  # center=True, closed='both'
+
+    series = _to_series(da)
+    series_rolled = series.rolling(window, min_periods=min_sample_size)  # center=True, closed='both'
     count = series_rolled.count()
     mean = series_rolled.mean()
     std = series_rolled.std(ddof=1) # / np.sqrt(count)
     return mean, std, count
 
 
+def moving_average(da, window, min_sample_size=1):
+    window = pd.Timedelta(window)
+
+    series = _to_series(da)
+    series_rolled = series.rolling(window, center=True, min_periods=min_sample_size)  # center=True, closed='both'
+    m = series_rolled.mean()
+
+    # the sliding window must be entirely contained in the time series domain
+    start, end = m.index[0], m.index[-1]
+    m = m.loc[start + window / 2:end - window / 2]
+
+    return m
+
+
 # @log_exectime
 def percentiles(da, aggregation_period, p, min_sample_size=1):
     q = [x / 100. for x in p]
-    series_resampled = da.to_series().resample(rule=aggregation_period)
+
+    series = _to_series(da)
+    series_resampled = series.resample(rule=aggregation_period)
     count = series_resampled.count()
     if len(q) > 0:
         quantiles = series_resampled.quantile(q=q).unstack()
@@ -45,10 +78,12 @@ def percentiles(da, aggregation_period, p, min_sample_size=1):
     return quantiles_by_p, count
 
 
-def percentiles_by_rolling_window(da, window, p, min_sample_size=1):
+def _percentiles_by_rolling_window(da, window, p, min_sample_size=1):
     window = pd.Timedelta(window)
     q = [x / 100. for x in p]
-    series_rolled = da.to_series().rolling(window, min_periods=min_sample_size)  # center=True, closed='both'
+
+    series = _to_series(da)
+    series_rolled = series.rolling(window, min_periods=min_sample_size)  # center=True, closed='both'
     count = series_rolled.count()
     quantiles_by_p = {_p: series_rolled.quantile(_q) for _p, _q in zip(p, q)}
     return quantiles_by_p, count
@@ -113,3 +148,46 @@ def theil_sen_slope(series, subsampling=3000, deseasonalize=True):
     b = np.median(y - a * x)
 
     return (a, b), (ci0, ci1), (x_unit, y_unit)
+
+
+def _custom_asfreq(x, freq, method=None, limit=None, tolerance=None):
+    assert isinstance(x, (pd.DataFrame, pd.Series))
+    assert x.index.is_monotonic_increasing
+    assert x.index.is_all_dates
+
+    freq = pd.Timedelta(freq)
+
+    dt = np.diff(x.index.values)
+    if np.all(dt == np.timedelta64(freq)):
+        return x
+
+    idx = pd.date_range(start=x.index[0], end=x.index[-1], freq=freq)
+    return x.reindex(idx, method=method, limit=limit, tolerance=tolerance)
+
+
+def extract_seasonality(da, period=pd.Timedelta('1Y')):
+    series = _to_series(da)
+
+    assert series.index.is_monotonic_increasing
+    assert series.index.is_all_dates
+    # freq = x.index.freq
+    # if freq is None:
+    freq = _infer_ts_frequency(xr.DataArray(series))
+    assert freq > pd.Timedelta(0)
+
+    # x = custom_asfreq(x, freq, method='nearest', tolerance=freq / 2)  # maybe: freq - pd.Timedelta(1, 'ns') ???
+
+    period = pd.Timedelta(period)
+    m = moving_average(series, period)
+    x_m = (series - m).to_frame(name='x_m')
+
+    dt = pd.Series(x_m.index - x_m.index[0])
+    freq_bin_in_period = (dt % period + freq / 2) // freq
+    x_m['bin'] = freq_bin_in_period.set_axis(x_m.index)
+
+    w = x_m.groupby(by='bin')['x_m'].mean()
+    s = (w - w.mean()).rename('season')
+
+    x_m = x_m.join(s, on='bin')
+
+    return x_m['season']
