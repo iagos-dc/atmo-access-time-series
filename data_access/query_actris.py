@@ -1,11 +1,9 @@
 import requests
 import json
-import pathlib
 import pandas as pd
 import xarray as xr
 
-
-CACHE_DIR = pathlib.Path('cache')
+from .common import CACHE_DIR
 
 
 MAPPING_ECV2ACTRIS = {
@@ -121,7 +119,7 @@ def query_datasets(variables=None, temporal_extent=None, spatial_extent=None):
 
     global _all_datasets
     if _all_datasets is None:
-        cache_path = pathlib.PurePath(CACHE_DIR, f'actris_datasets.json')
+        cache_path = CACHE_DIR / 'actris_datasets.json'
         try:
             with open(cache_path, 'r') as f:
                 _all_datasets = json.load(f)
@@ -231,7 +229,11 @@ def _query_datasets(variables, temporal_extent, spatial_extent):
     #    return "Variables must be one of the following: 'Aerosol Optical Properties','Aerosol Chemical Properties','Aerosol Physical Properties'"
 
 
-def read_dataset(url, variables):
+def read_dataset(url, variables=None):
+
+    # TODO: temporary patch; to be removed ???
+    if variables is None:
+        return xr.load_dataset(url)
 
     # For InSitu specific variables
     actris2insitu = {'particle_number_size_distribution': 'particle.number.size.distribution',

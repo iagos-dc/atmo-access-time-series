@@ -1,6 +1,6 @@
 /.idea
-/cache/*.pkl
-/cache/*.json
+# /cache/*.pkl
+# /cache/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,0 +1,173 @@
+[
+  {
+    "variable_name":"air_temperature",
+    "ECV_name":[
+      "Temperature (near surface)",
+      "Temperature (upper-air)"
+    ]
+  },
+  {
+    "variable_name":"air_temperature",
+    "ECV_name":[
+      "Temperature (near surface)",
+      "Temperature (upper-air)"
+    ]
+  },
+  {
+    "variable_name":"air_temperature",
+    "ECV_name":[
+      "Temperature (near surface)",
+      "Temperature (upper-air)"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_carbon_dioxide_in_air",
+    "ECV_name":[
+      "Carbon Dioxide"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_carbon_dioxide_in_air",
+    "ECV_name":[
+      "Carbon Dioxide"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_carbon_dioxide_in_air",
+    "ECV_name":[
+      "Carbon Dioxide"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_carbon_monoxide_in_air",
+    "ECV_name":[
+      "Carbon Monoxide"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_carbon_monoxide_in_air",
+    "ECV_name":[
+      "Carbon Monoxide"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_carbon_monoxide_in_air",
+    "ECV_name":[
+      "Carbon Monoxide"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_carbon_monoxide_in_air",
+    "ECV_name":[
+      "Carbon Monoxide"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_carbon_monoxide_in_air",
+    "ECV_name":[
+      "Carbon Monoxide"
+    ]
+  },
+  {
+    "variable_name":"number_concentration_of_cloud_liquid_water_particles_in_air",
+    "ECV_name":[
+      "Cloud Properties"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_methane_in_air",
+    "ECV_name":[
+      "Methane"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_methane_in_air",
+    "ECV_name":[
+      "Methane"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_methane_in_air",
+    "ECV_name":[
+      "Methane"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_nitrogen_dioxide_in_air",
+    "ECV_name":[
+      "NO2"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_nitrogen_dioxide_in_air",
+    "ECV_name":[
+      "NO2"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_ozone_in_air",
+    "ECV_name":[
+      "Ozone"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_ozone_in_air",
+    "ECV_name":[
+      "Ozone"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_ozone_in_air",
+    "ECV_name":[
+      "Ozone"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_ozone_in_air",
+    "ECV_name":[
+      "Ozone"
+    ]
+  },
+  {
+    "variable_name":"relative_humidity",
+    "ECV_name":[
+      "Water Vapour (surface)"
+    ]
+  },
+  {
+    "variable_name":"relative_humidity",
+    "ECV_name":[
+      "Water Vapour (surface)"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_water_vapor_in_air",
+    "ECV_name":[
+      "Water Vapour (surface)"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_water_vapor_in_air",
+    "ECV_name":[
+      "Water Vapour (surface)"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_water_vapor_in_air",
+    "ECV_name":[
+      "Water Vapour (surface)"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_water_vapor_in_air",
+    "ECV_name":[
+      "Water Vapour (surface)"
+    ]
+  },
+  {
+    "variable_name":"mole_fraction_of_water_vapor_in_air",
+    "ECV_name":[
+      "Water Vapour (surface)"
+    ]
+  }
+]

@@ -44,6 +44,12 @@ def reverse_mapping(mapping):
 MAPPING_IAGOS_ECV=reverse_mapping(MAPPING_ECV_IAGOS)
 
 def get_list_platforms():
+    # temporary patch BEGIN
+    from .common import DATA_DIR
+    import pandas as pd
+    return pd.read_json(DATA_DIR / 'stations_iagos.json', orient='records')
+    # temporary patch END
+
     try:
         response = requests.get(REST_URL_STATIONS)
         response.raise_for_status()
@@ -60,6 +66,12 @@ def get_list_platforms():
         print(f'Other error occurred: {err}')
 
 def get_list_variables():
+    # temporary patch BEGIN
+    from .common import DATA_DIR
+    import pandas as pd
+    return pd.read_json(DATA_DIR / 'variables_iagos.json', orient='records')
+    # temporary patch END
+
     try:
         response = requests.get(REST_URL_VARIABLES)
         response.raise_for_status()

@@ -1,34 +1,49 @@
 # atmo-access-time-series
+
+<img align="right" width="200" src="https://www7.obs-mip.fr/wp-content-aeris/uploads/sites/82/2021/03/ATMO-ACCESS-Logo-final_horizontal-payoff-grey-blue.png">
+
 Time series analysis service for ATMO-ACCESS project
 
-[![Binder](https://notebooks.gesis.org/binder/badge_logo.svg)](https://mybinder.org/v2/gh/pawel-wolff/atmo-access-time-series/HEAD?urlpath=/tree/app.ipynb)
 
 ## Installation
+
+### Clone the git repository
+
 ```sh
 git clone https://github.com/pawel-wolff/atmo-access-time-series
 cd atmo-access-time-series
-conda env create -f environment.yml
-conda activate aa-time-series-env
 ```
 
-## Deployment
-Deployment in the stand-alone mode:
+### Install python environment
+
+- Using conda:
+
+```sh
+conda env create -f environment.yml
+conda activate aats
+```
+
+- Using pip:
+
+```sh
+pip install -r requirements.txt
+```
+
+
+## Deployment at localhost
+
 ```sh
 python app.py
 ```
 
-Deployment in a Jupyter Notebook:
-```sh
-jupyter notebook
-```
-then open `app.ipynb` in the notebook and run all cells (can use >> button to that end).
+Open a web browser and put `http://0.0.0.0:8050/` in the address bar.
 
-If you need to change the application configuration, modify this part of the code (somewhere at the beginning of the script):
-```python
-RUNNING_IN_BINDER = False   # for running in Binder change it to True
-app_conf = {'mode': 'external', 'debug': True}  # for running inside a Jupyter notebook change 'mode' to 'inline'
-if RUNNING_IN_BINDER:
-    JupyterDash.infer_jupyter_proxy_config()
-else:
-    app_conf.update({'host': 'localhost', 'port': 9235})
+> Remark: at the first usage (and whenever the application's cache is cleared - see below),
+the application is a bit slow (loading some of datasets' metadata takes time).
+
+
+## Clear application's cache
+
+```sh
+python clear_cache.py
 ```
