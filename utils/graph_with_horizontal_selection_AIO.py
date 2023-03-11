@@ -14,6 +14,21 @@ from log import start_logging_callbacks, log_callback_with_ret_value
 # start_logging_callbacks(log_filepath)
 
 
+_GRAPH_WITH_HORIZONTAL_SELECTION_CONFIG = {
+    'autosizable': False,
+    'displayModeBar': False,
+    # 'fillFrame': True,
+    'editSelection': True,
+    'modeBarButtons': [['select2d']],
+    'editable': False,
+    'showAxisDragHandles': False,
+    'showAxisRangeEntryBoxes': False,
+    'showTips': False,
+    'displaylogo': False,
+    # 'responsive': True,
+}
+
+
 def _my_explicitize_args(**kwargs):
     return {k: v for k, v in kwargs.items() if v is not Component.UNDEFINED}
 
@@ -213,7 +228,7 @@ def graph(aio_id, aio_class, figure=Component.UNDEFINED):
 
     return dcc.Graph(
         id=graph_id(aio_id, aio_class),
-        # config={'modeBarButtonsToAdd': ['select'], 'modeBarButtonsToRemove': ['zoom']},
+        config=_GRAPH_WITH_HORIZONTAL_SELECTION_CONFIG,
         **_my_explicitize_args(figure=figure),
     )
 

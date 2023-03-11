@@ -792,7 +792,6 @@ def plotly_scatter2d(
     return fig
 
 
-@log_exectime
 def _get_hexagonal_binning(
         x, y,
         C=None,

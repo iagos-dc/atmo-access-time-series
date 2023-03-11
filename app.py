@@ -2,8 +2,6 @@
 ATMO-ACCESS time series service
 """
 
-# import gunicorn
-
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 import dash
 from dash import dcc, Dash
@@ -26,19 +24,6 @@ from app_tabs.data_analysis_tab.tabs_layout import DATA_ANALYSIS_TAB_VALUE, \
 from log import log_exception
 
 
-# Configuration of the app
-# See: https://dash.plotly.com/devtools#configuring-with-run_server
-# for the usual Dash app, and:
-# https://github.com/plotly/jupyter-dash/blob/master/notebooks/getting_started.ipynb
-# for a JupyterDash app version.
-# app_conf = {'mode': 'external', 'debug': True}  # for running inside a Jupyter notebook change 'mode' to 'inline'
-# RUNNING_IN_BINDER = os.environ.get('BINDER_SERVICE_HOST') is not None
-# if RUNNING_IN_BINDER:
-#     JupyterDash.infer_jupyter_proxy_config()
-# else:
-#     app_conf.update({'host': 'localhost', 'port': 9235})
-
-
 # Below there are id's of Dash JS components.
 # The components themselves are declared in the dashboard layout (see the function get_dashboard_layout).
 # Essential properties of each component are explained in the comments below.
@@ -46,14 +31,17 @@ APP_TABS_ID = 'app-tabs'    # see: https://dash.plotly.com/dash-core-components/
     # value contains an id of the active tab
     # children contains a list of layouts of each tab
 
-# Atmo-Access logo url
-ATMO_ACCESS_LOGO_URL = \
-    'https://www7.obs-mip.fr/wp-content-aeris/uploads/sites/82/2021/03/ATMO-ACCESS-Logo-final_horizontal-payoff-grey-blue.png'
+
+# logos
+ATMO_ACCESS_LOGO_FILENAME = 'atmo_access_logo.png'
+ACTRIS_LOGO_FILENAME = 'actris_logo.png'
+IAGOS_LOGO_FILENAME = 'iagos_logo.png'
+ICOS_LOGO_FILENAME = 'icos_logo.png'
 
 
 # Begin of definition of routines which constructs components of the dashboard
 
-def get_dashboard_layout():
+def get_dashboard_layout(app):
     stores = get_app_data_stores()
 
     # logo and application title
@@ -66,8 +54,7 @@ def get_dashboard_layout():
             html.Div(children=[
                 html.A(
                     html.Img(
-                        #src=app.get_asset_url('atmo_access_logo.png') if not RUNNING_IN_BINDER else ATMO_ACCESS_LOGO_URL,
-                        src=ATMO_ACCESS_LOGO_URL,
+                        src=app.get_asset_url(ATMO_ACCESS_LOGO_FILENAME),
                         style={'float': 'right', 'height': '70px', 'margin-top': '10px'}
                     ),
                     href="https://www.atmo-access.eu/",
@@ -81,9 +68,9 @@ def get_dashboard_layout():
         value=INFORMATION_TAB_VALUE,
         children=[
             get_information_tab(
-                actris_logo=app.get_asset_url('actris_logo.png'),
-                iagos_logo=app.get_asset_url('iagos_logo.png'),
-                icos_logo=app.get_asset_url('icos_logo.png'),
+                actris_logo=app.get_asset_url(ACTRIS_LOGO_FILENAME),
+                iagos_logo=app.get_asset_url(IAGOS_LOGO_FILENAME),
+                icos_logo=app.get_asset_url(ICOS_LOGO_FILENAME),
             ),
             get_search_datasets_tab(),
             get_select_datasets_tab(),
@@ -123,14 +110,14 @@ app = Dash(
 
 server = app.server
 
-app.layout = get_dashboard_layout()
+app.layout = get_dashboard_layout(app)
+
 
 # Begin of callback definitions and their helper routines.
 # See: https://dash.plotly.com/basic-callbacks
 # for a basic tutorial and
 # https://dash.plotly.com/  -->  Dash Callback in left menu
 # for more detailed documentation
-
 
 @app.callback(
     Output(APP_TABS_ID, 'value'),
@@ -139,8 +126,11 @@ app.layout = get_dashboard_layout()
     Input(FILTER_DATA_BUTTON_ID, 'n_clicks')
 )
 @log_exception
-def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks, filter_data_button_clicks):
-    # trigger = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+def change_app_tab(
+        search_datasets_button_clicks,
+        select_datasets_button_clicks,
+        filter_data_button_clicks
+):
     trigger = dash.ctx.triggered_id
     if trigger == SEARCH_DATASETS_BUTTON_ID:
         return SELECT_DATASETS_TAB_VALUE
@@ -150,10 +140,8 @@ def change_app_tab(search_datasets_button_clicks, select_datasets_button_clicks,
         return DATA_ANALYSIS_TAB_VALUE
     else:
         raise dash.exceptions.PreventUpdate
-        # return SEARCH_DATASETS_TAB_VALUE
 
 
-# Launch the Dash application.
-# app_conf['debug'] = False
+# Launch the Dash application in development mode
 if __name__ == "__main__":
     app.run_server(debug=True, host='0.0.0.0', port=8050)

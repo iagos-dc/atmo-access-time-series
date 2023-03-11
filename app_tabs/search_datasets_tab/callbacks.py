@@ -12,7 +12,7 @@ from app_tabs.common.layout import DATASETS_STORE_ID
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID
-from log import logger, log_exception
+from log import logger, log_exception, log_exectime
 
 
 DEBUG_GET_DATASETS = False
@@ -43,6 +43,7 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
     State(DATASETS_STORE_ID, 'data'),  # TODO: if no station or variable selected, do not launch Search datasets action; instead, return an old data
 )
 @log_exception
+@log_exectime
 def search_datasets(
         n_clicks, selected_variables, lon_min, lon_max, lat_min, lat_max,
         selected_stations_idx, previous_datasets_json
