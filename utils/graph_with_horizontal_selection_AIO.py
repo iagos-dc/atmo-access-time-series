@@ -7,11 +7,6 @@ import plotly.graph_objects as go
 from dash.development.base_component import Component
 
 from log import log_exception
-from log import start_logging_callbacks, log_callback_with_ret_value
-
-
-# log_filepath = pkg_resources.resource_filename('log', 'log_callbacks.pkl')
-# start_logging_callbacks(log_filepath)
 
 
 _GRAPH_WITH_HORIZONTAL_SELECTION_CONFIG = {
@@ -51,6 +46,7 @@ figure_data_store_id = _component_id('figure_data_store')
 graph_id = _component_id('graph')
 from_input_id = _component_id('from_input')
 to_input_id = _component_id('to_input')
+interval_input_group_id = _component_id('interval_input_group')
 reset_selection_button_id = _component_id('reset_selection_button')
 
 
@@ -58,45 +54,34 @@ reset_selection_button_id = _component_id('reset_selection_button')
     Output(graph_id(MATCH, MATCH), 'figure'),
     Input(figure_data_store_id(MATCH, MATCH), 'data'),
     Input(selected_range_store_id(MATCH, MATCH), 'data'),
-    State(graph_id(MATCH, MATCH), 'figure'),
 )
 @log_exception
 #@log_callback_with_ret_value()
-def update_graph_figure(fig_data, selected_range, fig):
-    # TODO: since fig is now a figure, apply update_layout methods properly!
-    if fig is None:
-        fig = go.Figure()
+def update_graph_figure(fig_data, selected_range):
+    if fig_data is None:
+        raise dash.exceptions.PreventUpdate
 
-    if fig_data is not None:
-        fig = figure_update_layout(go.Figure(fig_data['fig']))
-
-    fig['layout'].pop('shapes', None)
-    fig['layout'].pop('selections', None)
+    fig = figure_update_layout(go.Figure(fig_data['fig']))
 
     if selected_range is not None:
-        variable_label, x0, x1 = selected_range['variable_label'], selected_range['x_sel_min'], selected_range['x_sel_max']
+        # variable_label = selected_range['variable_label']
+        x0, x1 = selected_range['x_sel_min'], selected_range['x_sel_max']
     else:
-        raise RuntimeError('we should not be here!!!')
+        x0, x1 = None, None
 
-    if x0 is None and fig_data is not None:
-        x0 = fig_data['rng'][0]
-    if x1 is None and fig_data is not None:
-        x1 = fig_data['rng'][1]
-    if True or (x0 is not None or x1 is not None):
-        fig['layout']['shapes'] = [
-            {
-                'line': {'color': 'red', 'width': 2},
-                #'fillcolor': 'blue',
-                #'opacity': 0.1,
-                'type': 'rect',
-                'x0': x0,
-                'x1': x1,
-                'xref': 'x',
-                'y0': 0,
-                'y1': 1,
-                'yref': 'y domain'
-            }
-        ]
+    if x0 is not None or x1 is not None:
+        if x0 is None:
+            x0 = fig_data['rng'][0]
+        if x1 is None:
+            x1 = fig_data['rng'][1]
+
+        fig.add_shape(
+            line={'color': 'grey', 'width': 2, 'dash': 'dot'},
+            type='rect',
+            xref='x', x0=x0, x1=x1,
+            yref='y domain', y0=0, y1=1,
+            # fillcolor='blue', opacity=0.1,
+        )
     return fig
 
 
@@ -263,6 +248,7 @@ def interval_inputs(aio_id, aio_class, x_axis_type, x_label=None):
                 dbc.InputGroupText('to'),
                 time_input_field(to_input_id(aio_id, aio_class)),
             ],
+            id=interval_input_group_id(aio_id, aio_class),
             className='mb-3',
         )
     else:
@@ -272,6 +258,7 @@ def interval_inputs(aio_id, aio_class, x_axis_type, x_label=None):
                 dbc.InputGroupText(f'< {x_label if x_label is not None else "x"} <'),
                 scalar_input_field(to_input_id(aio_id, aio_class)),
             ],
+            id=interval_input_group_id(aio_id, aio_class),
             className='mb-3',
         )
 
@@ -299,7 +286,7 @@ def interval_controls_container(
             [
                 dbc.Col(
                     dbc.Button(
-                        children='Reset selection',
+                        children='Reset filter',
                         id=reset_selection_button_id(aio_id, aio_class)
                     ),
                     width='auto',
@@ -321,10 +308,6 @@ def selected_range_store(aio_id, aio_class, variable_label=None, x_sel_min=None,
     return dcc.Store(id=selected_range_store_id(aio_id, aio_class), data=data)
 
 
-# def all_selected_ranges_store(data=None):
-#     return dcc.Store(id=all_selected_ranges_store_id, data=data)
-
-
 def figure_data_store(aio_id, aio_class, data=None):
     return dcc.Store(id=figure_data_store_id(aio_id, aio_class), data=data)
 
@@ -339,7 +322,6 @@ class GraphWithHorizontalSelectionAIO:
             x_min=None,
             x_max=None,
             x_label=None,
-            title=None,
             figure=Component.UNDEFINED,
             extra_dash_components=None,
             extra_dash_components2=None,
@@ -348,12 +330,10 @@ class GraphWithHorizontalSelectionAIO:
             raise ValueError(f"x_axis_type must be 'time' or 'scalar'; got {x_axis_type}")
 
         aio_id = aio_id + '-' + x_axis_type
-        figure_data = None
-        if figure is not Component.UNDEFINED:
-            figure_data = {
-                'fig': figure,
-                'rng': [x_min, x_max],
-            }
+        figure_data = {
+            'fig': figure if figure is not Component.UNDEFINED else None,
+            'rng': [x_min, x_max],
+        }
 
         _selected_range_store = selected_range_store(
             aio_id,
@@ -368,8 +348,6 @@ class GraphWithHorizontalSelectionAIO:
             aio_class,
             data=figure_data
         )
-
-        print(f'_figure_data_store.id={_figure_data_store.id}')
 
         self.data_stores = dbc.Container([_selected_range_store, _figure_data_store])
 

@@ -13,7 +13,7 @@ from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
     DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID
-from log import logger, log_exception
+from log import logger, log_exception, log_exectime
 from utils import charts
 
 
@@ -25,6 +25,7 @@ from utils import charts
     prevent_initial_call=True,
 )
 @log_exception
+@log_exectime
 def get_gantt_figure(gantt_view_type, datasets_json):
     selectedData = {'points': []}
 

@@ -1,4 +1,6 @@
 from dash import dcc
+import dash_bootstrap_components as dbc
+
 
 DATASETS_STORE_ID = 'datasets-store'
 # 'data' stores datasets metadata in JSON, as provided by the method
@@ -45,3 +47,28 @@ def get_app_data_stores():
         dcc.Store(id=INTEGRATE_DATASETS_REQUEST_ID, storage_type='session'),
         dcc.Store(id=FILTER_DATA_REQUEST_ID, storage_type='session'),
     ]
+
+
+def _tooltip_target_to_str(target):
+    if isinstance(target, dict):
+        target_as_str = '_'.join(f'{k}-{v}' for k, v in target.items())
+    elif isinstance(target, str):
+        target_as_str = target
+    else:
+        raise TypeError(f'target must be either str or dict; got type(target)={type(target)}')
+    return f'tooltip-to-{target_as_str}'
+
+
+def get_tooltip(tooltip_text, target, **kwargs):
+    tooltip_kwargs = {
+        'placement': 'top-start',
+        'style': {'font-size': '0.8em'}
+    }
+    tooltip_kwargs.update(kwargs)
+
+    return dbc.Tooltip(
+        tooltip_text,
+        id=_tooltip_target_to_str(target),
+        target=target,
+        **tooltip_kwargs
+    )

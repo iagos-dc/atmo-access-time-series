@@ -11,10 +11,10 @@ from .layout import FILTER_TIME_CONINCIDENCE_SELECT_ID, FILTER_TYPE_RADIO_ID, \
     FILTER_TAB_CONTAINER_ROW_ID, FILTER_DATA_BUTTON_ID, \
     get_time_granularity_radio, get_log_axis_switches, get_nbars_slider
 from app_tabs.common.callbacks import get_value_by_aio_id, set_value_by_aio_id
-from app_tabs.common.layout import INTEGRATE_DATASETS_REQUEST_ID, FILTER_DATA_REQUEST_ID
+from app_tabs.common.layout import INTEGRATE_DATASETS_REQUEST_ID, FILTER_DATA_REQUEST_ID, get_tooltip
 from utils import charts
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id, \
-    GraphWithHorizontalSelectionAIO
+    GraphWithHorizontalSelectionAIO, graph_id, interval_input_group_id
 from log import log_exception
 
 
@@ -64,6 +64,9 @@ def update_histograms_callback(
         figure_ids, log_scale_switch_ids, nbars_ids,
         integrate_datasets_request,
 ):
+    # TODO: use dash_ctx instead of ctx.triggered_id
+    # dash_ctx = list(dash.ctx.triggered_prop_ids.values())
+    # print(f'update_histograms_callback::dash_ctx={dash_ctx}')
     if ctx.triggered_id is None or integrate_datasets_request is None:
         raise PreventUpdate
 
@@ -105,7 +108,7 @@ def update_histograms_callback(
 
         bins = get_value_by_aio_id(aio_id, nbars_ids, nbars)
 
-        new_fig = charts.get_histogram(
+        new_fig, y_max = charts.get_histogram(
             ds_filtered_by_var[variable_label],
             variable_label,
             bins=bins,
@@ -113,9 +116,12 @@ def update_histograms_callback(
             x_min=x_min, x_max=x_max,
             log_x=log_x, log_y=log_y
         )
+        new_fig = new_fig.update_layout(title=f'Distribution of {variable_label}')
+
         return {
             'fig': new_fig,
             'rng': [x_min, x_max],
+            'rng_y': [0, y_max]
         }
 
     if ctx.triggered_id in [FILTER_TYPE_RADIO_ID, FILTER_TIME_CONINCIDENCE_SELECT_ID] or \
@@ -124,18 +130,23 @@ def update_histograms_callback(
         for i in figure_ids:
             if i['aio_id'] == 'time_filter-time':
                 t_min, t_max = _get_min_max_time(ds)
-                new_fig = {
-                    'fig': charts.get_avail_data_by_var_heatmap(
-                        data_processing.filter_dataset(
-                            ds, rng_by_variable,
-                            ignore_time=True,
-                            cross_filtering=cross_filtering,
-                            tolerance=cross_filtering_time_coincidence_dt,
-                        ),
-                        time_granularity[0],
-                        color_mapping=color_mapping
+
+                fig = charts.get_avail_data_by_var_heatmap(
+                    data_processing.filter_dataset(
+                        ds, rng_by_variable,
+                        ignore_time=True,
+                        cross_filtering=cross_filtering,
+                        tolerance=cross_filtering_time_coincidence_dt,
                     ),
+                    time_granularity[0],
+                    color_mapping=color_mapping
+                )
+                fig = fig.update_layout(title='Data availability')
+
+                new_fig = {
+                    'fig': fig,
                     'rng': [t_min, t_max],
+                    'rng_y': [-0.5, len(ds) - 0.5]
                 }
                 figures_data.append(new_fig)
             else:
@@ -147,18 +158,23 @@ def update_histograms_callback(
         return set_value_by_aio_id(aio_id, figure_ids, figure_data), not cross_filtering, filter_time_coincidence_select_style
     elif not isinstance(ctx.triggered_id, str) and ctx.triggered_id.get('subcomponent') == 'time_granularity_radio':
         t_min, t_max = _get_min_max_time(ds)
-        new_fig = {
-            'fig': charts.get_avail_data_by_var_heatmap(
-                data_processing.filter_dataset(
-                    ds, rng_by_variable,
-                    ignore_time=True,
-                    cross_filtering=cross_filtering,
-                    tolerance=cross_filtering_time_coincidence_dt,
-                ),
-                time_granularity[0],
-                color_mapping=color_mapping
+
+        fig = charts.get_avail_data_by_var_heatmap(
+            data_processing.filter_dataset(
+                ds, rng_by_variable,
+                ignore_time=True,
+                cross_filtering=cross_filtering,
+                tolerance=cross_filtering_time_coincidence_dt,
             ),
+            time_granularity[0],
+            color_mapping=color_mapping
+        )
+        fig = fig.update_layout(title='Data availability')
+
+        new_fig = {
+            'fig': fig,
             'rng': [t_min, t_max],
+            'rng_y': [-0.5, len(ds) - 0.5]
         }
         return set_value_by_aio_id('time_filter-time', figure_ids, new_fig), not cross_filtering, filter_time_coincidence_select_style
     else:
@@ -182,6 +198,9 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
 
     t_min, t_max = _get_min_max_time(ds)
 
+    avail_data_by_var_heatmap = charts.get_avail_data_by_var_heatmap(ds, 'year', color_mapping=color_mapping)
+    avail_data_by_var_heatmap = avail_data_by_var_heatmap.update_layout(title='Data availability')
+
     time_filter = GraphWithHorizontalSelectionAIO(
         aio_id='time_filter',
         aio_class=DATA_FILTER_AIO_CLASS,
@@ -190,8 +209,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
         x_min=t_min,
         x_max=t_max,
         x_label='time',
-        title='Time interval selected:',
-        figure=charts.get_avail_data_by_var_heatmap(ds, 'year', color_mapping=color_mapping),
+        figure=avail_data_by_var_heatmap,
         extra_dash_components=get_time_granularity_radio(),
     )
 
@@ -199,6 +217,9 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
     for v, da in ds.items():
         x_min = da.min().item()
         x_max = da.max().item()
+
+        histogram_fig, _ = charts.get_histogram(da, v, color=color_mapping[v], x_min=x_min, x_max=x_max)
+        histogram_fig = histogram_fig.update_layout(title=f'Distribution of {v}')
 
         var_filter = GraphWithHorizontalSelectionAIO(
             aio_id=f'{v}_filter',
@@ -208,8 +229,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
             x_min=x_min,
             x_max=x_max,
             x_label=v,
-            title=f'{v} interval selected:',
-            figure=charts.get_histogram(da, v, color=color_mapping[v], x_min=x_min, x_max=x_max),
+            figure=histogram_fig,
             extra_dash_components=get_log_axis_switches(f'{v}_filter-scalar'),
             extra_dash_components2=get_nbars_slider(f'{v}_filter-scalar'),
         )
@@ -223,6 +243,17 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
 
     accordion_items = []
     for v, (v_filter, title) in filter_and_title_by_v.items():
+        aio_id = f'{v}_filter-' + ('scalar' if v != 'time' else 'time')
+        range_controller_tooltip = get_tooltip(
+            f'Set up a filter on {v} by providing min and/or max thresholds',
+            interval_input_group_id(aio_id, DATA_FILTER_AIO_CLASS)
+        )
+
+        graph_tooltip = get_tooltip(
+            f'Drag-and-drop to set up a filter on {v}',
+            graph_id(aio_id, DATA_FILTER_AIO_CLASS)
+        )
+
         data_stores = v_filter.get_data_stores()
         range_controller = v_filter.get_range_controller()
         graph = v_filter.get_graph()
@@ -232,12 +263,12 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
                dbc.Row(
                    [
                        dbc.Col(
-                           range_controller,
+                           [range_controller, range_controller_tooltip],
                            width=4,
                            align='start',
                        ),
                        dbc.Col(
-                           graph,
+                           [graph, graph_tooltip],
                            width=8,
                            align='start',
                        ),

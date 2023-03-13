@@ -9,7 +9,7 @@ import data_processing.analysis
 from app_tabs.common import layout as common_layout
 from app_tabs.data_analysis_tab import multivariate_analysis_layout
 from data_processing import metadata
-from log import log_exception
+from log import log_exception, logger
 from utils import dash_dynamic_components as ddc, charts, helper
 
 
@@ -113,21 +113,21 @@ def get_multivariate_plot_callback(
         agg_func,
         relayout_data,
 ):
-    print(f'analysis_method={analysis_method}, plot_type={plot_type}')
-    print(f'relayoutData={relayout_data}')
+    # print(f'analysis_method={analysis_method}, plot_type={plot_type}')
+    # print(f'relayoutData={relayout_data}')
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
-    print(f'dash_ctx={dash_ctx}')
+    # print(f'dash_ctx={dash_ctx}')
 
     if helper.any_is_None(x_var, y_var, filter_data_request, analysis_method):
-        print(f'x_var, y_var, filter_data_request, analysis_method is None={x_var is None, y_var is None, filter_data_request is None, analysis_method is None}')
+        logger().warning(f'prevented update because x_var, y_var, filter_data_request, analysis_method is None={x_var is None, y_var is None, filter_data_request is None, analysis_method is None}')
         raise dash.exceptions.PreventUpdate
 
     # ignore callback fired by relayout_data if it is abount zoom, pan, selectes, etc.
     figure_extent = charts.get_figure_extent(relayout_data)
-    print(f'figure_extent={figure_extent}')
+    # print(f'figure_extent={figure_extent}')
 
     if dash_ctx == [ddc.add_active_to_component_id(multivariate_analysis_layout.MULTIVARIATE_GRAPH_ID)] and not figure_extent:
-        print(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
+        logger().warning(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
         raise dash.exceptions.PreventUpdate
 
     if color_var == '---' or color_var_disabled:
@@ -262,6 +262,6 @@ def get_multivariate_plot_callback(
     )
     fig = charts.add_watermark(fig)
 
-    print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
+    # print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
 
     return fig, nb_observations_as_str

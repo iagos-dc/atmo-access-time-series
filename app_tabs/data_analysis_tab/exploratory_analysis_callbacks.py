@@ -7,7 +7,7 @@ import data_processing
 from data_processing import metadata, analysis
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from app_tabs.data_analysis_tab import exploratory_analysis_layout
-from log import log_exception, log_callback, print_callback
+from log import log_exception, logger, log_callback
 from utils import dash_dynamic_components as ddc, charts, helper
 from utils.broadcast import broadcast
 
@@ -19,7 +19,6 @@ from utils.broadcast import broadcast
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_METHOD_RADIO_ID, 'value'),
 )
 @log_exception
-@print_callback()
 def get_extra_parameters(analysis_method):
     if analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
         return (
@@ -72,10 +71,10 @@ def get_exploratory_plot_callback(
         scatter_mode,
         relayout_data
 ):
-    print(f'relayoutData={relayout_data}')
+    # print(f'relayoutData={relayout_data}')
 
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
-    print(f'get_exploratory_plot_callback dash_ctx={dash_ctx}')
+    # print(f'get_exploratory_plot_callback dash_ctx={dash_ctx}')
 
     if helper.any_is_None(filter_data_request, vs, analysis_method) \
             or analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD \
@@ -85,10 +84,10 @@ def get_exploratory_plot_callback(
         raise dash.exceptions.PreventUpdate
 
     figure_extent = charts.get_figure_extent(relayout_data)
-    print(f'figure_extent={figure_extent}')
+    # print(f'figure_extent={figure_extent}')
 
     if dash_ctx == [ddc.add_active_to_component_id(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID)] and not figure_extent:
-        print(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
+        logger().warning(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
         raise dash.exceptions.PreventUpdate
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
@@ -226,5 +225,5 @@ def get_exploratory_plot_callback(
     #     # we reset the zoom only if a new filter data request was launched
     #     fig = charts.apply_figure_extent(fig, relayout_data)
 
-    print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
+    # print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
     return fig

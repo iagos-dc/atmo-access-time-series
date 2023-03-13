@@ -462,7 +462,7 @@ def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_
         fig.update_xaxes(type='log')
     if log_y:
         fig.update_layout({'yaxis': {'type': 'log'}})
-    return fig
+    return fig, np.max(h) if len(h) > 0 else 1
 
 
 def align_range(rng, nticks, log_coeffs=(2, 2.5, 5)):
@@ -1220,7 +1220,7 @@ def apply_figure_extent(fig, relayout_data):
     :return: plotly.graphical_objects.Figure
     """
     layout_dict = get_figure_extent(relayout_data)
-    print(f'charts.apply_figure_extent: relayout_data={relayout_data}, layout_dict={layout_dict}')
+    # print(f'charts.apply_figure_extent: relayout_data={relayout_data}, layout_dict={layout_dict}')
     if isinstance(layout_dict, dict) and layout_dict:
         fig.update_layout(layout_dict)
     return fig

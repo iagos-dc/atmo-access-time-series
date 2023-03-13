@@ -1,6 +1,8 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
+from app_tabs.common.layout import get_tooltip
+
 
 FILTER_TAB_CONTAINER_ROW_ID = 'filter-tab-container-row'
     # 'children' contains a layout of the filter tab
@@ -94,14 +96,31 @@ def get_filtering_type_radio():
         id='filter_time_coincidence_select-time_filter-time-tooltip_target',
     )
 
-    tooltip = dbc.Tooltip(
-        'Observations of different variables will be considered as coinciding in time if the difference between time measurements does not exceed the selected value',
-        target='filter_time_coincidence_select-time_filter-time-tooltip_target',
+    simple_vs_cross_filter_tooltip = get_tooltip(
+        'Simple filter applies each filter to a corresponding variable only. Cross filter selects observations of an ensemble of variables which satisfy all filters',
+        FILTER_TYPE_RADIO_ID,
+    )
+
+    time_coincidence_tooltip = get_tooltip(
+        'In the case of cross filter, observations of different variables will be considered as coinciding in time if the difference between time measurements does not exceed the selected value',
+        'filter_time_coincidence_select-time_filter-time-tooltip_target',
     )
 
     cols = [
-        dbc.Col(simple_vs_cross_filter_radio, width='auto'),
-        dbc.Col([time_coincidence_select, tooltip], width='auto'),
+        dbc.Col(
+            [
+                simple_vs_cross_filter_radio,
+                simple_vs_cross_filter_tooltip
+            ],
+            width='auto'
+        ),
+        dbc.Col(
+            [
+                time_coincidence_select,
+                time_coincidence_tooltip
+            ],
+            width='auto'
+        ),
     ]
     return cols
 

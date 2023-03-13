@@ -30,14 +30,18 @@ def log_args(func):
         # args_str = ', '.join(f'{arg}' for arg in args)
         # kwargs_str = ', '.join([f'{k}={v}' for k, v in kwargs.items()])
         # params_str = ', '.join([s for s in (args_str, kwargs_str) if s])
-        ret = func(*args, **kwargs)
         log_str_lines = [f'{func.__module__}.{func.__qualname__}']
         for arg in args:
             log_str_lines.append(f'  {arg}')
         for k, v in kwargs.items():
             log_str_lines.append(f'  {k}={v}')
+        logger().info('\n'.join(log_str_lines))
+
+        ret = func(*args, **kwargs)
+
         log_str_lines.append(f'result: {ret}')
         logger().info('\n'.join(log_str_lines))
+
         return ret
     return log_args_wrapper
 
@@ -150,10 +154,11 @@ def log_exception(func):
 def log_exectime(func):
     @functools.wraps(func)
     def log_exectime_wrapper(*args, **kwargs):
+        logger().info(f'{func.__module__}.{func.__name__} started')
         start = time.time()
         result = func(*args, **kwargs)
         end = time.time()
-        logger().info(f'{func.__module__}.{func.__name__} run in {end - start:.3e} sec')
+        logger().info(f'{func.__module__}.{func.__name__} finished in {end - start:.3e} sec')
         return result
     return log_exectime_wrapper
 

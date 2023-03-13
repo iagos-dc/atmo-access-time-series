@@ -10,7 +10,7 @@ from data_processing import metadata, analysis
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from . import common_layout
 from app_tabs.data_analysis_tab import trend_analysis_layout
-from log import log_exception, print_callback
+from log import log_exception
 from utils import dash_dynamic_components as ddc, charts, dash_persistence, helper
 from utils.broadcast import broadcast
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id
@@ -57,7 +57,6 @@ def show_deseasonize_card(deseasonize_checkbox):
     Input(FILTER_DATA_REQUEST_ID, 'data'),
 )
 @log_exception
-@print_callback()
 def get_trend_summary(
         filter_data_request,
 ):
@@ -105,7 +104,6 @@ def get_trend_summary(
     ddc.DynamicInput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'value')
 )
 @log_exception
-@print_callback()
 def get_trend_plots_callback(
         filter_data_request,
         vs,
@@ -119,7 +117,7 @@ def get_trend_plots_callback(
         moving_average_period
 ):
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
-    print(f'get_trend_plot_callback dash_ctx={dash_ctx}')
+    # print(f'get_trend_plot_callback dash_ctx={dash_ctx}')
 
     if helper.any_is_None(
         filter_data_request,
