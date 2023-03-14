@@ -17,16 +17,15 @@ from .merge_datasets import merge_datasets, integrate_datasets
 from .filtering import filter_dataset
 
 
-def _get_max_id(m):
-    return max(itertools.chain([0], (int(k, base=16) for k in m.keys())))
+_CACHE_URL = str(data_access.common.CACHE_DIR / 'cache.tmp')
 
+_RESULT_EXPIRE = 3600 * 12
+_IN_PROGRESS_EXPIRE = 30
+_FAIL_EXPIRE = 30
 
-_REQUESTS_CACHE_URL = str(data_access.common.CACHE_DIR / 'requests.tmp')
-_RESULTS_CACHE_URL = str(data_access.common.CACHE_DIR / 'results.tmp')
 
 # see: https://grantjenks.com/docs/diskcache/tutorial.html
-req_map = diskcache.Cache(_REQUESTS_CACHE_URL)
-res_map = diskcache.Cache(_RESULTS_CACHE_URL)
+_cache_map = diskcache.Cache(_CACHE_URL)
 
 
 def _get_hashable(obj):
@@ -51,53 +50,74 @@ def _get_hashable(obj):
         return obj
 
 
-#@functools.lru_cache(maxsize=10)
-def get_request_id(req):
-    """
-    Retrieve an id for a request req already stored in req_map or assign a new one
-    :param req: a hashable object
-    :return: (str, bool): (id, is_id_new)
-    """
+class _NoResultYet:
+    def __str__(self):
+        return '<NoResultYet>'
+
+
+class _ResultInProgress:
+    def __str__(self):
+        return '<ResultInProgress>'
+
+
+class _FailResult:
+    def __init__(self, exc):
+        self.exc = exc
+
+
+def cache_setdefault(req):
+    assert isinstance(req, Request)
+
     i = req.deterministic_hash()
-    while True:
-        try:
-            req_in_map = req_map[i]
-        except KeyError:
-            return i, True
-        if req_in_map == req:
-            return i, False
-        else:
-            logger().warning(f'deterministic_hash collision: req={str(req)} and req_in_map={str(req_in_map)} '
-                             f'have the same hash={i}')
-            i = hex(int(i, 16) + 1)[2:]
-
-
-# TODO: check if it is proper solution; cannot use a transaction (diskcache.Cache.transact())?
-def request_cache(func):
-    @functools.wraps(func)
-    def _(req):
-        try:
-            i = None
-            with diskcache.Lock(req_map, '_lock'):
-                i, is_id_new = get_request_id(req)
-                if is_id_new:
-                    print(f'req_map[{i}] = {str(req)}')
-                    req_map[i] = req
-            if is_id_new:
-                res = func(req)
-                res_map[i] = res
+    with _cache_map.transact():
+        while True:
+            req_in_cache, res = _cache_map.get(i, default=(None, None))
+            if req_in_cache is None:
+                no_result_yet = _NoResultYet()
+                result_in_progress = _ResultInProgress()
+                _cache_map.set(i, (req, result_in_progress), expire=_IN_PROGRESS_EXPIRE)
+                # logger().info(f'_cache_map[{i}] = ({str(req)}, {str(result_in_progress)})')
+                return i, no_result_yet
+            elif req_in_cache == req:
+                return i, res
             else:
-                while i not in res_map:
-                    time.sleep(0.1)
-                res = res_map[i]
-            return res
-        except Exception as e:
-            print(repr(ValueError(f'req={str(req)}')))
-            if i is not None:
-                req_map.pop(i)
-                res_map.pop(i)
-            raise ValueError(f'req={str(req)}') from e
-    return _
+                logger().warning(f'deterministic_hash collision: req={str(req)} and req_in_map={str(req_in_cache)} '
+                                 f'have the same hash={i}')
+                i = hex(int(i, 16) + 1)[2:]
+
+
+def request_cache(custom_expire=-1):
+    def _request_cache(func):
+        @functools.wraps(func)
+        def _(req):
+            active_waiting = 0
+            res = _ResultInProgress()
+            while isinstance(res, _ResultInProgress):
+                i, res = cache_setdefault(req)
+                if isinstance(res, _NoResultYet):
+                    expire = _FAIL_EXPIRE
+                    try:
+                        res = func(req)
+                        expire = custom_expire if custom_expire != -1 else _RESULT_EXPIRE
+                        return res
+                    except Exception as e:
+                        res = _FailResult(e)
+                        raise
+                    finally:
+                        _cache_map.set(i, (req, res), expire=expire)
+                elif isinstance(res, _FailResult):
+                    raise res.exc
+                elif isinstance(res, _ResultInProgress):
+                    active_waiting += 1
+                    logger().info(f'active_waiting={active_waiting} for i={i}, req={req}')
+                    time.sleep(0.5)
+                else:
+                    if active_waiting > 0:
+                        logger().info(f'got result after active_waiting={active_waiting} for i={i}, req={req}')
+                    return res
+
+        return _
+    return _request_cache
 
 
 class Request(abc.ABC):
@@ -137,7 +157,7 @@ class Request(abc.ABC):
     def __eq__(self, other):
         return self.get_hashable() == other.get_hashable()
 
-    @request_cache
+    @request_cache()
     def compute(self):
         return self.execute()
 
@@ -152,6 +172,10 @@ class GetICOSDatasetTitleRequest(Request):
     def execute(self):
         print(f'execute {str(self)}')
         return icoscp.cpb.dobj.Dobj(self.dobj).meta['references']['title']
+
+    @request_cache(custom_expire=None)
+    def compute(self):
+        return self.execute()
 
     def get_hashable(self):
         return 'get_ICOS_dataset_title', _get_hashable(self.dobj)
