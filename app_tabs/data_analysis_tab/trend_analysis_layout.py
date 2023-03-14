@@ -11,7 +11,10 @@ from app_tabs.common.layout import GRAPH_CONFIG
 
 TREND_ANALYSIS_METHOD_RADIO_ID = 'trend-analysis-method-radio'
 TREND_GRAPH_ID = 'trend-analysis-graph'
-TREND_SUMMARY_CONTAINER_ID = 'trend-summary-container'
+AUTOCORRELATION_GRAPH_ID = 'autocorrelation-graph'
+TREND_SUMMARY_BAR_GRAPH_ID = 'trend-summary-bar-graph'
+
+# TREND_SUMMARY_CONTAINER_ID = 'trend-summary-container'
 
 LINEAR_FIT_METHOD = 'Linear fit method'
 NON_PARAMETRIC_MANN_KENDALL = 'Non-parametric Mann-Kendall'
@@ -204,8 +207,8 @@ def get_trend_analysis_cardbody(time_filter):
     ]
 
 
-def get_trend_summary_container():
-    return dbc.Container(id=ddc.add_active_to_component_id(TREND_SUMMARY_CONTAINER_ID))
+#def get_trend_summary_container():
+#    return dbc.Container(id=ddc.add_active_to_component_id(TREND_SUMMARY_CONTAINER_ID))
 
 
 def _get_trend_graph():
@@ -218,4 +221,26 @@ def _get_trend_graph():
     return graph
 
 
+def _get_autocorrelation_graph():
+    graph = dcc.Graph(
+        id=ddc.add_active_to_component_id(AUTOCORRELATION_GRAPH_ID),
+        figure=empty_figure(),
+        config=GRAPH_CONFIG,
+        # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
+    ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
+    return graph
+
+
+def _get_trend_summary_bar_graph():
+    graph = dcc.Graph(
+        id=ddc.add_active_to_component_id(TREND_SUMMARY_BAR_GRAPH_ID),
+        figure=empty_figure(),
+        config=GRAPH_CONFIG,
+        # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
+    ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
+    return graph
+
+
 trend_graph = _get_trend_graph()
+autocorrelation_graph = _get_autocorrelation_graph()
+trend_summary_bar_graph = _get_trend_summary_bar_graph()

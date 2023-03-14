@@ -3,6 +3,10 @@ import pandas as pd
 import xarray as xr
 # from log.log import log_exectime
 
+
+BASE_DATE = np.datetime64('2000-01-01T00:00')
+
+
 from data_access.data_access import _infer_ts_frequency
 
 
@@ -122,9 +126,10 @@ def theil_sen_slope(series, subsampling=3000, deseasonalize=True):
 
     def cast_to_f8(z):
         if z.dtype.kind == 'M':
-            z = z - z[0]
+            #z = z - z[0]
+            z = z - BASE_DATE
         if z.dtype.kind == 'm':
-            z = z - z.mean()
+            #z = z - z.mean()
             return z.astype('m8[s]').astype('f8'), np.timedelta64(1, 's')
         else:
             try:

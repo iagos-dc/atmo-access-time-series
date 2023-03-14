@@ -19,9 +19,9 @@ from .filtering import filter_dataset
 
 _CACHE_URL = str(data_access.common.CACHE_DIR / 'cache.tmp')
 
-_RESULT_EXPIRE = 3600 * 12
-_IN_PROGRESS_EXPIRE = 30
-_FAIL_EXPIRE = 30
+_RESULT_EXPIRE = 3600 * 12  # 12h
+_IN_PROGRESS_EXPIRE = 30  # 30 sec
+_FAIL_EXPIRE = 30  # 30 sec
 
 
 # see: https://grantjenks.com/docs/diskcache/tutorial.html

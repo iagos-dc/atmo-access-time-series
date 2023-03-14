@@ -47,3 +47,9 @@ the application is a bit slow (loading some of datasets' metadata takes time).
 ```sh
 python clear_cache.py
 ```
+
+## Initialise application's cache
+
+```sh
+python init_cache.py
+```
