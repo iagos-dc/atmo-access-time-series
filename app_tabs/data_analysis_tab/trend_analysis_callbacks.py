@@ -59,7 +59,7 @@ def show_moving_average_card(deseasonize_checkbox, apply_moving_average_checkbox
     return not deseasonize_checkbox, apply_moving_average_checkbox, not deseasonize_checkbox
 
 
-@log_profiler_info()
+#@log_profiler_info()
 def _get_theil_sen_slope(series):
     (a, b), (ci0, ci1), (x_unit, y_unit) = data_processing.analysis.theil_sen_slope(series, subsampling=3000)
     return (a, b), (ci0, ci1), (x_unit, y_unit)
