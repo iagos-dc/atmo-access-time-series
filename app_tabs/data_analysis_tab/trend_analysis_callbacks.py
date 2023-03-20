@@ -10,12 +10,14 @@ from data_processing import metadata, analysis
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from . import common_layout
 from app_tabs.data_analysis_tab import trend_analysis_layout
-from log import log_exception
+from log import log_exception, log_profiler_info
 from utils import dash_dynamic_components as ddc, charts, dash_persistence, helper
 from utils.broadcast import broadcast
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id
 
+import plotly
 import plotly.graph_objects as go
+import plotly.subplots
 
 
 def _get_min_max_time(da_by_var):
@@ -46,51 +48,18 @@ def show_aggregate_card(aggregate_checkbox):
 
 
 @ddc.dynamic_callback(
-    ddc.DynamicOutput(trend_analysis_layout.DESEASONIZE_COLLAPSE_ID, 'is_open'),
+    ddc.DynamicOutput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'disabled'),
+    ddc.DynamicOutput(trend_analysis_layout.APPLY_MOVING_AVERAGE_COLLAPSE_ID, 'is_open'),
+    ddc.DynamicOutput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'disabled'),
     ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
+    ddc.DynamicInput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'value'),
 )
 @log_exception
-def show_deseasonize_card(deseasonize_checkbox):
-    return deseasonize_checkbox
+def show_moving_average_card(deseasonize_checkbox, apply_moving_average_checkbox):
+    return not deseasonize_checkbox, apply_moving_average_checkbox, not deseasonize_checkbox
 
 
-#@ddc.dynamic_callback(
-#    ddc.DynamicOutput(trend_analysis_layout.TREND_SUMMARY_CONTAINER_ID, 'children'),
-#    Input(FILTER_DATA_REQUEST_ID, 'data'),
-#)
-#@log_exception
-def get_trend_summary(
-        filter_data_request,
-):
-    if helper.any_is_None(filter_data_request):
-        raise dash.exceptions.PreventUpdate
-
-    filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
-    integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
-    da_by_var = filter_data_request.compute()
-    # colors_by_var = charts.get_color_mapping(da_by_var)
-
-    if len(da_by_var) == 0:
-        return None
-
-    metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
-    variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
-    yaxis_label_by_var = toolz.valmap(lambda md: md[metadata.YAXIS_LABEL], metadata_by_var)
-
-    children = []
-    for v, da in da_by_var.items():
-        md = metadata_by_var.get(v, {})
-        (a, b), (ci0, ci1), (x_unit, y_unit) = data_processing.analysis.theil_sen_slope(da.to_series(), subsampling=3000)
-        a = a * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
-        ci0 = ci0 * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
-        ci1 = ci1 * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
-        units = md.get(metadata.UNITS, '???')
-        trend_summary = f'{v} : {a:.4g} {units} / year; 95% CI: [{ci0:.4g}, {ci1:.4g}] {units} / year'
-        children.append(dbc.Row(trend_summary))
-
-    return children
-
-
+@log_profiler_info()
 def _get_theil_sen_slope(series):
     (a, b), (ci0, ci1), (x_unit, y_unit) = data_processing.analysis.theil_sen_slope(series, subsampling=3000)
     return (a, b), (ci0, ci1), (x_unit, y_unit)
@@ -99,6 +68,7 @@ def _get_theil_sen_slope(series):
 @ddc.dynamic_callback(
     Output(figure_data_store_id(trend_analysis_layout.TREND_ANALYSIS_AIO_ID + '-time', trend_analysis_layout.TREND_ANALYSIS_AIO_CLASS), 'data'),
     ddc.DynamicOutput(trend_analysis_layout.TREND_GRAPH_ID, 'figure'),
+    ddc.DynamicOutput(trend_analysis_layout.AUTOCORRELATION_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(trend_analysis_layout.TREND_SUMMARY_BAR_GRAPH_ID, 'figure'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
@@ -109,9 +79,11 @@ def _get_theil_sen_slope(series):
     ddc.DynamicInput(trend_analysis_layout.AGGREGATION_FUNCTION_SELECT_ID, 'value'),
     ddc.DynamicInput(common_layout.MIN_SAMPLE_SIZE_INPUT_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
+    ddc.DynamicInput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'value')
 )
 @log_exception
+#@log_profiler_info()
 def get_trend_plots_callback(
         filter_data_request,
         vs,
@@ -122,6 +94,7 @@ def get_trend_plots_callback(
         aggregation_function,
         min_sample_size,
         do_deseasonize,
+        apply_moving_average,
         moving_average_period
 ):
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
@@ -132,16 +105,17 @@ def get_trend_plots_callback(
         vs,
         analysis_method,
         do_aggregate, aggregation_period, aggregation_function, min_sample_size,
-        do_deseasonize, moving_average_period
+        do_deseasonize, apply_moving_average, moving_average_period
     ):
         raise dash.exceptions.PreventUpdate
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
     integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
     da_by_var = filter_data_request.compute()
-    colors_by_var = charts.get_color_mapping(da_by_var)
+    colors_by_var = charts.get_color_mapping(da_by_var.keys())
 
     da_by_var = toolz.keyfilter(lambda v: v in vs, da_by_var)
+    colors_by_var = toolz.keyfilter(lambda v: v in vs, colors_by_var)
     if len(da_by_var) == 0:
         raise dash.exceptions.PreventUpdate
 
@@ -154,8 +128,8 @@ def get_trend_plots_callback(
     series_by_var = toolz.valmap(analysis._to_series, da_by_var)
 
     # ORIGINAL TIME SERIES
-    width = 1200
-    height = 300
+    width = 'auto'  #1200
+    height = 400
     orig_timeseries_fig = charts.multi_line(
         series_by_var,
         width=width, height=height,
@@ -167,25 +141,25 @@ def get_trend_plots_callback(
 
     # show title, legend, watermark, etc.
     orig_timeseries_fig.update_layout(
-        legend=dict(orientation='h'),
+        autosize=True,
+        margin={'l': 5, 'r': 5},
+        # legend={
+        #     'xanchor': 'right',
+        #     'yanchor': 'top',
+        #     'x': 0.99,
+        #     'y': 0.99,
+        # },
+        legend_y=-0.4,
         title='Original timeseries (setup time filter here)',
         xaxis={'title': 'time'},
         uirevision=integrate_datasets_request_hash,
-        # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
     )
-    ###??? orig_timeseries_fig = charts.add_watermark(orig_timeseries_fig)
-
-    # if dash.ctx.triggered_id != FILTER_DATA_REQUEST_ID:
-    #     # we reset the zoom only if a new filter data request was launched
-    #     fig = charts.apply_figure_extent(fig, relayout_data)
-
-    # print(f'get_plot_callback fig size={len(orig_timeseries_fig.to_json()) / 1e3}k')
     orig_timeseries_fig_data = {
         'fig': orig_timeseries_fig,
         'rng': [t_min, t_max],
     }
 
-    # TREND
+    # TREND CALCULATION
     if time_rng is not None:
         sel_variable, sel_t_min, sel_t_max = time_rng['variable_label'], time_rng['x_sel_min'], time_rng['x_sel_max']
         da_by_var = toolz.valmap(
@@ -207,6 +181,8 @@ def get_trend_plots_callback(
             lambda series: series - analysis.extract_seasonality(series),
             series_by_var
         )
+
+    if do_deseasonize and apply_moving_average:
         series_by_var = toolz.valmap(
             lambda series: analysis.moving_average(
                 series,
@@ -217,40 +193,82 @@ def get_trend_plots_callback(
 
     theil_sen_slope_by_var = toolz.valmap(_get_theil_sen_slope, series_by_var)
 
-    series_and_trend_by_var = {}
+    if do_deseasonize:
+        TIMESERIES_LEGEND_SUBLABEL = 'time series without seasonal component'
+    else:
+        TIMESERIES_LEGEND_SUBLABEL = 'time series'
+    if do_aggregate:
+        TIMESERIES_LEGEND_SUBLABEL = f'aggregated {TIMESERIES_LEGEND_SUBLABEL}'
+
+    series_and_trend_line_by_var = {}
+    stationary_series_by_var = {}
+    trend_by_var = {}
+    trend_error_by_var = {}
+    trend_unit_by_var = {}
     for v in series_by_var:
         series = series_by_var[v]
         (a, b), (ci0, ci1), (x_unit, y_unit) = theil_sen_slope_by_var[v]
-        t = np.array([np.datetime64(series.index[i]) for i in (0, -1)])
+        t = series.index #.to_numpy(dtype="M8[ns]")
+        # t = np.array([np.datetime64(series.index[i]) for i in (0, -1)])
         t_in_seconds = (t - analysis.BASE_DATE) / np.timedelta64(1, 's')
         x = a * t_in_seconds + b
-        series_and_trend_by_var[v] = {
-            'timeseries': series,
-            'trend': pd.Series(x, index=t)
+        trend_series = pd.Series(x, index=t)
+        stationary_series_by_var[v] = series - trend_series
+        series_and_trend_line_by_var[v] = {
+            TIMESERIES_LEGEND_SUBLABEL: series,
+            'trend': trend_series.iloc[[0, -1]]
         }
 
-    #for v, ((a, b), (ci0, ci1), (x_unit, y_unit)) in theil_sen_slope_by_var.items():
-    #    print(v, ((a, b), (ci0, ci1), (x_unit, y_unit)))
+        a_in_y_units_per_year = a * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
+        ci0_in_y_units_per_year = ci0 * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
+        ci1_in_y_units_per_year = ci1 * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
+        md = metadata_by_var.get(v, {})
+        units = md.get(metadata.UNITS, '???')
+        # trend_summary = f'{v} : {a:.4g} {units} / year; 95% CI: [{ci0:.4g}, {ci1:.4g}] {units} / year'
+        trend_by_var[v] = a_in_y_units_per_year
+        trend_error_by_var[v] = (ci1_in_y_units_per_year - ci0_in_y_units_per_year) / 2
+        trend_unit_by_var[v] = f'{units} / year'
 
+    trend_summary_df = pd.DataFrame.from_dict({
+        'trend': trend_by_var,
+        'trend_error': trend_error_by_var,
+        'trend_unit': trend_unit_by_var,
+        'color': toolz.valmap(plotly.colors.label_rgb, colors_by_var)
+    })
 
-    width = 1200
-    height = 400
+    autocorr_by_var = toolz.valmap(analysis.autocorrelation, stationary_series_by_var)
+
+    # TREND FIGURE
+    width = 'auto' #1200
+    height = 500
     trend_fig = charts.multi_line(
-        series_and_trend_by_var,
+        series_and_trend_line_by_var,
         width=width, height=height,
         variable_label_by_var=variable_label_by_var,
         yaxis_label_by_var=yaxis_label_by_var,
         color_mapping=colors_by_var,
         line_dash_style_by_sublabel={
-            'timeseries': 'solid',
+            TIMESERIES_LEGEND_SUBLABEL: 'solid',
             'trend': 'dash',
+        },
+        marker_opacity_by_sublabel={
+            TIMESERIES_LEGEND_SUBLABEL: 0.4,
+            'trend': 1,
         },
         subsampling=5_000,
     )
 
     # show title, legend, watermark, etc.
     trend_fig.update_layout(
-        legend=dict(orientation='h'),
+        autosize=True,
+        margin={'l': 5, 'r': 5},
+        legend={
+            'xanchor': 'left',
+            'yanchor': 'top',
+            'x': 0,
+            'y': -0.3,
+        },
+        #legend_y=-0.4,
         title='Trend',
         xaxis={'title': 'time'},
         # uirevision=integrate_datasets_request_hash,
@@ -258,26 +276,111 @@ def get_trend_plots_callback(
     )
     trend_fig = charts.add_watermark(trend_fig)
 
-    # trend_by_var = {}
-    # for v in theil_sen_slope_by_var:
-    #     (a, b), (ci0, ci1), (x_unit, y_unit) = theil_sen_slope_by_var[v]
-    #     a = a * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
-    #     ci0 = ci0 * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
-    #     ci1 = ci1 * y_unit * (np.timedelta64(365 * 24 * 3600, 's') / x_unit)
-    #     units = md.get(metadata.UNITS, '???')
-    # trend_summary = f'{v} : {a:.4g} {units} / year; 95% CI: [{ci0:.4g}, {ci1:.4g}] {units} / year'
-    #
-    # trend_summary_fig = go.Figure()
-    # trend_summary_fig.add_trace(
-    #     name='Trend',
-    #     x=list(theil_sen_slope_by_var),
-    #     y=
-    # )
+    # AUTOCORR FIGURE
+    autocorr_fig = go.Figure()
+    for variable_id, autocorr in autocorr_by_var.items():
+        autocorr_fig_trace = charts.plotly_scatter(
+            x=autocorr.index.values,
+            y=autocorr.values,
+            legendgroup=variable_id,
+            marker_color=plotly.colors.label_rgb(colors_by_var[variable_id]),
+            name=variable_label_by_var[variable_id],
+        )
+        autocorr_fig.add_trace(autocorr_fig_trace)
 
-    trend_summary_fig = None
+    # show title, legend, watermark, etc.
+    autocorr_fig.update_layout(
+        autosize=True,
+        margin={'l': 5, 'r': 5},
+        legend={
+            'orientation': 'h',
+            'xanchor': 'right',
+            'yanchor': 'top',
+            'x': 0.99,
+            'y': 0.99,
+        },
+        title='Autocorrelation',
+        xaxis={
+            'title': 'lag (days)',
+            'zeroline': True,
+            'zerolinecolor': 'grey',
+            'zerolinewidth': 1,
+        },
+        yaxis={
+            'title': 'correlation',
+            'zeroline': True,
+            'zerolinecolor': 'grey',
+            'zerolinewidth': 1,
+        },
+    )
+    autocorr_fig = charts.add_watermark(autocorr_fig)
+
+    # TREND SUMMARY ON BAR PLOT
+    bars = []
+    _series_by_unit = {}
+    _error_series_by_unit = {}
+    for units, trend_df_for_units in trend_summary_df.groupby('trend_unit'):
+        _series_by_unit[units] = trend_df_for_units['trend']
+        _error_series_by_unit[units] = trend_df_for_units['trend_error']
+
+        bars_for_units = go.Bar(
+            x=trend_df_for_units.index,
+            y=trend_df_for_units['trend'],
+            error_y={
+                'type': 'data',
+                'array': trend_df_for_units['trend_error'],
+            },
+            customdata=trend_df_for_units['trend_unit'],
+            hovertemplate='%{y:.3g} &plusmn; %{error_y.array:.3g} %{customdata}<extra></extra>',
+            marker_color=trend_df_for_units['color'],
+            orientation='v',
+        )
+        bars.append(bars_for_units)
+
+    _bars_count_by_unit = toolz.valmap(len, _series_by_unit)
+    _bars_count_list = list(_bars_count_by_unit.values())
+    single_bar_fraction_gap = 1.
+    delta_domain = 1 / (sum(_bars_count_list) + (len(_bars_count_list) - 1) * single_bar_fraction_gap)
+    domain_left_ends = np.hstack(([0], np.array(_bars_count_list[:-1]) + single_bar_fraction_gap)).cumsum() * delta_domain
+    domain_right_ends = ((np.array(_bars_count_list) + single_bar_fraction_gap).cumsum() - single_bar_fraction_gap) * delta_domain
+
+    range_tick0_dtick_by_unit = charts.get_range_tick0_dtick_by_var(_series_by_unit, nticks=5, error_df=_error_series_by_unit, align_zero=True)
+    yaxis_props_by_unit = charts.get_sync_axis_props(range_tick0_dtick_by_unit)
+    yaxes_props = []
+    for units, yaxis_props in yaxis_props_by_unit.items():
+        yaxis_props['title_text'] = units
+        yaxis_props['title_standoff'] = 0
+        yaxes_props.append(yaxis_props)
+
+    trend_summary_fig = plotly.subplots.make_subplots(rows=1, cols=len(bars))
+    xaxis_props_by_xaxis_id = {}
+    yaxis_props_by_yaxis_id = {}
+    for i, (bars_for_units, yaxis_props) in enumerate(zip(bars, yaxes_props)):
+        trend_summary_fig.add_trace(bars_for_units, row=1, col=i + 1)
+        xaxis_id = 'xaxis' if i == 0 else f'xaxis{i + 1}'
+        xaxis_props_by_xaxis_id[xaxis_id] = {'fixedrange': True, 'domain': [domain_left_ends[i], domain_right_ends[i]]}
+        yaxis_id = 'yaxis' if i == 0 else f'yaxis{i + 1}'
+        yaxis_props_by_yaxis_id[yaxis_id] = yaxis_props
+        yaxis_props_by_yaxis_id[yaxis_id].update({
+            'anchor': 'free',
+            'position': domain_left_ends[i],
+            'side': 'left',
+        })
+
+    trend_summary_fig.update_layout(**xaxis_props_by_xaxis_id, **yaxis_props_by_yaxis_id)
+
+    trend_summary_fig.update_layout(
+        autosize=True,
+        margin={'l': 5, 'r': 5},
+        title='Trend rate and 95% CI',
+        showlegend=False,
+        height=400,
+    )
+    trend_summary_fig = charts.add_watermark(trend_summary_fig)
 
     return (
         orig_timeseries_fig_data,
         trend_fig,
+        autocorr_fig,
         trend_summary_fig,
     )

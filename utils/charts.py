@@ -465,14 +465,14 @@ def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_
     return fig, np.max(h) if len(h) > 0 else 1
 
 
-def align_range(rng, nticks, log_coeffs=(2, 2.5, 5)):
+def align_range(rng, nticks, log_coeffs=(1, 2, 2.5, 5, 10)):
     if nticks < 3:
         ValueError(f'no_ticks must be an integer >= 3; got no_ticks={nticks}')
     nticks = int(nticks)
 
     log_coeffs = log_coeffs + (10,)
     low, high = rng
-    if np.isnan(low) or np.isnan(high):
+    if np.isnan(low) or np.isnan(high) or low >= high:
         return (0, 1), 0, 1 / (nticks - 1)
 
     dtick = (high - low) / (nticks - 2)
@@ -492,6 +492,119 @@ def align_range(rng, nticks, log_coeffs=(2, 2.5, 5)):
     return (low_aligned, high_aligned), low_aligned, dtick
 
 
+def align_range_containing_zero(rng, nticks_positive, nticks_negative, log_coeffs=(1, 2, 2.5, 5, 10)):
+    # print(rng, (nticks_positive, nticks_negative))
+    lo, hi = rng
+    lo = min(lo, 0.)
+    hi = max(hi, 0.)
+
+    assert nticks_positive >= 2 or nticks_positive == 1 and hi == 0, f'invalid nticks_positive={nticks_positive}, with rng={rng}'
+    assert nticks_negative >= 2 or nticks_negative == 1 and lo == 0, f'invalid nticks_negative={nticks_negative}, with rng={rng}'
+
+    dtick_positive = hi / (nticks_positive - 1) if hi > 0 else 0
+    dtick_negative = -lo / (nticks_negative - 1) if lo < 0 else 0
+    dtick = max(dtick_positive, dtick_negative)
+    dtick_base = np.power(10, np.floor(np.log10(dtick)))
+    # print(dtick, dtick_base)
+    dlog_dtick = dtick / dtick_base
+    for log_coeff in log_coeffs:
+        if dlog_dtick <= log_coeff:
+            break
+    dtick = dtick_base * log_coeff
+    low_aligned, high_aligned = -(nticks_negative - 1) * dtick, (nticks_positive - 1) * dtick
+    # print((low_aligned, high_aligned), low_aligned, dtick)
+    return (low_aligned, high_aligned), low_aligned, dtick
+
+
+def get_range_tick0_dtick_by_var(df, nticks, error_df=None, align_zero=False):
+    """
+
+    :param df: pandas DataFrame or dict of pandas Series {variable_id: series}, or dict of dict of pandas Series
+     {variable_id: {sublabel: series}} (useful e.g. for quantiles);
+     in the two last cases each series might have a different index;
+     warning: for the moment, cannot use dict of dict of pandas Series together with error_df
+    :param nticks:
+    :param error_df:
+    :return:
+    """
+    def list_of_series_min_max(list_of_series):
+        list_of_series = helper.ensurelist(list_of_series)
+        lo = pd.Series([series.min() for series in list_of_series]).min()
+        hi = pd.Series([series.max() for series in list_of_series]).max()
+        if align_zero:
+            lo = min(lo, 0)
+            hi = max(hi, 0)
+        return [lo, hi]
+
+    range_by_var = toolz.valmap(list_of_series_min_max, df)
+    if error_df is not None:
+        # adjust min/max so that df + error_df, df - error_df are within min/max
+        for v, rng in list(range_by_var.items()):
+            if v in error_df:
+                lo, hi = rng
+                lo_with_std = (df[v] - error_df[v]).min()
+                if lo_with_std < lo:
+                    lo = lo_with_std
+                hi_with_std = (df[v] + error_df[v]).max()
+                if hi_with_std > hi:
+                    hi = hi_with_std
+                if align_zero:
+                    lo = min(lo, 0)
+                    hi = max(hi, 0)
+                range_by_var[v] = [lo, hi]
+
+    if not align_zero:
+        range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range(rng, nticks=nticks), range_by_var)
+    else:
+        lo, hi = np.array(list(range_by_var.values())).T
+        zeros = -lo / (hi - lo)
+        zeros = zeros[~np.isnan(zeros)]
+        if len(zeros) > 0:
+            min_zero = np.min(zeros)
+            max_zero = np.max(zeros)
+            if min_zero <= .5 and max_zero >= .5:
+                zero = .5
+            elif max_zero <= .5:
+                zero = max_zero
+            else:
+                zero = min_zero
+
+            new_range_by_var = {}
+            _hi, _lo = -1, 1
+            for v, (lo, hi) in range_by_var.items():
+                if hi > lo:
+                    z = -lo / (hi - lo)
+                    if z < zero < 1:
+                        lo = -hi * zero / (1 - zero)
+                    elif 0 < zero < z:
+                        hi = -lo * (1 - zero) / zero
+                    _hi, _lo = hi, lo
+                new_range_by_var[v] = [lo, hi]
+            range_by_var = new_range_by_var
+
+            nticks_positive = int(np.ceil((nticks - 1) * _hi / (_hi - _lo))) + 1
+            nticks_negative = int(np.ceil((nticks - 1) * (-_lo) / (_hi - _lo))) + 1
+            range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range_containing_zero(rng, nticks_positive, nticks_negative), range_by_var)
+
+    return range_tick0_dtick_by_var
+
+
+def get_sync_axis_props(range_tick0_dtick_by_var, fixedrange=True):
+    axis_props_by_var = {}
+    for i, (variable_id, (rng, tick0, dtick)) in enumerate(range_tick0_dtick_by_var.items()):
+        axis_props = {
+            'range': rng,
+            'tick0': tick0,
+            'dtick': dtick,
+        }
+        if i > 0:
+            axis_props['overlaying'] = 'y'
+        if fixedrange:
+            axis_props['fixedrange'] = True
+        axis_props_by_var[variable_id] = axis_props
+    return axis_props_by_var
+
+
 def multi_line(
         df,
         df_std=None,
@@ -504,6 +617,7 @@ def multi_line(
         color_mapping=None,
         range_tick0_dtick_by_var=None,
         line_dash_style_by_sublabel=None,
+        marker_opacity_by_sublabel=None,
         filtering_on_figure_extent=None,
         subsampling=None,
 ):
@@ -526,21 +640,12 @@ def multi_line(
     :param range_tick0_dtick_by_var: dict or None;
     :param line_dash_style_by_sublabel: None or dict of the form {sublabel: str}, where values are from
     [‘solid’, ‘dot’, ‘dash’, ‘longdash’, ‘dashdot’, ‘longdashdot’]
+    :param marker_opacity_by_sublabel: None or dict of the form {sublabel: float}, where floats are in [0, 1]
     :param filtering_on_figure_extent: callable or None; a callable takes a pandas Series as an argument and
     returns either a mask (boolean) series with the same index or True (no masking)
     :param subsampling: int or None; indicates the size of an eventual subsample
     :return:
     """
-    def ensurelist(obj):
-        if isinstance(obj, list):
-            return obj
-        elif isinstance(obj, tuple):
-            return list(obj)
-        elif isinstance(obj, dict):
-            return list(obj.values())
-        else:
-            return [obj]
-
     df = dict(df)
     nvars = len(list(df))
     if not (nvars >= 1):
@@ -554,27 +659,7 @@ def multi_line(
     if color_mapping is None:
         color_mapping = get_color_mapping(list(df))
     if range_tick0_dtick_by_var is None:
-        def list_of_series_min_max(list_of_series):
-            list_of_series = ensurelist(list_of_series)
-            lo = pd.Series([series.min() for series in list_of_series]).min()
-            hi = pd.Series([series.max() for series in list_of_series]).max()
-            return lo, hi
-
-        range_by_var = toolz.valmap(list_of_series_min_max, df)
-        if df_std is not None:
-            # adjust min/max of y-axis so that mean+std, mean-std are within min/max
-            for v, rng in list(range_by_var.items()):
-                if v in df_std:
-                    lo, hi = rng
-                    lo_with_std = (df[v] - df_std[v]).min()
-                    if lo_with_std < lo:
-                        lo = lo_with_std
-                    hi_with_std = (df[v] + df_std[v]).max()
-                    if hi_with_std > hi:
-                        hi = hi_with_std
-                    range_by_var[v] = (lo, hi)
-
-        range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range(rng, nticks=nticks), range_by_var)
+        range_tick0_dtick_by_var = get_range_tick0_dtick_by_var(df, nticks, error_df=df_std)
 
     fig = go.Figure()
 
@@ -614,6 +699,13 @@ def multi_line(
                 if line_dash_style is not None:
                     extra_kwargs['line_dash'] = line_dash_style
 
+            color = plotly.colors.label_rgb(color_mapping[variable_id])
+
+            if n_traces > 1 and marker_opacity_by_sublabel is not None:
+                color_opacity = marker_opacity_by_sublabel.get(sublabel)
+                if color_opacity is not None:
+                    color = rgb_to_rgba(color, color_opacity)
+
             if filtering_on_figure_extent is not None:
                 figure_extent_mask = filtering_on_figure_extent(variable_values)
                 if figure_extent_mask is not True:
@@ -634,7 +726,7 @@ def multi_line(
                 std_mode=std_mode,
                 legendgroup=variable_id,
                 mode=scatter_mode,
-                marker_color=plotly.colors.label_rgb(color_mapping[variable_id]),
+                marker_color=color,
                 **yaxis,
                 **extra_kwargs,
             )
@@ -643,17 +735,16 @@ def multi_line(
             else:
                 fig.add_trace(scatter)
 
-    delta_domain = min(75 / width, 0.5 / nvars)
+    delta_domain = min(75 / width, 0.5 / nvars) if isinstance(width, (int, float)) else 0.2 / nvars
     domain = [delta_domain * ((nvars - 1) // 2), min(1 - delta_domain * ((nvars - 2) // 2), 1)]
     fig.update_layout(xaxis={'domain': domain})
 
-    for i, (variable_id, (rng, tick0, dtick)) in enumerate(range_tick0_dtick_by_var.items()):
-        yaxis_props = {
+    yaxis_props_by_var = get_sync_axis_props(range_tick0_dtick_by_var)
+
+    for i, (variable_id, yaxis_props) in enumerate(yaxis_props_by_var.items()):
+        yaxis_props.update({
             #'gridcolor': 'black',
             #'gridwidth': 1,
-            'range': rng,
-            'tick0': tick0,
-            'dtick': dtick,
             'tickcolor': f'rgb{color_mapping[variable_id]}',
             'ticklabelposition': 'outside',
             'tickfont_color': f'rgb{color_mapping[variable_id]}',
@@ -669,10 +760,7 @@ def multi_line(
             'zeroline': True,
             'zerolinewidth': 1,
             #'zerolinecolor': 'black',
-            'fixedrange': True,
-        }
-        if i > 0:
-            yaxis_props.update({'overlaying': 'y'})
+        })
 
         idx_of_last_variable_on_left_side = (nvars + 1) // 2 - 1
         idx_of_first_variable_on_right_side = (nvars + 1) // 2
@@ -707,11 +795,20 @@ def multi_line(
     if height:
         #fig_size['minreducedheight'] = height
         fig_size['height'] = height
-    if width:
+    if isinstance(width, (int, float)):
         #fig_size['minreducedwidth'] = width
         fig_size['width'] = width
     if fig_size:
         fig.update_layout(fig_size)
+
+    # customize legend
+    fig.update_layout(legend={
+        'orientation': 'h',
+        'xanchor': 'left',
+        'yanchor': 'top',
+        'x': 0,
+        'y': -0.1,
+    })
 
     return fig
 
@@ -1145,7 +1242,8 @@ def _get_fig_center(fig):
 def add_watermark(fig, size=None):
     if size is None:
         size = _get_watermark_size(fig)
-    x, y = _get_fig_center(fig)
+    #x, y = _get_fig_center(fig)
+    x, y = 0.5, 0.5
 
     annotations = [dict(
         name="watermark",
@@ -1155,6 +1253,8 @@ def add_watermark(fig, size=None):
         font=dict(color="black", size=size),
         xref="paper",
         yref="paper",
+        #xref='x domain',
+        #yref='y domain',
         x=x,
         y=y,
         showarrow=False,

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-# from log.log import log_exectime
+import scipy.signal
 
 
 BASE_DATE = np.datetime64('2000-01-01T00:00')
@@ -196,3 +196,30 @@ def extract_seasonality(da, period=pd.Timedelta('1Y')):
     x_m = x_m.join(s, on='bin')
 
     return x_m['season']
+
+
+def autocorrelation(da, period=pd.Timedelta('365D')):
+    series = _to_series(da)
+
+    assert series.index.is_monotonic_increasing
+    assert series.index.is_all_dates
+
+    time = pd.Series(series.index)
+    dtime = time - time.iloc[0]
+    dtime_up_to_period = dtime[dtime <= period]
+    out_shape = len(dtime_up_to_period)
+
+    ar = series.values
+    ar = (ar - np.nanmean(ar)) / np.nanstd(ar)
+    len_ar = np.sum(~np.isnan(ar))
+    ar = np.nan_to_num(ar, nan=0.)
+    ar_padded = np.pad(ar, pad_width=(out_shape - 1, 0), constant_values=0.)
+
+    ar_autocorrelation = scipy.signal.fftconvolve(ar, ar_padded[::-1], mode='valid') / len_ar
+    series_autocorrelation = pd.Series(ar_autocorrelation, index=dtime_up_to_period)
+    series_autocorrelation = series_autocorrelation.resample(rule='1D').interpolate()
+    series_autocorrelation = pd.Series(
+        series_autocorrelation.values,
+        index=series_autocorrelation.index / np.timedelta64(1, 'D')
+    )
+    return series_autocorrelation

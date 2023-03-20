@@ -6,7 +6,7 @@ from utils import dash_dynamic_components as ddc, dash_persistence
 from utils.charts import empty_figure
 from utils.graph_with_horizontal_selection_AIO import GraphWithHorizontalSelectionAIO
 from . import common_layout
-from app_tabs.common.layout import GRAPH_CONFIG
+from app_tabs.common.layout import GRAPH_CONFIG, NON_INTERACTIVE_GRAPH_CONFIG
 
 
 TREND_ANALYSIS_METHOD_RADIO_ID = 'trend-analysis-method-radio'
@@ -52,7 +52,8 @@ AGGREGATION_FUNCTIONS = {
 DEFAULT_AGGREGATION_FUNCTION = 'mean'
 
 DESEASONIZE_CHECKBOX_ID = 'trend-analysis-deseasonize-checkbox'
-DESEASONIZE_COLLAPSE_ID = 'trend-analysis-deseasonize-collapse'
+APPLY_MOVING_AVERAGE_COLLAPSE_ID = 'trend-analysis-deseasonize-collapse'
+APPLY_MOVING_AVERAGE_CHECKBOX_ID = 'apply-moving-average-checkbox'
 MOVING_AVERAGE_PERIOD_SELECT_ID = 'trend-analysis-moving_average-period-select'
 
 SHOW_GRAPHS_CHECKLIST_ID = 'trend-analysis-show-graphs-checklist'
@@ -93,7 +94,7 @@ def get_trend_analysis_cardbody(time_filter):
 
     aggregate_checkbox = dbc.Checkbox(
         id=ddc.add_active_to_component_id(AGGREGATE_CHECKBOX_ID),
-        label='Aggregate first',
+        label='Aggregate',
         value=False,
     )
 
@@ -135,8 +136,14 @@ def get_trend_analysis_cardbody(time_filter):
         value=False,
     )
 
+    apply_moving_average_checkbox = dbc.Checkbox(
+        id=ddc.add_active_to_component_id(APPLY_MOVING_AVERAGE_CHECKBOX_ID),
+        label='Apply moving average',
+        value=False,
+    )
+
     smoothing_period_select = [
-        dbc.Col(dbc.Label('Apply moving average to de-seasonised time series with window size'), width=6),
+        dbc.Col(dbc.Label('Window size'), width=6),
         dbc.Col(
             dbc.Select(
                 id=ddc.add_active_to_component_id(MOVING_AVERAGE_PERIOD_SELECT_ID),
@@ -152,13 +159,11 @@ def get_trend_analysis_cardbody(time_filter):
     ]
 
     trend_analysis_method_parameters_card = dbc.Card([
-        dbc.CardHeader('Parameters'),
+        dbc.CardHeader('Parameters of time series pre-processing'),
         dbc.CardBody([
             dbc.Form([
-                dbc.Row([
-                    dbc.Label('Time filter:'),
-                    time_filter.get_range_controller(),
-                ]),
+                dbc.Row(dbc.Label('Time filter:')),
+                dbc.Row(time_filter.get_range_controller()),
                 dbc.Row(aggregate_checkbox),
                 dbc.Collapse(
                     dbc.Card(dbc.CardBody(
@@ -172,13 +177,14 @@ def get_trend_analysis_cardbody(time_filter):
                     is_open=False
                 ),
                 dbc.Row(deseasonize_checkbox),
+                dbc.Row(apply_moving_average_checkbox),
                 dbc.Collapse(
                     dbc.Card(dbc.CardBody(
                         dbc.Form([
                             dbc.Row(smoothing_period_select),
                         ])
                     )),
-                    id=ddc.add_active_to_component_id(DESEASONIZE_COLLAPSE_ID),
+                    id=ddc.add_active_to_component_id(APPLY_MOVING_AVERAGE_COLLAPSE_ID),
                     is_open=False
                 ),
                 # dbc.Row([
@@ -216,6 +222,7 @@ def _get_trend_graph():
         id=ddc.add_active_to_component_id(TREND_GRAPH_ID),
         figure=empty_figure(),
         config=GRAPH_CONFIG,
+        # style={"border": "1px grey solid"},
         # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
     ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     return graph
@@ -225,7 +232,8 @@ def _get_autocorrelation_graph():
     graph = dcc.Graph(
         id=ddc.add_active_to_component_id(AUTOCORRELATION_GRAPH_ID),
         figure=empty_figure(),
-        config=GRAPH_CONFIG,
+        config=NON_INTERACTIVE_GRAPH_CONFIG,
+        # style={"border": "1px grey solid"},
         # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
     ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     return graph
@@ -235,7 +243,8 @@ def _get_trend_summary_bar_graph():
     graph = dcc.Graph(
         id=ddc.add_active_to_component_id(TREND_SUMMARY_BAR_GRAPH_ID),
         figure=empty_figure(),
-        config=GRAPH_CONFIG,
+        config=NON_INTERACTIVE_GRAPH_CONFIG,
+        # style={"border": "1px grey solid"},
         # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
     ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
     return graph

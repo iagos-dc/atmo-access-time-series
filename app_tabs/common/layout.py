@@ -39,6 +39,26 @@ GRAPH_CONFIG = {
 }  # for more see: help(dcc.Graph)
 
 
+NON_INTERACTIVE_GRAPH_CONFIG = {
+    'autosizable': False,
+    'displayModeBar': True,
+    'editable': False,
+    'modeBarButtons': [['toImage']],
+    'toImageButtonOptions': {
+        'filename': 'foo',
+        'format': 'png',
+        'height': 800,
+    },
+    'showAxisDragHandles': False,
+    'showAxisRangeEntryBoxes': False,
+    'showTips': True,
+    'displaylogo': False,
+    # 'responsive': True,
+}  # for more see: help(dcc.Graph)
+
+
+
+
 def get_app_data_stores():
     # these are special Dash components used for transferring data from one callback to other callback(s)
     # without displaying the data

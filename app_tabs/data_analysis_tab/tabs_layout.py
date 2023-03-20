@@ -10,6 +10,8 @@ EXPLORATORY_ANALYSIS_TAB_ID = 'exploratory-analysis'
 TREND_ANALYSIS_TAB_ID = 'trend-analysis'
 MULTIVARIATE_ANALYSIS_TAB_ID = 'multivariate-analysis'
 
+BORDER_STYLE = {'border-style': 'solid', 'border-width': '1px', 'border-color': 'lightgrey'}
+
 
 def get_data_analysis_tab():
     data_analysis_tab_container_content = dbc.Row([
@@ -50,11 +52,21 @@ def get_data_analysis_tab():
         value=DATA_ANALYSIS_TAB_VALUE,
         children=[
             html.Div(
-                style={'margin': '20px'},
-                children=dbc.Container(
-                    data_analysis_tab_container_content,
-                    fluid=True,
-                )
+                style={
+                    'margin-top': '10px',
+                    'margin-left': '0px',
+                    'margin-right': '0px',
+                },
+                children=data_analysis_tab_container_content,
+        # children=dbc.Container(
+        #     style={
+        #         'margin-top': '10px',
+        #         'margin-left': '0px',
+        #         'margin-right': '0px',
+        #     },
+        #     children=data_analysis_tab_container_content,
+        #     fluid=True,
+        # )
             ),
         ],
     )

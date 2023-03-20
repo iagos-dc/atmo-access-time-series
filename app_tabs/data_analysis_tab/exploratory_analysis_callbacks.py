@@ -211,9 +211,8 @@ def get_exploratory_plot_callback(
             subsampling=5_000,
         )
 
-    # show title, legend, watermark, etc.
+    # show title, watermark, etc.
     fig.update_layout(
-        legend=dict(orientation='h'),
         title=plot_title,
         xaxis={'title': 'time'},
         uirevision=integrate_datasets_request_hash,
