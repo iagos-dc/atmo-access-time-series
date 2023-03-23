@@ -10,7 +10,7 @@ import data_access
 import data_processing
 import data_processing.utils
 from app_tabs.common.data import station_by_shortnameRI
-from app_tabs.common.layout import DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID
+from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
     DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID
 from log import logger, log_exception, log_exectime
@@ -22,11 +22,12 @@ from utils import charts
     Output(GANTT_GRAPH_ID, 'selectedData'),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
+    Input(APP_TABS_ID, 'value'),
     prevent_initial_call=True,
 )
 @log_exception
-@log_exectime
-def get_gantt_figure(gantt_view_type, datasets_json):
+#@log_exectime
+def get_gantt_figure(gantt_view_type, datasets_json, app_tab):
     selectedData = {'points': []}
 
     if datasets_json is None:
@@ -139,7 +140,6 @@ def popup_graphs(active_cell, datasets_json):
     else:
         selector = None
 
-    print('selector=', selector)
     try:
         ri = ds_md['RI']
         url = ds_md['url']
@@ -158,7 +158,7 @@ def popup_graphs(active_cell, datasets_json):
         da_by_var = toolz.valfilter(lambda da: da.squeeze().ndim == 1, da_by_var)
         if len(da_by_var) > 0:
             series_by_var = toolz.valmap(
-                # due to peformance, make a random subsampling of the timeseries
+                # due to performance, make a random subsampling of the timeseries
                 lambda da: data_processing.utils.subsampling(da.to_series(), n=3000),
                 da_by_var
             )

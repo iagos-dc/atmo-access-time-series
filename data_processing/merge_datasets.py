@@ -137,7 +137,6 @@ class _Tree:
 def integrate_datasets(dss):
     tree_of_var_ids = _Tree()
     for ri, selector, md, ds in dss:
-        print(f'ri={ri}, selector={selector}, md={md}')
         for v, da in ds.data_vars.items():
             da = da.copy()
             da['time'].attrs = {

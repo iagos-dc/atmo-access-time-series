@@ -221,7 +221,7 @@ def query_datasets(variables=[], temporal=[], spatial=[]):
             a = stn.loc[stn['uri'] == s]
 
             if len(a) != 1:
-                print(f'a={a}, s={s}, variables={variables}, temporal={temporal}, spatial={spatial}')
+                # print(f'a={a}, s={s}, variables={variables}, temporal={temporal}, spatial={spatial}')
                 continue
 
             if float(a.lon) >= spatial[0] and \

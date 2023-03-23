@@ -43,7 +43,7 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
     State(DATASETS_STORE_ID, 'data'),  # TODO: if no station or variable selected, do not launch Search datasets action; instead, return an old data
 )
 @log_exception
-@log_exectime
+#@log_exectime
 def search_datasets(
         n_clicks, selected_variables, lon_min, lon_max, lat_min, lat_max,
         selected_stations_idx, previous_datasets_json

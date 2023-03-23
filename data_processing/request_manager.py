@@ -46,6 +46,8 @@ def _get_hashable(obj):
         return tuple((k, _get_hashable(obj[k])) for k in sorted(obj))
     elif isinstance(obj, Request):
         return obj.get_hashable()
+    elif pd.isnull(obj):  # because np.nan == np.nan is False!
+        return None
     else:
         return obj
 
@@ -170,7 +172,7 @@ class GetICOSDatasetTitleRequest(Request):
         self.dobj = dobj
 
     def execute(self):
-        print(f'execute {str(self)}')
+        logger().info(f'execute {str(self)}')
         return icoscp.cpb.dobj.Dobj(self.dobj).meta['references']['title']
 
     @request_cache(custom_expire=None)
@@ -203,7 +205,7 @@ class ReadDataRequest(Request):
         self.selector = selector
 
     def execute(self):
-        print(f'execute {str(self)}')
+        logger().info(f'execute {str(self)}')
         return data_access.read_dataset(self.ri, self.url, self.ds_metadata, selector=self.selector)
 
     def get_hashable(self):

@@ -2,6 +2,14 @@ from dash import dcc
 import dash_bootstrap_components as dbc
 
 
+# Below there are id's of Dash JS components.
+# The components themselves are declared in the dashboard layout (see the function get_dashboard_layout).
+# Essential properties of each component are explained in the comments below.
+
+APP_TABS_ID = 'app-tabs'    # see: https://dash.plotly.com/dash-core-components/tabs; method 1 (content as callback)
+# value contains an id of the active tab
+    # children contains a list of layouts of each tab
+
 DATASETS_STORE_ID = 'datasets-store'
 # 'data' stores datasets metadata in JSON, as provided by the method
 # pd.DataFrame.to_json(orient='split', date_format='iso')
