@@ -94,3 +94,48 @@ def subsampling(series, n):
     isnotna = ~np.isnan(series.values)
     mask = get_subsampling_mask(isnotna, n)
     return series[mask]
+
+
+def winding_number(points, poly):
+    """
+
+    :param points: np.array of shape (2, n)
+    :param poly: np.array of shape (2, k)
+    :return: np.array of shape n
+    """
+    x = poly[0] - points[0][:, np.newaxis]  # x.shape == (n, k)
+    y = poly[1] - points[1][:, np.newaxis]  # y.shape == (n, k)
+    diff_sgn_y = np.diff(np.sign(y), axis=1)
+    diff_y = np.diff(y, axis=1)
+    x_positive = ((x[:, :-1] + x[:, 1:]) * diff_y - np.diff(x * y, axis=1)) * diff_y > 0
+    wn = np.where(x_positive, diff_sgn_y, 0).sum(axis=1)
+    return wn
+
+
+def link_polygons(polygons):
+    """
+
+    :param polygons: np.array of shape (2, k)
+    :return: np.array of shape (2, k')
+    """
+    xs = polygons[0]
+    ys = polygons[1]
+    ix = iter(xs)
+    iy = iter(ys)
+    backlink = []
+    for x0, y0 in zip(ix, iy):
+        for x, y in zip(ix, iy):
+            if x == x0 and y == y0:
+                break
+        backlink.append([x0, y0])
+    if len(backlink) > 1:
+        backlink = backlink[:-1][::-1]
+        backlink = np.array(backlink).T
+        polygons = np.hstack((polygons, backlink))
+    return polygons
+
+
+def points_inside_polygons(points, polygons):
+    polygons = link_polygons(polygons)
+    wn = winding_number(points, polygons)
+    return wn != 0

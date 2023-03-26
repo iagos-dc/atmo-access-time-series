@@ -36,6 +36,15 @@ SELECTED_STATIONS_DROPDOWN_ID = 'selected-stations-dropdown'
 SEARCH_DATASETS_BUTTON_ID = 'search-datasets-button'
 # 'n_click' contains a number of clicks at the button
 
+SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID = 'search-datasets-reset-stations-button'
+
+SELECTED_STATIONS_OPACITY = 1.
+UNSELECTED_STATIONS_OPACITY = 0.3
+
+CATEGORY_ORDER = ['ACTRIS', 'IAGOS', 'ICOS']
+COLOR_BY_CATEGORY = {'ACTRIS': ACTRIS_COLOR_HEX, 'IAGOS': IAGOS_COLOR_HEX, 'ICOS': ICOS_COLOR_HEX}
+COLOR_CATEGORY_ORDER = [COLOR_BY_CATEGORY[c] for c in CATEGORY_ORDER]
+
 
 def _get_std_variables(variables):
     std_vars = variables[['std_ECV_name', 'code']].drop_duplicates()
@@ -93,21 +102,12 @@ def get_stations_map():
         custom_data=['idx'],
         size=stations['marker_size'],
         size_max=7,
-        category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
-        color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
+        category_orders={'RI': CATEGORY_ORDER},
+        color_discrete_sequence=COLOR_CATEGORY_ORDER,
         zoom=2,
         # width=1200, height=700,
         center={'lon': 10, 'lat': 55},
         title='Stations map',
-    )
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        margin={'autoexpand': True, 'r': 0, 't': 40, 'l': 0, 'b': 0},
-        # width=1100, height=700,
-        autosize=True,
-        clickmode='event+select',
-        dragmode='select',
-        hoverdistance=1, hovermode='closest',  # hoverlabel=None,
     )
 
     regions = stations[stations['is_region']]
@@ -129,11 +129,24 @@ def get_stations_map():
         marker={'color': IAGOS_COLOR_HEX},
         name='IAGOS',
         legendgroup='IAGOS',
-        opacity=0.3,
     ))
 
-    # TODO: synchronize box selection on the map with max/min lon/lat input fields
-    # TODO: as explained in https://dash.plotly.com/interactive-graphing (Generic Crossfilter Recipe)
+    fig.update_traces(
+        selected={'marker_opacity': SELECTED_STATIONS_OPACITY},
+        unselected={'marker_opacity': UNSELECTED_STATIONS_OPACITY},
+    )
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={'autoexpand': True, 'r': 0, 't': 40, 'l': 0, 'b': 0},
+        # width=1100, height=700,
+        autosize=True,
+        clickmode='event+select',
+        dragmode='select',
+        hoverdistance=1, hovermode='closest',  # hoverlabel=None,
+        selectionrevision=False,  # this is crucial !!!
+    )
+
     stations_map = dcc.Graph(
         id=STATIONS_MAP_ID,
         figure=fig,
@@ -143,6 +156,7 @@ def get_stations_map():
             'scrollZoom': True,
         }
     )
+
     return stations_map
 
 
@@ -182,57 +196,63 @@ def get_bbox_selection_div():
 
 def get_search_datasets_tab():
     return dcc.Tab(
-        label='Search datasets', value=SEARCH_DATASETS_TAB_VALUE,
-        children=html.Div(style={'margin': '20px'}, children=[
-            html.Div(id='search-datasets-left-panel-div', className='four columns', children=[
-                html.Div(id='variables-selection-div', className='nine columns', children=[
-                    html.P('Select variable(s):', style={'font-weight': 'bold'}),
-                    dbc.Switch(
-                        id=VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID,
-                        label='Select all / none',
-                        style={'margin-top': '10px'},
-                        value=True,
-                    ),
-                    get_variables_checklist(),
-                ]),
+        label='Search datasets',
+        value=SEARCH_DATASETS_TAB_VALUE,
+        children=html.Div(
+            style={'margin': '20px'},
+            children=[
+                html.Div(id='search-datasets-left-panel-div', className='four columns', children=[
+                    html.Div(id='variables-selection-div', className='nine columns', children=[
+                        html.P('Select variable(s):', style={'font-weight': 'bold'}),
+                        dbc.Switch(
+                            id=VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID,
+                            label='Select all / none',
+                            style={'margin-top': '10px'},
+                            value=True,
+                        ),
+                        get_variables_checklist(),
+                    ]),
 
-                html.Div(id='search-datasets-button-div', className='three columns',
-                         children=dbc.Button(id=SEARCH_DATASETS_BUTTON_ID, n_clicks=0,
-                                             color='primary',
-                                             type='submit',
-                                             style={'font-weight': 'bold'},
-                                             children='Search datasets')),
+                    html.Div(id='search-datasets-button-div', className='three columns',
+                             children=dbc.Button(id=SEARCH_DATASETS_BUTTON_ID, n_clicks=0,
+                                                 color='primary',
+                                                 type='submit',
+                                                 style={'font-weight': 'bold'},
+                                                 children='Search datasets')),
 
-                html.Div(id='search-datasets-left-panel-cont-div', className='twelve columns',
-                         style={'margin-top': '20px'},
-                         children=[
-                             html.Div(children=[
-                                 html.P('Date range:', style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}),
-                                 dcc.DatePickerRange(
-                                     id='my-date-picker-range',
-                                     min_date_allowed=datetime.date(1900, 1, 1),
-                                     max_date_allowed=datetime.date(2022, 12, 31),
-                                     initial_visible_month=datetime.date(2017, 8, 5),
-                                     end_date=datetime.date(2017, 8, 25)
-                                 ),
+                    html.Div(id='search-datasets-left-panel-cont-div', className='twelve columns',
+                             style={'margin-top': '20px'},
+                             children=[
+                                 html.Div(children=[
+                                     html.P('Date range:', style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}),
+                                     dcc.DatePickerRange(
+                                         id='my-date-picker-range',
+                                         min_date_allowed=datetime.date(1900, 1, 1),
+                                         max_date_allowed=datetime.date(2022, 12, 31),
+                                         initial_visible_month=datetime.date(2017, 8, 5),
+                                         end_date=datetime.date(2017, 8, 25)
+                                     ),
+                                 ]),
+                                 get_bbox_selection_div(),
+                                 dbc.Button(
+                                     id=SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID,
+                                     children='Reset station selection',
+                                 )
                              ]),
-                             get_bbox_selection_div(),
-                         ]),
-            ]),
-
-            html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
-                get_stations_map(),
-
-                html.Div(
-                    id='selected-stations-div',
-                    style={'margin-top': '20px'},
-                    children=[
-                         html.P('Selected stations (you can refine your selection)',
-                                style={'font-weight': 'bold'}),
-                         dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True,
-                                      clearable=False),
-                    ]
-                ),
-            ]),
-        ])
+                ]),
+                html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
+                    get_stations_map(),
+                    html.Div(
+                        id='selected-stations-div',
+                        style={'margin-top': '20px'},
+                        children=[
+                             html.P('Selected stations (you can refine your selection)',
+                                    style={'font-weight': 'bold'}),
+                             dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True,
+                                          clearable=False),
+                        ]
+                    ),
+                ]),
+            ]
+        )
     )

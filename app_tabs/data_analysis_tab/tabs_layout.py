@@ -17,24 +17,35 @@ def get_data_analysis_tab():
     data_analysis_tab_container_content = dbc.Row([
         dbc.Col(
             children=dbc.Container(
-                dbc.Card([
-                    dbc.CardHeader(
-                        dbc.Tabs(
-                            [
-                                dbc.Tab(label='Exploratory analysis', tab_id=EXPLORATORY_ANALYSIS_TAB_ID),
-                                dbc.Tab(label='Trend analysis', tab_id=TREND_ANALYSIS_TAB_ID),
-                                dbc.Tab(label='Multivariate analysis', tab_id=MULTIVARIATE_ANALYSIS_TAB_ID),
-                            ],
-                            id=KIND_OF_ANALYSIS_TABS_ID,
-                            active_tab=EXPLORATORY_ANALYSIS_TAB_ID,
-                            persistence=True,
-                            persistence_type='session',
-                        )
-                    ),
-                    dbc.CardBody(
-                        id=DATA_ANALYSIS_PARAMETERS_CARDBODY_ID,
-                    ),
-                ]),
+                [
+                    dbc.Card([
+                        dbc.CardHeader(
+                            dbc.Tabs(
+                                [
+                                    dbc.Tab(label='Exploratory analysis', tab_id=EXPLORATORY_ANALYSIS_TAB_ID),
+                                    dbc.Tab(label='Trend analysis', tab_id=TREND_ANALYSIS_TAB_ID),
+                                    dbc.Tab(label='Multivariate analysis', tab_id=MULTIVARIATE_ANALYSIS_TAB_ID),
+                                ],
+                                id=KIND_OF_ANALYSIS_TABS_ID,
+                                active_tab=EXPLORATORY_ANALYSIS_TAB_ID,
+                                persistence=True,
+                                persistence_type='session',
+                            )
+                        ),
+                        dbc.CardBody(
+                            id=DATA_ANALYSIS_PARAMETERS_CARDBODY_ID,
+                        ),
+                    ]),
+                    # fake download buttons
+                    html.Div(dbc.Row(
+                        [
+                            dbc.Col(dbc.Button('Download data'), width=4, align='left'),
+                            dbc.Col(dbc.Button('Download figures'), width=4, align='right'),
+                        ],
+                        align='bottom',
+                        justify='between',
+                    ))
+                ],
                 fluid=True,
             ),
             width=4,

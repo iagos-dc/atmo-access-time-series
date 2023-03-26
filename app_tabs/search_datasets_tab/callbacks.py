@@ -3,16 +3,19 @@ import pathlib
 import numpy as np
 import pandas as pd
 import pkg_resources
-from dash import Output, Input, State, callback
+import dash
+from dash import Output, Input, State, Patch, callback
 
 import data_access
 import data_access.common
 from app_tabs.common.data import stations
-from app_tabs.common.layout import DATASETS_STORE_ID
+from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
-    SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID
+    SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
+    SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, CATEGORY_ORDER
 from log import logger, log_exception, log_exectime
+from data_processing.utils import points_inside_polygons
 
 
 DEBUG_GET_DATASETS = False
@@ -107,21 +110,17 @@ def _get_selected_points(selected_stations):
     return pd.DataFrame.from_records(points, index='idx', columns=['idx', 'lon', 'lat'])
 
 
-def _get_bounding_box(selected_points_df, selected_stations):
+def _get_bounding_box(selected_points_df):
     # decimal precision for bounding box coordinates (lon/lat)
     decimal_precision = 2
 
-    # find selection box, if there is one
-    try:
-        (lon_min, lat_max), (lon_max, lat_min) = selected_stations['range']['mapbox']
-    except:
-        lon_min, lon_max, lat_min, lat_max = np.inf, -np.inf, np.inf, -np.inf
+    lon_min, lon_max, lat_min, lat_max = np.inf, -np.inf, np.inf, -np.inf
 
     if len(selected_points_df) > 0:
         # find bouding box for selected points
         epsilon = 0.001  # precision margin for filtering on lon/lat of stations later on
-        lon_min2, lon_max2 = selected_points_df['lon'].min() - epsilon, selected_points_df['lon'].max() + epsilon
-        lat_min2, lat_max2 = selected_points_df['lat'].min() - epsilon, selected_points_df['lat'].max() + epsilon
+        lon_min2, lon_max2 = selected_points_df['longitude'].min() - epsilon, selected_points_df['longitude'].max() + epsilon
+        lat_min2, lat_max2 = selected_points_df['latitude'].min() - epsilon, selected_points_df['latitude'].max() + epsilon
 
         # find a common bounding box for the both bboxes found above
         lon_min, lon_max = np.min((lon_min, lon_min2)), np.max((lon_max, lon_max2))
@@ -133,24 +132,80 @@ def _get_bounding_box(selected_points_df, selected_stations):
 
 
 def _get_selected_stations_dropdown(selected_stations_df):
-    idx = selected_stations_df.index
-    df = stations.iloc[idx]
+    df = selected_stations_df
     labels = df['short_name'] + ' (' + df['long_name'] + ', ' + df['RI'] + ')'
     options = labels.rename('label').reset_index().rename(columns={'index': 'value'})
     return options.to_dict(orient='records'), list(options['value'])
 
 
 @callback(
+    Output(SELECTED_STATIONS_STORE_ID, 'data'),
+    Output(STATIONS_MAP_ID, 'figure'),
     Output(LON_MIN_ID, 'value'),
     Output(LON_MAX_ID, 'value'),
     Output(LAT_MIN_ID, 'value'),
     Output(LAT_MAX_ID, 'value'),
     Output(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
     Output(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
-    Input(STATIONS_MAP_ID, 'selectedData'))
+    Input(SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, 'n_clicks'),
+    Input(STATIONS_MAP_ID, 'selectedData'),
+    Input(STATIONS_MAP_ID, 'clickData'),
+    Input(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
+    State(SELECTED_STATIONS_STORE_ID, 'data'),
+    State(STATIONS_MAP_ID, 'figure'),
+)
 @log_exception
-def get_selected_stations_bbox_and_dropdown(selected_stations):
-    selected_stations_df = _get_selected_points(selected_stations)
-    bbox = _get_bounding_box(selected_stations_df, selected_stations)
+def get_selected_stations_bbox_and_dropdown(reset_stations_button, selected_data, click_data, stations_dropdown, s, fig):
+    print(fig)
+
+    ctx = list(dash.ctx.triggered_prop_ids.values())
+
+    if SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID in ctx:
+        s = None
+
+    if STATIONS_MAP_ID in ctx and selected_data and 'points' in selected_data and len(selected_data['points']) > 0:
+        if 'range' in selected_data or 'lassoPoints' in selected_data:
+            s2 = [p['customdata'][0] for p in selected_data['points']]
+            if 'range' in selected_data and 'mapbox' in selected_data['range']:
+                mapbox_range = selected_data['range']['mapbox']
+                try:
+                    (lon1, lat1), (lon2, lat2) = mapbox_range
+                except TypeError:
+                    print(f'mapbox_range: {mapbox_range}')
+                    raise dash.exceptions.PreventUpdate
+                lon1, lon2 = sorted([lon1, lon2])
+                lat1, lat2 = sorted([lat1, lat2])
+                lon = stations['longitude']
+                lat = stations['latitude']
+                s1 = stations[(lon >= lon1) & (lon <= lon2) & (lat >= lat1) & (lat <= lat2)].index
+            elif 'lassoPoints' in selected_data and 'mapbox' in selected_data['lassoPoints']:
+                mapbox_lassoPoints = selected_data['lassoPoints']['mapbox']
+                mapbox_lassoPoints = np.array(mapbox_lassoPoints).T
+                points = np.array([stations['longitude'].values, stations['latitude'].values])
+                s1, = np.nonzero(points_inside_polygons(points, mapbox_lassoPoints))
+            s1 = set(s1).intersection(s2)
+            s = sorted(set(s if s is not None else []).union(s1))
+        elif click_data and 'points' in click_data:
+            s2 = [p['customdata'][0] for p in click_data['points']]
+            s = sorted(set(s if s is not None else []).symmetric_difference(s2))
+
+    patched_fig = Patch()
+    opacity = pd.Series(UNSELECTED_STATIONS_OPACITY, index=stations.index)
+    if s is not None:
+        opacity.loc[s] = SELECTED_STATIONS_OPACITY
+    else:
+        opacity.loc[:] = SELECTED_STATIONS_OPACITY
+
+    df = pd.DataFrame({'RI': stations['RI'], 'opacity': opacity})
+    for i, c in enumerate(CATEGORY_ORDER):
+        opacity_for_c = df[df['RI'] == c]['opacity']
+        patched_fig['data'][i]['marker']['opacity'] = opacity_for_c.values
+        patched_fig['data'][i]['selectedpoints'] = None
+        #ss = opacity_for_c.reset_index(drop=True)
+        #patched_fig['data'][i]['selectedpoints'] = ss[ss == SELECTED_STATIONS_OPACITY].index
+
+    selected_stations_df = stations.loc[s] if s is not None else stations.loc[[]]
+    bbox = _get_bounding_box(selected_stations_df)
     selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df)
-    return bbox + [selected_stations_dropdown_options, selected_stations_dropdown_value]
+
+    return [s, patched_fig] + bbox + [selected_stations_dropdown_options, selected_stations_dropdown_value]

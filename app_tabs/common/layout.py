@@ -10,6 +10,8 @@ APP_TABS_ID = 'app-tabs'    # see: https://dash.plotly.com/dash-core-components/
 # value contains an id of the active tab
     # children contains a list of layouts of each tab
 
+SELECTED_STATIONS_STORE_ID = 'selected-stations-store'
+
 DATASETS_STORE_ID = 'datasets-store'
 # 'data' stores datasets metadata in JSON, as provided by the method
 # pd.DataFrame.to_json(orient='split', date_format='iso')
@@ -71,6 +73,7 @@ def get_app_data_stores():
     # these are special Dash components used for transferring data from one callback to other callback(s)
     # without displaying the data
     return [
+        dcc.Store(id=SELECTED_STATIONS_STORE_ID, storage_type='session', data=None),
         dcc.Store(id=DATASETS_STORE_ID, storage_type='session'),
         dcc.Store(id=INTEGRATE_DATASETS_REQUEST_ID, storage_type='session'),
         dcc.Store(id=FILTER_DATA_REQUEST_ID, storage_type='session'),
