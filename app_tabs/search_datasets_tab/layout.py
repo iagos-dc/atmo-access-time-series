@@ -8,6 +8,8 @@ import plotly.colors
 import data_access
 from app_tabs.common.data import stations
 from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX, rgb_to_rgba
+from utils.dash_persistence import get_dash_persistence_kwargs
+
 
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
 
@@ -38,12 +40,23 @@ SEARCH_DATASETS_BUTTON_ID = 'search-datasets-button'
 
 SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID = 'search-datasets-reset-stations-button'
 
+MAP_BACKGROUND_RADIO_ID = 'map-background-radio'
+
+
 SELECTED_STATIONS_OPACITY = 1.
-UNSELECTED_STATIONS_OPACITY = 0.3
+SELECTED_STATIONS_SIZE = 10
+UNSELECTED_STATIONS_OPACITY = 0.5
+UNSELECTED_STATIONS_SIZE = 4
 
 CATEGORY_ORDER = ['ACTRIS', 'IAGOS', 'ICOS']
 COLOR_BY_CATEGORY = {'ACTRIS': ACTRIS_COLOR_HEX, 'IAGOS': IAGOS_COLOR_HEX, 'ICOS': ICOS_COLOR_HEX}
 COLOR_CATEGORY_ORDER = [COLOR_BY_CATEGORY[c] for c in CATEGORY_ORDER]
+
+MAPBOX_STYLES = {
+    'open-street-map': 'open street map',
+    'carto-positron': 'carto positron',
+}
+DEFAULT_MAPBOX_STYLE = 'carto-positron'
 
 
 def _get_std_variables(variables):
@@ -134,10 +147,11 @@ def get_stations_map():
     fig.update_traces(
         selected={'marker_opacity': SELECTED_STATIONS_OPACITY},
         unselected={'marker_opacity': UNSELECTED_STATIONS_OPACITY},
+        marker_sizemode='area',
     )
 
     fig.update_layout(
-        mapbox_style="open-street-map",
+        mapbox_style=DEFAULT_MAPBOX_STYLE,
         margin={'autoexpand': True, 'r': 0, 't': 40, 'l': 0, 'b': 0},
         # width=1100, height=700,
         autosize=True,
@@ -168,28 +182,62 @@ def get_bbox_selection_div():
     """
     bbox_selection_div = html.Div(id='bbox-selection-div', style={'margin-top': '15px'}, children=[
         html.Div(className='row', children=[
-            html.Div(className='three columns, offset-by-six columns', children=[
-                dcc.Input(id=LAT_MAX_ID, style={'width': '120%'}, placeholder='lat max', type='number', min=-90, max=90),  # , step=0.01),
-            ]),
+            html.Div(
+                className='three columns, offset-by-six columns',
+                children=dcc.Input(
+                    id=LAT_MAX_ID,
+                    style={'width': '120%'},
+                    placeholder='lat max',
+                    type='number',
+                    debounce=True,
+                    min=-90, max=90,
+                    **get_dash_persistence_kwargs(persistence_id=True)
+                ),  # , step=0.01),
+            ),
         ]),
         html.Div(className='row', children=[
             html.Div(className='three columns',
                      children=html.P(children='Bounding box:', style={'width': '100%', 'font-weight': 'bold'})),
-            html.Div(className='three columns',
-                     children=dcc.Input(style={'width': '120%'}, id=LON_MIN_ID, placeholder='lon min', type='number',
-                                        min=-180, max=180),  # , step=0.01),
-                     ),
-            html.Div(className='offset-by-three columns, three columns',
-                     children=dcc.Input(style={'width': '120%'}, id=LON_MAX_ID, placeholder='lon max', type='number',
-                                        min=-180, max=180),  # , step=0.01),
-                     ),
+            html.Div(
+                className='three columns',
+                children=dcc.Input(
+                    style={'width': '120%'},
+                    id=LON_MIN_ID,
+                    placeholder='lon min',
+                    type='number',
+                    debounce=True,
+                    min=-180, max=180,
+                    ** get_dash_persistence_kwargs(persistence_id=True)
+                ),  # , step=0.01),
+            ),
+            html.Div(
+                className='offset-by-three columns, three columns',
+                children=dcc.Input(
+                    style={'width': '120%'},
+                    id=LON_MAX_ID,
+                    placeholder='lon max',
+                    type='number',
+                    debounce=True,
+                    min=-180, max=180,
+                    **get_dash_persistence_kwargs(persistence_id=True)
+                ),  # , step=0.01),
+            ),
         ]),
-        html.Div(className='row', children=[
-            html.Div(className='offset-by-six columns, three columns',
-                     children=dcc.Input(style={'width': '120%'}, id=LAT_MIN_ID, placeholder='lat min', type='number',
-                                        min=-90, max=90),  # , step=0.01),
-                     ),
-        ]),
+        html.Div(
+            className='row',
+            children=html.Div(
+                className='offset-by-six columns, three columns',
+                children=dcc.Input(
+                    style={'width': '120%'},
+                    id=LAT_MIN_ID,
+                    placeholder='lat min',
+                    type='number',
+                    debounce=True,
+                    min=-90, max=90,
+                    **get_dash_persistence_kwargs(persistence_id=True)
+                ),  # , step=0.01),
+            ),
+        ),
     ])
     return bbox_selection_div
 
@@ -220,25 +268,46 @@ def get_search_datasets_tab():
                                                  style={'font-weight': 'bold'},
                                                  children='Search datasets')),
 
-                    html.Div(id='search-datasets-left-panel-cont-div', className='twelve columns',
-                             style={'margin-top': '20px'},
-                             children=[
-                                 html.Div(children=[
-                                     html.P('Date range:', style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}),
-                                     dcc.DatePickerRange(
-                                         id='my-date-picker-range',
-                                         min_date_allowed=datetime.date(1900, 1, 1),
-                                         max_date_allowed=datetime.date(2022, 12, 31),
-                                         initial_visible_month=datetime.date(2017, 8, 5),
-                                         end_date=datetime.date(2017, 8, 25)
-                                     ),
-                                 ]),
-                                 get_bbox_selection_div(),
-                                 dbc.Button(
-                                     id=SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID,
-                                     children='Reset station selection',
-                                 )
-                             ]),
+                    html.Div(
+                        id='search-datasets-left-panel-cont-div', className='twelve columns',
+                        style={'margin-top': '20px'},
+                        children=[
+                            html.Div(children=[
+                                html.P(
+                                    'Date range:',
+                                    style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}
+                                ),
+                                dcc.DatePickerRange(
+                                    id='my-date-picker-range',
+                                    min_date_allowed=datetime.date(1900, 1, 1),
+                                    max_date_allowed=datetime.date(2022, 12, 31),
+                                    initial_visible_month=datetime.date(2017, 8, 5),
+                                    end_date=datetime.date(2017, 8, 25)
+                                ),
+                            ]),
+                            get_bbox_selection_div(),
+                            dbc.Button(
+                                id=SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID,
+                                color='primary',
+                                type='submit',
+                                style={'font-weight': 'bold'},
+                                children='Reset station selection',
+                            ),
+                            dbc.InputGroup([
+                                dbc.InputGroupText('Map background: '),
+                                dbc.RadioItems(
+                                    id=MAP_BACKGROUND_RADIO_ID,
+                                    options=[
+                                        {'label': label, 'value': value}
+                                        for value, label in MAPBOX_STYLES.items()
+                                    ],
+                                    value=DEFAULT_MAPBOX_STYLE,
+                                    inline=True,
+                                    **get_dash_persistence_kwargs(persistence_id=True)
+                                )
+                            ])
+                        ]
+                    )
                 ]),
                 html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
                     get_stations_map(),
@@ -248,8 +317,12 @@ def get_search_datasets_tab():
                         children=[
                              html.P('Selected stations (you can refine your selection)',
                                     style={'font-weight': 'bold'}),
-                             dcc.Dropdown(id=SELECTED_STATIONS_DROPDOWN_ID, multi=True,
-                                          clearable=False),
+                             dcc.Dropdown(
+                                 id=SELECTED_STATIONS_DROPDOWN_ID,
+                                 multi=True,
+                                 clearable=False,
+                                 #**get_dash_persistence_kwargs(persistence_id=True)
+                             ),
                         ]
                     ),
                 ]),

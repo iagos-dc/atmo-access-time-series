@@ -13,9 +13,11 @@ from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
-    SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, CATEGORY_ORDER
+    SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE, \
+    CATEGORY_ORDER, MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES
 from log import logger, log_exception, log_exectime
 from data_processing.utils import points_inside_polygons
+from utils.helper import all_is_None
 
 
 DEBUG_GET_DATASETS = False
@@ -35,24 +37,41 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
 
 
 @callback(
+    Output(SEARCH_DATASETS_BUTTON_ID, 'disabled'),
+    Input(SELECTED_STATIONS_STORE_ID, 'data'),
+    Input(VARIABLES_CHECKLIST_ID, 'value'),
+)
+@log_exception
+def search_datasets(selected_stations_idx, selected_variables):
+    return not (selected_stations_idx and selected_variables)
+
+
+@callback(
+    Output(STATIONS_MAP_ID, 'figure', allow_duplicate=True),
+    Input(MAP_BACKGROUND_RADIO_ID, 'value'),
+    prevent_initial_call='initial_duplicate'
+)
+@log_exception
+def change_map_background(map_background):
+    if map_background not in MAPBOX_STYLES:
+        raise dash.exceptions.PreventUpdate
+    patched_fig = Patch()
+    patched_fig['layout']['mapbox']['style'] = map_background
+    return patched_fig
+
+
+@callback(
     Output(DATASETS_STORE_ID, 'data'),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(VARIABLES_CHECKLIST_ID, 'value'),
-    State(LON_MIN_ID, 'value'),
-    State(LON_MAX_ID, 'value'),
-    State(LAT_MIN_ID, 'value'),
-    State(LAT_MAX_ID, 'value'),
-    State(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
-    State(DATASETS_STORE_ID, 'data'),  # TODO: if no station or variable selected, do not launch Search datasets action; instead, return an old data
+    State(SELECTED_STATIONS_STORE_ID, 'data'),
+    prevent_initial_call=True
 )
 @log_exception
 #@log_exectime
-def search_datasets(
-        n_clicks, selected_variables, lon_min, lon_max, lat_min, lat_max,
-        selected_stations_idx, previous_datasets_json
-):
-    if selected_stations_idx is None:
-        selected_stations_idx = []
+def search_datasets(n_clicks, selected_variables, selected_stations_idx):
+    if not (selected_stations_idx and selected_variables):
+        raise dash.exceptions.PreventUpdate
 
     empty_datasets_df = pd.DataFrame(
         columns=['title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes', 'ecv_variables_filtered',
@@ -60,12 +79,7 @@ def search_datasets(
                  'platform_id_RI', 'id']
     )   # TODO: do it cleanly
 
-    if not selected_variables or None in [lon_min, lon_max, lat_min, lat_max]:
-        if previous_datasets_json is not None:
-            datasets_json = previous_datasets_json
-        else:
-            datasets_json = empty_datasets_df.to_json(orient='split', date_format='iso')
-        return datasets_json
+    lon_min, lon_max, lat_min, lat_max = _get_bounding_box(selected_stations_idx)
 
     datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
     if DEBUG_GET_DATASETS:
@@ -110,15 +124,18 @@ def _get_selected_points(selected_stations):
     return pd.DataFrame.from_records(points, index='idx', columns=['idx', 'lon', 'lat'])
 
 
-def _get_bounding_box(selected_points_df):
+def _get_bounding_box(s):
+    selected_points_df = stations.loc[s]
+
     # decimal precision for bounding box coordinates (lon/lat)
-    decimal_precision = 2
+    decimal_precision = 1
 
     lon_min, lon_max, lat_min, lat_max = np.inf, -np.inf, np.inf, -np.inf
 
     if len(selected_points_df) > 0:
-        # find bouding box for selected points
-        epsilon = 0.001  # precision margin for filtering on lon/lat of stations later on
+        # find bounding box for selected points
+        # epsilon = np.power(10., -decimal_precision)  # precision margin for filtering on lon/lat of stations later on
+        epsilon = 0
         lon_min2, lon_max2 = selected_points_df['longitude'].min() - epsilon, selected_points_df['longitude'].max() + epsilon
         lat_min2, lat_max2 = selected_points_df['latitude'].min() - epsilon, selected_points_df['latitude'].max() + epsilon
 
@@ -128,40 +145,75 @@ def _get_bounding_box(selected_points_df):
 
     if not np.all(np.isfinite([lon_min, lon_max, lat_min, lat_max])):
         return [None] * 4
-    return [round(coord, decimal_precision) for coord in (lon_min, lon_max, lat_min, lat_max)]
+    # return [round(coord, decimal_precision) for coord in (lon_min, lon_max, lat_min, lat_max)]
+    epsilon = np.power(10., -decimal_precision)
+    magnitude = np.power(10., decimal_precision)
+    return \
+        np.floor(lon_min * magnitude) * epsilon, \
+        np.ceil(lon_max * magnitude) * epsilon, \
+        np.floor(lat_min * magnitude) * epsilon, \
+        np.ceil(lat_max * magnitude) * epsilon,
 
 
-def _get_selected_stations_dropdown(selected_stations_df):
+def _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options):
     df = selected_stations_df
     labels = df['short_name'] + ' (' + df['long_name'] + ', ' + df['RI'] + ')'
-    options = labels.rename('label').reset_index().rename(columns={'index': 'value'})
-    return options.to_dict(orient='records'), list(options['value'])
+    values = labels.index.to_list()
+    options = labels.to_dict()
+    if stations_dropdown_options is not None:
+        existing_options = {opt['value']: opt['label'] for opt in stations_dropdown_options}
+        options.update(existing_options)
+    options = [{'value': value, 'label': label} for value, label in options.items()]
+    return options, values
+    # options = labels.rename('label').reset_index().rename(columns={'index': 'value'})
+    # return options.to_dict(orient='records'), list(options['value'])
 
 
 @callback(
     Output(SELECTED_STATIONS_STORE_ID, 'data'),
     Output(STATIONS_MAP_ID, 'figure'),
+    Output(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
+    Output(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
     Output(LON_MIN_ID, 'value'),
     Output(LON_MAX_ID, 'value'),
     Output(LAT_MIN_ID, 'value'),
     Output(LAT_MAX_ID, 'value'),
-    Output(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
-    Output(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
     Input(SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, 'n_clicks'),
     Input(STATIONS_MAP_ID, 'selectedData'),
     Input(STATIONS_MAP_ID, 'clickData'),
     Input(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
+    Input(LON_MIN_ID, 'value'),
+    Input(LON_MAX_ID, 'value'),
+    Input(LAT_MIN_ID, 'value'),
+    Input(LAT_MAX_ID, 'value'),
     State(SELECTED_STATIONS_STORE_ID, 'data'),
-    State(STATIONS_MAP_ID, 'figure'),
+    State(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
 )
 @log_exception
-def get_selected_stations_bbox_and_dropdown(reset_stations_button, selected_data, click_data, stations_dropdown, s, fig):
-    print(fig)
+def get_selected_stations_bbox_and_dropdown(
+        reset_stations_button,
+        selected_data,
+        click_data,
+        stations_dropdown,
+        lon_min, lon_max, lat_min, lat_max,
+        s,
+        stations_dropdown_options):
+    print(stations_dropdown)
+    print(stations_dropdown_options)
 
     ctx = list(dash.ctx.triggered_prop_ids.values())
+    print(f'map_ctx={ctx}')
+    print(f'bbox={lon_min, lon_max, lat_min, lat_max}')
+
+    if SELECTED_STATIONS_DROPDOWN_ID in ctx and stations_dropdown is not None:
+        s = sorted(stations_dropdown)
 
     if SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID in ctx:
         s = None
+        lon_min, lon_max, lat_min, lat_max = (None,) * 4
+        new_lon_min, new_lon_max, new_lat_min, new_lat_max = (None, ) * 4
+    else:
+        new_lon_min, new_lon_max, new_lat_min, new_lat_max = (dash.no_update, ) * 4
 
     if STATIONS_MAP_ID in ctx and selected_data and 'points' in selected_data and len(selected_data['points']) > 0:
         if 'range' in selected_data or 'lassoPoints' in selected_data:
@@ -189,23 +241,56 @@ def get_selected_stations_bbox_and_dropdown(reset_stations_button, selected_data
             s2 = [p['customdata'][0] for p in click_data['points']]
             s = sorted(set(s if s is not None else []).symmetric_difference(s2))
 
+    if set([LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID]).isdisjoint(ctx):
+        # the callback was not fired by user's input on bbox, so we possibly enlarge the bbox to fit all selected stations
+        if s is not None and len(s) > 0:
+            stations_lon_min, stations_lon_max, stations_lat_min, stations_lat_max = _get_bounding_box(s)
+            print(stations_lon_min, stations_lon_max, stations_lat_min, stations_lat_max)
+            if lon_min is not None and stations_lon_min < lon_min:
+                new_lon_min = stations_lon_min
+            if lon_max is not None and stations_lon_max > lon_max:
+                new_lon_max = stations_lon_max
+            if lat_min is not None and stations_lat_min < lat_min:
+                new_lat_min = stations_lat_min
+            if lat_max is not None and stations_lat_max > lat_max:
+                new_lat_max = stations_lat_max
+    elif not all_is_None(lon_min, lon_max, lat_min, lat_max):
+        # the callback was fired by user's input to bbox, and bbox is not all None
+        # so we apply restriction of selected stations to the bbox
+        selected_stations_df = stations.loc[s] if s is not None else stations
+        lon = selected_stations_df['longitude']
+        lat = selected_stations_df['latitude']
+        bbox_cond = True
+        if lon_min is not None:
+            bbox_cond = bbox_cond & (lon >= lon_min)
+        if lon_max is not None:
+            bbox_cond = bbox_cond & (lon <= lon_max)
+        if lat_min is not None:
+            bbox_cond = bbox_cond & (lat >= lat_min)
+        if lat_max is not None:
+            bbox_cond = bbox_cond & (lat <= lat_max)
+        s = sorted(bbox_cond[bbox_cond].index)
+
     patched_fig = Patch()
     opacity = pd.Series(UNSELECTED_STATIONS_OPACITY, index=stations.index)
+    size = pd.Series(UNSELECTED_STATIONS_SIZE, index=stations.index)
     if s is not None:
         opacity.loc[s] = SELECTED_STATIONS_OPACITY
+        size.loc[s] = SELECTED_STATIONS_SIZE
     else:
         opacity.loc[:] = SELECTED_STATIONS_OPACITY
+        size.loc[:] = 7
 
-    df = pd.DataFrame({'RI': stations['RI'], 'opacity': opacity})
+    df = pd.DataFrame({'RI': stations['RI'], 'opacity': opacity, 'size': size})
     for i, c in enumerate(CATEGORY_ORDER):
-        opacity_for_c = df[df['RI'] == c]['opacity']
+        df_for_c = df[df['RI'] == c]
+        opacity_for_c = df_for_c['opacity']
+        size_for_c = df_for_c['size']
         patched_fig['data'][i]['marker']['opacity'] = opacity_for_c.values
+        patched_fig['data'][i]['marker']['size'] = size_for_c.values
         patched_fig['data'][i]['selectedpoints'] = None
-        #ss = opacity_for_c.reset_index(drop=True)
-        #patched_fig['data'][i]['selectedpoints'] = ss[ss == SELECTED_STATIONS_OPACITY].index
 
     selected_stations_df = stations.loc[s] if s is not None else stations.loc[[]]
-    bbox = _get_bounding_box(selected_stations_df)
-    selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df)
+    selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options)
 
-    return [s, patched_fig] + bbox + [selected_stations_dropdown_options, selected_stations_dropdown_value]
+    return s, patched_fig, selected_stations_dropdown_options, selected_stations_dropdown_value, new_lon_min, new_lon_max, new_lat_min, new_lat_max

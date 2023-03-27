@@ -2,6 +2,10 @@ def any_is_None(*items):
     return any(map(lambda item: item is None, items))
 
 
+def all_is_None(*items):
+    return all(map(lambda item: item is None, items))
+
+
 def ensurelist(obj):
     if isinstance(obj, list):
         return obj
