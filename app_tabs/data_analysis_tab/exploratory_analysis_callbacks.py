@@ -36,7 +36,7 @@ def get_extra_parameters(analysis_method):
         return (
             exploratory_analysis_layout.aggregation_period_input,
             common_layout.minimal_sample_size_input,
-            None
+            [],  # children=None instead of [] does not work
         )
     else:
         raise RuntimeError(f'invalid analysis method: {analysis_method}')

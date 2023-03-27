@@ -130,7 +130,7 @@ def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_no
 @log_exception
 def popup_graphs(active_cell, datasets_json):
     if datasets_json is None or active_cell is None:
-        return None
+        return []  # children=None instead of [] does not work
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     ds_md = datasets_df.loc[active_cell['row_id']]

@@ -72,10 +72,10 @@ def get_multivariate_analysis_variables_cardbody_callback(analysis_method, filte
 @log_exception
 def get_extra_parameters(plot_type, c_variable, c_variable_disabled):
     if plot_type == multivariate_analysis_layout.INDIVIDUAL_OBSERVATIONS_PLOT:
-        return None, None
+        return [], []  # children=None instead of [] does not work
     elif plot_type == multivariate_analysis_layout.HEXBIN_PLOT:
         if c_variable == '---' or c_variable_disabled:
-            return multivariate_analysis_layout.hexbin_plot_resolution_slider, None
+            return multivariate_analysis_layout.hexbin_plot_resolution_slider, []  # children=None instead of [] does not work
         else:
             return (
                 multivariate_analysis_layout.hexbin_plot_resolution_slider,

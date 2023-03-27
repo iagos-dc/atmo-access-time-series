@@ -189,7 +189,7 @@ def update_histograms_callback(
 @log_exception
 def data_filtering_create_layout_callback(integrate_datasets_request):
     if integrate_datasets_request is None:
-        return None
+        return []  # children=None instead of [] does not work
 
     req = data_processing.IntegrateDatasetsRequest.from_dict(integrate_datasets_request)
     ds = req.compute()
