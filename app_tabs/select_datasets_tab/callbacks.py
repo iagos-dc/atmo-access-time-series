@@ -19,7 +19,6 @@ from utils import charts
 
 @callback(
     Output(GANTT_GRAPH_ID, 'figure'),
-    Output(GANTT_GRAPH_ID, 'selectedData'),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
     Input(APP_TABS_ID, 'value'),
@@ -31,13 +30,13 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab):
     selectedData = {'points': []}
 
     if datasets_json is None:
-       return {}, selectedData   # empty figure; TODO: is it a right way?
+       return {}   # empty figure; TODO: is it a right way?
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
 
     if len(datasets_df) == 0:
-       return {}, selectedData   # empty figure; TODO: is it a right way?
+       return {}   # empty figure; TODO: is it a right way?
 
     if gantt_view_type == 'compact':
         fig = charts._get_timeline_by_station(datasets_df)
@@ -48,7 +47,12 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab):
         #mode='markers+text', marker={'color': 'rgba(0, 116, 217, 0.7)', 'size': 20},
         unselected={'marker': {'opacity': 0.4}, }
     )
-    return fig, selectedData
+
+    fig.update_layout(
+        selectionrevision=False
+    )
+
+    return fig
 
 
 @callback(
@@ -118,6 +122,7 @@ def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_no
         idx = idx.loc[selected_row_ids]
         selected_row_ids = idx.index.to_list()
         selected_rows = idx['n'].to_list()
+
     return table_columns, table_data, selected_rows, selected_row_ids
 
 
@@ -216,6 +221,15 @@ def download_csv(n_clicks, ds_md_json):
         return dcc.send_data_frame(df.to_csv, download_filename)
     except Exception as e:
         logger().exception(f'Failed to download the dataset {ds_md_json}', exc_info=e)
+
+
+@callback(
+    Output(SELECT_DATASETS_BUTTON_ID, 'disabled'),
+    Input(DATASETS_TABLE_ID, 'selected_row_ids'),
+)
+@log_exception
+def select_datasets_button_disabled(selected_row_ids):
+    return not selected_row_ids
 
 
 @callback(

@@ -42,7 +42,7 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
     Input(VARIABLES_CHECKLIST_ID, 'value'),
 )
 @log_exception
-def search_datasets(selected_stations_idx, selected_variables):
+def search_datasets_button_disabled(selected_stations_idx, selected_variables):
     return not (selected_stations_idx and selected_variables)
 
 

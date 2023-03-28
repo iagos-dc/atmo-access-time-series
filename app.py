@@ -22,6 +22,7 @@ from app_tabs.filter_data_tab.layout import FILTER_DATA_TAB_VALUE, FILTER_DATA_B
 from app_tabs.data_analysis_tab.tabs_layout import DATA_ANALYSIS_TAB_VALUE, \
     get_data_analysis_tab
 from log import log_exception
+from utils.dash_persistence import get_dash_persistence_kwargs
 
 
 # logos
@@ -68,7 +69,8 @@ def get_dashboard_layout(app):
             get_select_datasets_tab(),
             get_filter_data_tab(),
             get_data_analysis_tab(),
-        ]
+        ],
+        **get_dash_persistence_kwargs(persistence_id=True)
     )
 
     layout = html.Div(
