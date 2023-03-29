@@ -1,13 +1,14 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
-from app_tabs.common.layout import get_tooltip
-
+from app_tabs.common.layout import get_tooltip, FILTER_DATA_TAB_VALUE
 
 FILTER_TAB_CONTAINER_ROW_ID = 'filter-tab-container-row'
     # 'children' contains a layout of the filter tab
 FILTER_TYPE_RADIO_ID = 'filter_type_radio'
 FILTER_TIME_CONINCIDENCE_SELECT_ID = 'filter_time_coincidence_select'
+
+FILTER_DATA_BUTTON_ID = 'filter-data-button'
 
 
 def get_log_axis_switches(i):
@@ -125,14 +126,12 @@ def get_filtering_type_radio():
     return cols
 
 
-FILTER_DATA_TAB_VALUE = 'filter-data-tab'
-FILTER_DATA_BUTTON_ID = 'filter-data-button'
-
-
 def get_filter_data_tab():
     return dcc.Tab(
         label='Filter data',
+        id=FILTER_DATA_TAB_VALUE,
         value=FILTER_DATA_TAB_VALUE,
+        disabled=True,
         children=html.Div(
             style={'margin': '20px'},
             children=dbc.Container(

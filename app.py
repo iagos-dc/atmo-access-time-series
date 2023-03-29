@@ -11,16 +11,15 @@ import dash_bootstrap_components as dbc
 
 
 # Local imports
-from app_tabs.common.layout import get_app_data_stores, APP_TABS_ID
-from app_tabs.information_tab.layout import INFORMATION_TAB_VALUE, get_information_tab
-from app_tabs.search_datasets_tab.layout import SEARCH_DATASETS_BUTTON_ID, \
-    get_search_datasets_tab
-from app_tabs.select_datasets_tab.layout import SELECT_DATASETS_TAB_VALUE, SELECT_DATASETS_BUTTON_ID, \
+from app_tabs.common.layout import get_app_data_stores, APP_TABS_ID, DATA_ANALYSIS_TAB_VALUE, \
+    FILTER_DATA_TAB_VALUE, INFORMATION_TAB_VALUE
+from app_tabs.information_tab.layout import get_information_tab
+from app_tabs.search_datasets_tab.layout import get_search_datasets_tab
+from app_tabs.select_datasets_tab.layout import SELECT_DATASETS_BUTTON_ID, \
     get_select_datasets_tab
-from app_tabs.filter_data_tab.layout import FILTER_DATA_TAB_VALUE, FILTER_DATA_BUTTON_ID, \
+from app_tabs.filter_data_tab.layout import FILTER_DATA_BUTTON_ID, \
     get_filter_data_tab
-from app_tabs.data_analysis_tab.tabs_layout import DATA_ANALYSIS_TAB_VALUE, \
-    get_data_analysis_tab
+from app_tabs.data_analysis_tab.tabs_layout import get_data_analysis_tab
 from log import log_exception
 from utils.dash_persistence import get_dash_persistence_kwargs
 
@@ -112,28 +111,6 @@ app.layout = get_dashboard_layout(app)
 # for a basic tutorial and
 # https://dash.plotly.com/  -->  Dash Callback in left menu
 # for more detailed documentation
-
-@app.callback(
-    Output(APP_TABS_ID, 'value'),
-    Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
-    Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
-    Input(FILTER_DATA_BUTTON_ID, 'n_clicks')
-)
-@log_exception
-def change_app_tab(
-        search_datasets_button_clicks,
-        select_datasets_button_clicks,
-        filter_data_button_clicks
-):
-    trigger = dash.ctx.triggered_id
-    if trigger == SEARCH_DATASETS_BUTTON_ID:
-        return SELECT_DATASETS_TAB_VALUE
-    elif trigger == SELECT_DATASETS_BUTTON_ID:
-        return FILTER_DATA_TAB_VALUE
-    elif trigger == FILTER_DATA_BUTTON_ID:
-        return DATA_ANALYSIS_TAB_VALUE
-    else:
-        raise dash.exceptions.PreventUpdate
 
 
 # Launch the Dash application in development mode

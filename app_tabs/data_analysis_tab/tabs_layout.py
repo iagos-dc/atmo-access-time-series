@@ -1,7 +1,8 @@
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
-DATA_ANALYSIS_TAB_VALUE = 'data-analysis-tab'
+from app_tabs.common.layout import DATA_ANALYSIS_TAB_VALUE
+
 KIND_OF_ANALYSIS_TABS_ID = 'kind-of-analysis-tabs'
 DATA_ANALYSIS_PARAMETERS_CARDBODY_ID = 'data-analysis-parameters-cardbody'
 DATA_ANALYSIS_FIGURE_CONTAINER_ID = 'data-analysis-figure-container'
@@ -60,7 +61,9 @@ def get_data_analysis_tab():
 
     data_analysis_tab = dcc.Tab(
         label='Data analysis',
+        id=DATA_ANALYSIS_TAB_VALUE,
         value=DATA_ANALYSIS_TAB_VALUE,
+        disabled=True,
         children=[
             html.Div(
                 style={

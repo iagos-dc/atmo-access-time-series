@@ -7,6 +7,7 @@ from dash.exceptions import PreventUpdate
 
 import data_processing
 from data_processing import metadata
+from app_tabs.common.layout import FILTER_DATA_TAB_VALUE, APP_TABS_ID, DATA_ANALYSIS_TAB_VALUE
 from .layout import FILTER_TIME_CONINCIDENCE_SELECT_ID, FILTER_TYPE_RADIO_ID, \
     FILTER_TAB_CONTAINER_ROW_ID, FILTER_DATA_BUTTON_ID, \
     get_time_granularity_radio, get_log_axis_switches, get_nbars_slider
@@ -19,6 +20,15 @@ from log import log_exception
 
 
 DATA_FILTER_AIO_CLASS = 'data_filter'
+
+
+@callback(
+    Output(FILTER_DATA_TAB_VALUE, 'disabled'),
+    Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
+)
+@log_exception
+def enable_filter_data_tab(integrate_datasets_request):
+    return integrate_datasets_request is None
 
 
 def _get_min_max_time(da_by_var):
@@ -294,6 +304,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request):
 # TODO: lots of duplications with utils.crossfiltering.update_histograms_callback
 @callback(
     Output(FILTER_DATA_REQUEST_ID, 'data'),
+    Output(APP_TABS_ID, 'value', allow_duplicate=True),
     Input(FILTER_DATA_BUTTON_ID, 'n_clicks'),
     State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     State(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
@@ -340,4 +351,4 @@ def filter_data_callback(
 
     filter_data_req.compute()
 
-    return filter_data_req.to_dict()
+    return filter_data_req.to_dict(), DATA_ANALYSIS_TAB_VALUE

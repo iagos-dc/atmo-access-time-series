@@ -3,10 +3,10 @@ import datetime
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 from plotly import express as px, graph_objects as go
-import plotly.colors
 
 import data_access
 from app_tabs.common.data import stations
+from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE
 from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX, rgb_to_rgba
 from utils.dash_persistence import get_dash_persistence_kwargs
 
@@ -28,7 +28,6 @@ LON_MAX_ID = 'lon-max'
 LON_MIN_ID = 'lon-min'
 # 'value' contains a number (or None)
 
-SEARCH_DATASETS_TAB_VALUE = 'search-datasets-tab'
 VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID = 'variables-checklist-all-none-switch'
 
 SELECTED_STATIONS_DROPDOWN_ID = 'selected-stations-dropdown'
@@ -245,6 +244,7 @@ def get_bbox_selection_div():
 def get_search_datasets_tab():
     return dcc.Tab(
         label='Search datasets',
+        id=SEARCH_DATASETS_TAB_VALUE,
         value=SEARCH_DATASETS_TAB_VALUE,
         children=html.Div(
             style={'margin': '20px'},

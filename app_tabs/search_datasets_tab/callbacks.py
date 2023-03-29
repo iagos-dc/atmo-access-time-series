@@ -9,7 +9,7 @@ from dash import Output, Input, State, Patch, callback
 import data_access
 import data_access.common
 from app_tabs.common.data import stations
-from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID
+from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID, APP_TABS_ID, SELECT_DATASETS_TAB_VALUE
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
@@ -62,6 +62,7 @@ def change_map_background(map_background):
 
 @callback(
     Output(DATASETS_STORE_ID, 'data'),
+    Output(APP_TABS_ID, 'value', allow_duplicate=True),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(VARIABLES_CHECKLIST_ID, 'value'),
     State(SELECTED_STATIONS_STORE_ID, 'data'),
@@ -74,9 +75,11 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx):
         raise dash.exceptions.PreventUpdate
 
     empty_datasets_df = pd.DataFrame(
-        columns=['title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes', 'ecv_variables_filtered',
-                 'std_ecv_variables_filtered', 'var_codes_filtered', 'time_period_start', 'time_period_end',
-                 'platform_id_RI', 'id']
+        columns=[
+            'title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes', 'ecv_variables_filtered',
+            'std_ecv_variables_filtered', 'var_codes_filtered', 'time_period_start', 'time_period_end',
+            'platform_id_RI', 'id'
+        ]
     )   # TODO: do it cleanly
 
     lon_min, lon_max, lat_min, lat_max = _get_bounding_box(selected_stations_idx)
@@ -111,7 +114,9 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx):
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
     datasets_df_filtered['id'] = datasets_df_filtered.index
 
-    return datasets_df_filtered.to_json(orient='split', date_format='iso')
+    new_tab = SELECT_DATASETS_TAB_VALUE if len(datasets_df_filtered) > 0 else dash.no_update
+
+    return datasets_df_filtered.to_json(orient='split', date_format='iso'), new_tab
 
 
 def _get_selected_points(selected_stations):

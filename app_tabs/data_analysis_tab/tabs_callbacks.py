@@ -1,6 +1,7 @@
 from dash import Input, callback, Output
 import dash_bootstrap_components as dbc
 
+from app_tabs.common.layout import FILTER_DATA_REQUEST_ID, DATA_ANALYSIS_TAB_VALUE
 from app_tabs.data_analysis_tab.tabs_layout import DATA_ANALYSIS_PARAMETERS_CARDBODY_ID, DATA_ANALYSIS_FIGURE_CONTAINER_ID, \
     KIND_OF_ANALYSIS_TABS_ID, EXPLORATORY_ANALYSIS_TAB_ID, TREND_ANALYSIS_TAB_ID, MULTIVARIATE_ANALYSIS_TAB_ID, BORDER_STYLE
 from app_tabs.data_analysis_tab.exploratory_analysis_layout import exploratory_analysis_cardbody, \
@@ -8,6 +9,15 @@ from app_tabs.data_analysis_tab.exploratory_analysis_layout import exploratory_a
 from app_tabs.data_analysis_tab.trend_analysis_layout import get_time_filter, get_trend_analysis_cardbody, trend_graph, autocorrelation_graph, trend_summary_bar_graph
 from app_tabs.data_analysis_tab.multivariate_analysis_layout import multivariate_analysis_cardbody, multivariate_plot
 from log import log_exception
+
+
+@callback(
+    Output(DATA_ANALYSIS_TAB_VALUE, 'disabled'),
+    Input(FILTER_DATA_REQUEST_ID, 'data'),
+)
+@log_exception
+def enable_data_analysis_tab(filter_data_request):
+    return filter_data_request is None
 
 
 @callback(

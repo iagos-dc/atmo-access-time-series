@@ -10,7 +10,8 @@ import data_access
 import data_processing
 import data_processing.utils
 from app_tabs.common.data import station_by_shortnameRI
-from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID
+from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID, \
+    GANTT_SELECTED_ITEMS_STORE_ID, FILTER_DATA_TAB_VALUE, SELECT_DATASETS_TAB_VALUE
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
     DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID
 from log import logger, log_exception, log_exectime
@@ -18,25 +19,47 @@ from utils import charts
 
 
 @callback(
+    Output(SELECT_DATASETS_TAB_VALUE, 'disabled'),
+    Input(DATASETS_STORE_ID, 'data'),
+)
+@log_exception
+def enable_select_datasets_tab(datasets_json):
+    return datasets_json is None
+
+
+@callback(
+    Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
+    Input(GANTT_GRAPH_ID, 'selectedData'),
+    Input(DATASETS_STORE_ID, 'data'),
+)
+@log_exception
+def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
+    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
+    print(f'get_gantt_selected_items_store::dash_ctx={dash_ctx}')
+    if DATASETS_STORE_ID in dash_ctx and GANTT_GRAPH_ID not in dash_ctx:
+        return {'points': []}
+    else:
+        return gantt_figure_selectedData
+
+
+@callback(
     Output(GANTT_GRAPH_ID, 'figure'),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
-    Input(APP_TABS_ID, 'value'),
+    State(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
 @log_exception
 #@log_exectime
-def get_gantt_figure(gantt_view_type, datasets_json, app_tab):
-    selectedData = {'points': []}
-
+def get_gantt_figure(gantt_view_type, datasets_json, gantt_figure_selectedData):
     if datasets_json is None:
-       return {}   # empty figure; TODO: is it a right way?
+       return charts.empty_figure()
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
 
     if len(datasets_df) == 0:
-       return {}   # empty figure; TODO: is it a right way?
+       return charts.empty_figure()
 
     if gantt_view_type == 'compact':
         fig = charts._get_timeline_by_station(datasets_df)
@@ -60,15 +83,21 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab):
     Output(DATASETS_TABLE_ID, 'data'),
     Output(DATASETS_TABLE_ID, 'selected_rows'),
     Output(DATASETS_TABLE_ID, 'selected_row_ids'),
-    Input(GANTT_GRAPH_ID, 'selectedData'),
+    Input(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
     Input(DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
     prevent_initial_call=True,
 )
 @log_exception
-def datasets_as_table(gantt_figure_selectedData, datasets_table_checklist_all_none_switch,
-                      datasets_json, previously_selected_row_ids):
+def datasets_as_table(
+        gantt_figure_selectedData,
+        datasets_table_checklist_all_none_switch,
+        datasets_json,
+        previously_selected_row_ids
+):
+    print(f'gantt_figure_selectedData={gantt_figure_selectedData}')
+
     table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
                      #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
                      ]
@@ -234,6 +263,7 @@ def select_datasets_button_disabled(selected_row_ids):
 
 @callback(
     Output(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
+    Output(APP_TABS_ID, 'value', allow_duplicate=True),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
@@ -242,7 +272,7 @@ def select_datasets_button_disabled(selected_row_ids):
 @log_exception
 def select_datasets(n_clicks, datasets_json, selected_row_ids):
     if datasets_json is None or selected_row_ids is None:
-        return None
+        raise dash.exceptions.PreventUpdate
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     ds_md = datasets_df.loc[selected_row_ids]
@@ -255,7 +285,11 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
         # req.compute()  ###
         read_dataset_requests.append(req)
 
+    if len(read_dataset_requests) == 0:
+        raise dash.exceptions.PreventUpdate  # TODO: instead, show a popup with the warning, that no datasets were found
+
     req = data_processing.IntegrateDatasetsRequest(read_dataset_requests)
     # TODO: do it asynchronously? will it work with dash/flask? look at options of @app.callback decorator (background=True, ???)
     req.compute()
-    return req.to_dict()
+
+    return req.to_dict(), FILTER_DATA_TAB_VALUE
