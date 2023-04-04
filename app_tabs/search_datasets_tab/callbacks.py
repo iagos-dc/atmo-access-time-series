@@ -14,7 +14,8 @@ from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLE
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
     SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE, \
-    CATEGORY_ORDER, MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES
+    MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES
+from utils.charts import CATEGORY_ORDER
 from log import logger, log_exception, log_exectime
 from data_processing.utils import points_inside_polygons
 from utils.helper import all_is_None
@@ -201,20 +202,18 @@ def get_selected_stations_bbox_and_dropdown(
         click_data,
         stations_dropdown,
         lon_min, lon_max, lat_min, lat_max,
-        s,
-        stations_dropdown_options):
-    print(stations_dropdown)
-    print(stations_dropdown_options)
-
+        selected_stations_idx,
+        stations_dropdown_options
+):
     ctx = list(dash.ctx.triggered_prop_ids.values())
-    print(f'map_ctx={ctx}')
-    print(f'bbox={lon_min, lon_max, lat_min, lat_max}')
+    # print(f'map_ctx={ctx}')
+    # print(f'bbox={lon_min, lon_max, lat_min, lat_max}')
 
     if SELECTED_STATIONS_DROPDOWN_ID in ctx and stations_dropdown is not None:
-        s = sorted(stations_dropdown)
+        selected_stations_idx = sorted(stations_dropdown)
 
     if SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID in ctx:
-        s = None
+        selected_stations_idx = None
         lon_min, lon_max, lat_min, lat_max = (None,) * 4
         new_lon_min, new_lon_max, new_lat_min, new_lat_max = (None, ) * 4
     else:
@@ -222,7 +221,12 @@ def get_selected_stations_bbox_and_dropdown(
 
     if STATIONS_MAP_ID in ctx and selected_data and 'points' in selected_data and len(selected_data['points']) > 0:
         if 'range' in selected_data or 'lassoPoints' in selected_data:
-            s2 = [p['customdata'][0] for p in selected_data['points']]
+            currently_selected_stations_on_map_idx = [p['customdata'][0] for p in selected_data['points']]
+            # it does not contain points from categories which were deselected on the legend
+            # however might contain points that we clicked on while keeping the key 'shift' pressed
+            # some of the latter might have been actually un-clicked (deselected)
+            # that's why we compute stations_in_current_selection_idx (indices of stations inside the current range
+            # or lasso selection, regardless their category is switched on or off)
             if 'range' in selected_data and 'mapbox' in selected_data['range']:
                 mapbox_range = selected_data['range']['mapbox']
                 try:
@@ -234,22 +238,26 @@ def get_selected_stations_bbox_and_dropdown(
                 lat1, lat2 = sorted([lat1, lat2])
                 lon = stations['longitude']
                 lat = stations['latitude']
-                s1 = stations[(lon >= lon1) & (lon <= lon2) & (lat >= lat1) & (lat <= lat2)].index
+                stations_in_current_selection_idx = stations[(lon >= lon1) & (lon <= lon2) & (lat >= lat1) & (lat <= lat2)].index
             elif 'lassoPoints' in selected_data and 'mapbox' in selected_data['lassoPoints']:
                 mapbox_lassoPoints = selected_data['lassoPoints']['mapbox']
                 mapbox_lassoPoints = np.array(mapbox_lassoPoints).T
                 points = np.array([stations['longitude'].values, stations['latitude'].values])
-                s1, = np.nonzero(points_inside_polygons(points, mapbox_lassoPoints))
-            s1 = set(s1).intersection(s2)
-            s = sorted(set(s if s is not None else []).union(s1))
-        elif click_data and 'points' in click_data:
-            s2 = [p['customdata'][0] for p in click_data['points']]
-            s = sorted(set(s if s is not None else []).symmetric_difference(s2))
+                stations_in_current_selection_idx, = np.nonzero(points_inside_polygons(points, mapbox_lassoPoints))
+            else:
+                stations_in_current_selection_idx = []
+            stations_in_current_selection_idx = set(stations_in_current_selection_idx).intersection(currently_selected_stations_on_map_idx)
+            # we take the intersection because some categories might be switched off on the legend
 
-    if set([LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID]).isdisjoint(ctx):
+            selected_stations_idx = sorted(set(selected_stations_idx if selected_stations_idx is not None else []).union(stations_in_current_selection_idx))
+        elif click_data and 'points' in click_data:
+            currently_selected_stations_on_map_idx = [p['customdata'][0] for p in click_data['points']]
+            selected_stations_idx = sorted(set(selected_stations_idx if selected_stations_idx is not None else []).symmetric_difference(currently_selected_stations_on_map_idx))
+
+    if {LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID}.isdisjoint(ctx):
         # the callback was not fired by user's input on bbox, so we possibly enlarge the bbox to fit all selected stations
-        if s is not None and len(s) > 0:
-            stations_lon_min, stations_lon_max, stations_lat_min, stations_lat_max = _get_bounding_box(s)
+        if selected_stations_idx is not None and len(selected_stations_idx) > 0:
+            stations_lon_min, stations_lon_max, stations_lat_min, stations_lat_max = _get_bounding_box(selected_stations_idx)
             print(stations_lon_min, stations_lon_max, stations_lat_min, stations_lat_max)
             if lon_min is not None and stations_lon_min < lon_min:
                 new_lon_min = stations_lon_min
@@ -262,7 +270,7 @@ def get_selected_stations_bbox_and_dropdown(
     elif not all_is_None(lon_min, lon_max, lat_min, lat_max):
         # the callback was fired by user's input to bbox, and bbox is not all None
         # so we apply restriction of selected stations to the bbox
-        selected_stations_df = stations.loc[s] if s is not None else stations
+        selected_stations_df = stations.loc[selected_stations_idx] if selected_stations_idx is not None else stations
         lon = selected_stations_df['longitude']
         lat = selected_stations_df['latitude']
         bbox_cond = True
@@ -274,14 +282,14 @@ def get_selected_stations_bbox_and_dropdown(
             bbox_cond = bbox_cond & (lat >= lat_min)
         if lat_max is not None:
             bbox_cond = bbox_cond & (lat <= lat_max)
-        s = sorted(bbox_cond[bbox_cond].index)
+        selected_stations_idx = sorted(bbox_cond[bbox_cond].index)
 
     patched_fig = Patch()
     opacity = pd.Series(UNSELECTED_STATIONS_OPACITY, index=stations.index)
     size = pd.Series(UNSELECTED_STATIONS_SIZE, index=stations.index)
-    if s is not None:
-        opacity.loc[s] = SELECTED_STATIONS_OPACITY
-        size.loc[s] = SELECTED_STATIONS_SIZE
+    if selected_stations_idx is not None:
+        opacity.loc[selected_stations_idx] = SELECTED_STATIONS_OPACITY
+        size.loc[selected_stations_idx] = SELECTED_STATIONS_SIZE
     else:
         opacity.loc[:] = SELECTED_STATIONS_OPACITY
         size.loc[:] = 7
@@ -295,7 +303,7 @@ def get_selected_stations_bbox_and_dropdown(
         patched_fig['data'][i]['marker']['size'] = size_for_c.values
         patched_fig['data'][i]['selectedpoints'] = None
 
-    selected_stations_df = stations.loc[s] if s is not None else stations.loc[[]]
+    selected_stations_df = stations.loc[selected_stations_idx] if selected_stations_idx is not None else stations.loc[[]]
     selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options)
 
-    return s, patched_fig, selected_stations_dropdown_options, selected_stations_dropdown_value, new_lon_min, new_lon_max, new_lat_min, new_lat_max
+    return selected_stations_idx, patched_fig, selected_stations_dropdown_options, selected_stations_dropdown_value, new_lon_min, new_lon_max, new_lat_min, new_lat_max

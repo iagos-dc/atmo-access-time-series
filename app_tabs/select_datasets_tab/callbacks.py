@@ -4,7 +4,7 @@ import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 import werkzeug.utils
-from dash import callback, Output, Input, State, dcc
+from dash import callback, Output, Input, State, Patch, dcc
 
 import data_access
 import data_processing
@@ -13,7 +13,8 @@ from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID, \
     GANTT_SELECTED_ITEMS_STORE_ID, FILTER_DATA_TAB_VALUE, SELECT_DATASETS_TAB_VALUE
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
-    DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID
+    DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
+    RESET_DATASETS_SELECTION_BUTTON_ID, SELECTED_GANTT_OPACITY, UNSELECTED_GANTT_OPACITY
 from log import logger, log_exception, log_exectime
 from utils import charts
 
@@ -27,11 +28,11 @@ def enable_select_datasets_tab(datasets_json):
     return datasets_json is None
 
 
-@callback(
-    Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
-    Input(GANTT_GRAPH_ID, 'selectedData'),
-    Input(DATASETS_STORE_ID, 'data'),
-)
+# @callback(
+#     Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
+#     Input(GANTT_GRAPH_ID, 'selectedData'),
+#     Input(DATASETS_STORE_ID, 'data'),
+# )
 @log_exception
 def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
@@ -44,6 +45,7 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
 
 @callback(
     Output(GANTT_GRAPH_ID, 'figure'),
+    Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data', allow_duplicate=True),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
     State(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
@@ -52,30 +54,76 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
 @log_exception
 #@log_exectime
 def get_gantt_figure(gantt_view_type, datasets_json, gantt_figure_selectedData):
+    # TODO: transfer gantt_figure_selectedData to that of output (now it is cleared)
     if datasets_json is None:
-       return charts.empty_figure()
+        return charts.empty_figure(), None
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
 
     if len(datasets_df) == 0:
-       return charts.empty_figure()
+       return charts.empty_figure(), None
 
     if gantt_view_type == 'compact':
         fig = charts._get_timeline_by_station(datasets_df)
     else:
         fig = charts._get_timeline_by_station_and_vars(datasets_df)
     fig.update_traces(
-        selectedpoints=[],
-        #mode='markers+text', marker={'color': 'rgba(0, 116, 217, 0.7)', 'size': 20},
-        unselected={'marker': {'opacity': 0.4}, }
+        selected={'marker_opacity': SELECTED_GANTT_OPACITY},
+        unselected={'marker_opacity': UNSELECTED_GANTT_OPACITY},
+        marker={'opacity': UNSELECTED_GANTT_OPACITY},
+        # unselected={'marker': {'opacity': 0.4}, }
+        # mode='markers+text', marker={'color': 'rgba(0, 116, 217, 0.7)', 'size': 20},
     )
 
     fig.update_layout(
-        selectionrevision=False
+        selectionrevision=False,
     )
 
-    return fig
+    return fig, None
+
+
+@callback(
+    Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
+    Output(GANTT_GRAPH_ID, 'figure', allow_duplicate=True),
+    Output(GANTT_GRAPH_ID, 'clickData'),
+    Input(RESET_DATASETS_SELECTION_BUTTON_ID, 'n_clicks'),
+    Input(GANTT_GRAPH_ID, 'clickData'),
+    Input(DATASETS_STORE_ID, 'data'),
+    State(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
+    prevent_initial_call=True,
+)
+@log_exception
+def update_selection_on_gantt_graph(
+        reset_datasets_selection_button,
+        click_data,
+        datasets_json,
+        selected_datasets,
+):
+    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
+
+    print(f'click_data={click_data}')
+
+    patched_fig = Patch()
+
+    if not {DATASETS_STORE_ID, RESET_DATASETS_SELECTION_BUTTON_ID}.isdisjoint(dash_ctx):
+        patched_fig['marker']['opacity'] = UNSELECTED_GANTT_OPACITY
+        return [], patched_fig, None
+
+    if GANTT_GRAPH_ID in dash_ctx and click_data is not None:
+        try:
+            click_datasets = click_data['points'][0]['customdata'][0]
+            trace_no = click_data['points'][0]['curveNumber']
+            point_index = click_data['points'][0]['pointIndex']
+        except Exception:
+            raise dash.exceptions.PreventUpdate
+        if selected_datasets is None:
+            selected_datasets = []
+        selected_datasets = sorted(set(selected_datasets).symmetric_difference(click_datasets))
+        patched_fig['data'][trace_no]['marker']['opacity'][point_index] = SELECTED_GANTT_OPACITY
+        return selected_datasets, patched_fig, None
+
+    raise dash.exceptions.PreventUpdate
 
 
 @callback(
@@ -91,13 +139,11 @@ def get_gantt_figure(gantt_view_type, datasets_json, gantt_figure_selectedData):
 )
 @log_exception
 def datasets_as_table(
-        gantt_figure_selectedData,
+        datasets_indices,
         datasets_table_checklist_all_none_switch,
         datasets_json,
         previously_selected_row_ids
 ):
-    print(f'gantt_figure_selectedData={gantt_figure_selectedData}')
-
     table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
                      #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
                      ]
@@ -120,11 +166,9 @@ def datasets_as_table(
     datasets_df = datasets_df.join(station_by_shortnameRI['long_name'], on='platform_id_RI')
 
     # filter on selected timeline bars on the Gantt figure
-    if gantt_figure_selectedData and 'points' in gantt_figure_selectedData:
+    if datasets_indices is None:
         datasets_indices = []
-        for timeline_bar in gantt_figure_selectedData['points']:
-            datasets_indices.extend(timeline_bar['customdata'][0])
-        datasets_df = datasets_df.iloc[datasets_indices]
+    datasets_df = datasets_df.iloc[datasets_indices]
 
     # on rendering HTML snipplets in DataTable cells:
     # https://github.com/plotly/dash-table/pull/916

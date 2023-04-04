@@ -7,7 +7,8 @@ from plotly import express as px, graph_objects as go
 import data_access
 from app_tabs.common.data import stations
 from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE
-from utils.charts import ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX, rgb_to_rgba
+from utils.charts import IAGOS_COLOR_HEX, rgb_to_rgba, CATEGORY_ORDER, \
+    COLOR_CATEGORY_ORDER
 from utils.dash_persistence import get_dash_persistence_kwargs
 
 
@@ -46,10 +47,6 @@ SELECTED_STATIONS_OPACITY = 1.
 SELECTED_STATIONS_SIZE = 10
 UNSELECTED_STATIONS_OPACITY = 0.5
 UNSELECTED_STATIONS_SIZE = 4
-
-CATEGORY_ORDER = ['ACTRIS', 'IAGOS', 'ICOS']
-COLOR_BY_CATEGORY = {'ACTRIS': ACTRIS_COLOR_HEX, 'IAGOS': IAGOS_COLOR_HEX, 'ICOS': ICOS_COLOR_HEX}
-COLOR_CATEGORY_ORDER = [COLOR_BY_CATEGORY[c] for c in CATEGORY_ORDER]
 
 MAPBOX_STYLES = {
     'open-street-map': 'open street map',

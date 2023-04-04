@@ -15,6 +15,10 @@ ACTRIS_COLOR_HEX = '#00adb7'
 IAGOS_COLOR_HEX = '#456096'
 ICOS_COLOR_HEX = '#ec165c'
 
+CATEGORY_ORDER = ['ACTRIS', 'IAGOS', 'ICOS']
+COLOR_BY_CATEGORY = {'ACTRIS': ACTRIS_COLOR_HEX, 'IAGOS': IAGOS_COLOR_HEX, 'ICOS': ICOS_COLOR_HEX}
+COLOR_CATEGORY_ORDER = [COLOR_BY_CATEGORY[c] for c in CATEGORY_ORDER]
+
 
 def rgb_to_rgba(rgb, opacity):
     rgb_tuple = None
@@ -168,12 +172,12 @@ def _get_timeline_by_station(datasets_df):
         hover_name='var_codes',
         hover_data={'station_fullname': True, 'platform_id_RI': True, 'datasets': True, 'RI': False},
         custom_data=['indices'],
-        category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
-        color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
+        category_orders={'RI': CATEGORY_ORDER},
+        color_discrete_sequence=COLOR_CATEGORY_ORDER,
         height=height
     )
     gantt.update_layout(
-        clickmode='event+select',
+        clickmode='event',
         selectdirection='h',
         legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.04, 'xanchor': 'left', 'x': 0},
     )
@@ -234,8 +238,8 @@ def get_avail_data_by_var_gantt(ds):
         hover_name='variable (RI)',
         hover_data={'var_label': True, 'RI': False},
         # custom_data=['indices'],
-        category_orders={'RI': ['ACTRIS', 'IAGOS', 'ICOS']},
-        color_discrete_sequence=[ACTRIS_COLOR_HEX, IAGOS_COLOR_HEX, ICOS_COLOR_HEX],
+        category_orders={'RI': CATEGORY_ORDER},
+        color_discrete_sequence=COLOR_CATEGORY_ORDER,
         height=height
     )
     gantt.update_layout(
