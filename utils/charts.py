@@ -178,7 +178,8 @@ def _get_timeline_by_station(datasets_df):
     )
     gantt.update_layout(
         clickmode='event',
-        selectdirection='h',
+        # selectdirection='h',
+        yaxis={'autorange': 'reversed'},
         legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.04, 'xanchor': 'left', 'x': 0},
     )
     return gantt
@@ -203,8 +204,8 @@ def _get_timeline_by_station_and_vars(datasets_df):
         height=height, facet_col='var_codes_filtered', facet_col_wrap=facet_col_wrap,
     )
     gantt.update_layout(
-        clickmode='event+select',
-        selectdirection='h',
+        clickmode='event',
+        # selectdirection='h',
         legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.06, 'xanchor': 'left', 'x': 0},
     )
     return gantt

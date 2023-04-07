@@ -22,7 +22,8 @@ DATASETS_STORE_ID = 'datasets-store'
 # 'data' stores datasets metadata in JSON, as provided by the method
 # pd.DataFrame.to_json(orient='split', date_format='iso')
 
-GANTT_SELECTED_ITEMS_STORE_ID = 'gantt-selected-items-store'
+GANTT_SELECTED_DATASETS_IDX_STORE_ID = 'gantt-selected-datasets-idx-store'
+GANTT_SELECTED_BARS_STORE_ID = 'gantt-selected-bars-store'
 
 INTEGRATE_DATASETS_REQUEST_ID = 'integrate-datasets-request'
 # 'data' stores a JSON representation of a request executed
@@ -85,7 +86,8 @@ def get_app_data_stores():
         dcc.Store(id=DATASETS_STORE_ID, storage_type='session'),
         dcc.Store(id=INTEGRATE_DATASETS_REQUEST_ID, storage_type='session'),
         dcc.Store(id=FILTER_DATA_REQUEST_ID, storage_type='session'),
-        dcc.Store(id=GANTT_SELECTED_ITEMS_STORE_ID, storage_type='session'),
+        dcc.Store(id=GANTT_SELECTED_DATASETS_IDX_STORE_ID, storage_type='session'),
+        dcc.Store(id=GANTT_SELECTED_BARS_STORE_ID, storage_type='session'),
     ]
 
 

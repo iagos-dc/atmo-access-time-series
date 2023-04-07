@@ -1,5 +1,6 @@
 import json
 import toolz
+import numpy as np
 import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
@@ -11,10 +12,11 @@ import data_processing
 import data_processing.utils
 from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID, \
-    GANTT_SELECTED_ITEMS_STORE_ID, FILTER_DATA_TAB_VALUE, SELECT_DATASETS_TAB_VALUE
+    GANTT_SELECTED_DATASETS_IDX_STORE_ID, GANTT_SELECTED_BARS_STORE_ID, FILTER_DATA_TAB_VALUE, SELECT_DATASETS_TAB_VALUE
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
     DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
-    RESET_DATASETS_SELECTION_BUTTON_ID, SELECTED_GANTT_OPACITY, UNSELECTED_GANTT_OPACITY
+    RESET_DATASETS_SELECTION_BUTTON_ID, SELECTED_GANTT_OPACITY, UNSELECTED_GANTT_OPACITY, BAR_UNSELECTED, \
+    BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
 from log import logger, log_exception, log_exectime
 from utils import charts
 
@@ -45,72 +47,126 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
 
 @callback(
     Output(GANTT_GRAPH_ID, 'figure'),
-    Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data', allow_duplicate=True),
+    #Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
+    Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
-    State(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
+    State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
 @log_exception
 #@log_exectime
-def get_gantt_figure(gantt_view_type, datasets_json, gantt_figure_selectedData):
+def get_gantt_figure(gantt_view_type, datasets_json, selected_datasets):
     # TODO: transfer gantt_figure_selectedData to that of output (now it is cleared)
     if datasets_json is None:
         return charts.empty_figure(), None
+
+    selected_datasets = set(selected_datasets) if selected_datasets is not None else set()
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
 
     if len(datasets_df) == 0:
-       return charts.empty_figure(), None
+       return charts.empty_figure(), None, None
 
     if gantt_view_type == 'compact':
         fig = charts._get_timeline_by_station(datasets_df)
     else:
         fig = charts._get_timeline_by_station_and_vars(datasets_df)
+
     fig.update_traces(
         selected={'marker_opacity': SELECTED_GANTT_OPACITY},
         unselected={'marker_opacity': UNSELECTED_GANTT_OPACITY},
-        marker={'opacity': UNSELECTED_GANTT_OPACITY},
+        # marker={'opacity': UNSELECTED_GANTT_OPACITY},
         # unselected={'marker': {'opacity': 0.4}, }
         # mode='markers+text', marker={'color': 'rgba(0, 116, 217, 0.7)', 'size': 20},
     )
 
+    # TODO: do it properly, using update_traces, etc.
+    fig_data = fig['data']
+    gantt_selected_bars = []
+
+    def get_bar_selection_status(datasets_idx):
+        datasets_idx = set(datasets_idx)
+        if datasets_idx.isdisjoint(selected_datasets):
+            return BAR_UNSELECTED
+        elif datasets_idx <= selected_datasets:
+            return BAR_SELECTED
+        else:
+            return BAR_PARTIALLY_SELECTED
+
+    for fig_data_category in fig_data:
+        fig_data_category_customdata = fig_data_category['customdata']
+        fig_data_category_len = len(fig_data_category_customdata)
+        gantt_selected_bars_for_category = [
+            get_bar_selection_status(fig_data_category_customdata_item[0])
+            for fig_data_category_customdata_item in fig_data_category_customdata
+        ]
+        # gantt_selected_bars_for_category = np.full(fig_data_category_len, BAR_UNSELECTED, dtype='i4')
+        gantt_selected_bars.append(gantt_selected_bars_for_category)
+        fig_data_category['marker']['opacity'] = pd.Series(gantt_selected_bars_for_category).map(OPACITY_BY_BAR_SELECTION_STATUS).values
+
+        # fig_data_category['marker']['pattern'] = {'solidity': 0.5, 'shape': '/', 'fillmode': 'overlay', 'fgopacity': 0.5, 'fgcolor': 'rgba(199, 100, 50, 1)', 'bgcolor': 'rgba(199, 100, 50, 1)'}
     fig.update_layout(
         selectionrevision=False,
     )
 
-    return fig, None
+    import json
+    fig_dict = json.loads(fig.to_json())
+    print(f'fig={fig_dict}')
+    print(f'gantt_selected_bars={gantt_selected_bars}')
+
+    return fig, gantt_selected_bars
 
 
 @callback(
-    Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
+    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
+    Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
     Output(GANTT_GRAPH_ID, 'figure', allow_duplicate=True),
     Output(GANTT_GRAPH_ID, 'clickData'),
     Input(RESET_DATASETS_SELECTION_BUTTON_ID, 'n_clicks'),
     Input(GANTT_GRAPH_ID, 'clickData'),
-    Input(DATASETS_STORE_ID, 'data'),
-    State(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
+    State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
+    State(GANTT_SELECTED_BARS_STORE_ID, 'data'),
+    # State(GANTT_GRAPH_ID, 'figure'),
     prevent_initial_call=True,
 )
 @log_exception
 def update_selection_on_gantt_graph(
         reset_datasets_selection_button,
         click_data,
-        datasets_json,
         selected_datasets,
+        selected_gantt_bars,
+        # fig,
 ):
+    if selected_gantt_bars is None:
+        # it means that the figure is not initialized (= it is None)
+        raise dash.exceptions.PreventUpdate
+
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
 
-    print(f'click_data={click_data}')
+    # print(f'click_data={click_data}')
+    # print(f'selected_gantt_bars={selected_gantt_bars}')
 
     patched_fig = Patch()
 
-    if not {DATASETS_STORE_ID, RESET_DATASETS_SELECTION_BUTTON_ID}.isdisjoint(dash_ctx):
-        patched_fig['marker']['opacity'] = UNSELECTED_GANTT_OPACITY
-        return [], patched_fig, None
+    if RESET_DATASETS_SELECTION_BUTTON_ID in dash_ctx:
+        selected_gantt_bars_new = []
+        for trace_no, selected_gantt_bars_in_category in enumerate(selected_gantt_bars):
+            selected_gantt_bars_in_category = np.asarray(selected_gantt_bars_in_category)
+            selected_gantt_bars_in_category[:] = BAR_UNSELECTED
+            selected_gantt_bars_new.append(selected_gantt_bars_in_category)
+            patched_fig['data'][trace_no]['marker']['opacity'] = pd.Series(selected_gantt_bars_in_category).map(OPACITY_BY_BAR_SELECTION_STATUS).values
+            # patched_fig['data'][trace_no]['marker']['opacity'] = np.where(
+            #     selected_gantt_bars_in_category,
+            #     SELECTED_GANTT_OPACITY,
+            #     UNSELECTED_GANTT_OPACITY
+            # )
+
+        return [], selected_gantt_bars_new, patched_fig, None
 
     if GANTT_GRAPH_ID in dash_ctx and click_data is not None:
+        print(f'click_data={click_data}')
         try:
             click_datasets = click_data['points'][0]['customdata'][0]
             trace_no = click_data['points'][0]['curveNumber']
@@ -119,9 +175,20 @@ def update_selection_on_gantt_graph(
             raise dash.exceptions.PreventUpdate
         if selected_datasets is None:
             selected_datasets = []
-        selected_datasets = sorted(set(selected_datasets).symmetric_difference(click_datasets))
-        patched_fig['data'][trace_no]['marker']['opacity'][point_index] = SELECTED_GANTT_OPACITY
-        return selected_datasets, patched_fig, None
+
+        if selected_gantt_bars[trace_no][point_index] != BAR_SELECTED:
+            selected_gantt_bars[trace_no][point_index] = BAR_SELECTED
+            click_datasets_set = set(click_datasets)
+            selected_datasets2 = [ds_idx for ds_idx in selected_datasets if ds_idx not in click_datasets_set]
+            selected_datasets = click_datasets + selected_datasets2
+            patched_fig['data'][trace_no]['marker']['opacity'][point_index] = SELECTED_GANTT_OPACITY
+        else:
+            selected_gantt_bars[trace_no][point_index] = BAR_UNSELECTED
+            click_datasets_set = set(click_datasets)
+            selected_datasets = [ds_idx for ds_idx in selected_datasets if ds_idx not in click_datasets_set]
+            patched_fig['data'][trace_no]['marker']['opacity'][point_index] = UNSELECTED_GANTT_OPACITY
+
+        return selected_datasets, selected_gantt_bars, patched_fig, None
 
     raise dash.exceptions.PreventUpdate
 
@@ -131,7 +198,7 @@ def update_selection_on_gantt_graph(
     Output(DATASETS_TABLE_ID, 'data'),
     Output(DATASETS_TABLE_ID, 'selected_rows'),
     Output(DATASETS_TABLE_ID, 'selected_row_ids'),
-    Input(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
+    Input(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     Input(DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
