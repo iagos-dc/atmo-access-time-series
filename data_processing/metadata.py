@@ -1,4 +1,6 @@
 # TODO: use this module in app_tabs.filter_data_tab
+import xarray as xr
+
 
 VARIABLE_LABEL = 'variable_label'
 UNITS = 'units'
@@ -16,6 +18,12 @@ def dict_get(d, *keys, default=None):
 
 
 def da_attr_to_metadata_dict(da=None, attrs=None):
+    if isinstance(da, xr.Dataset):
+        metadata_by_var = {}
+        for v in da:
+            metadata_by_var[v] = da_attr_to_metadata_dict(da[v], attrs=da.attrs)
+        return metadata_by_var
+
     if da is None and attrs is None:
         raise ValueError('at least da or attrs must be not None')
     if da is not None:
