@@ -14,7 +14,7 @@ from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLE
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
     SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE, \
-    MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES
+    MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES, DATE_RANGE_PICKER_ID
 from utils.charts import CATEGORY_ORDER
 from log import logger, log_exception, log_exectime
 from data_processing.utils import points_inside_polygons
@@ -67,11 +67,13 @@ def change_map_background(map_background):
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(VARIABLES_CHECKLIST_ID, 'value'),
     State(SELECTED_STATIONS_STORE_ID, 'data'),
+    State(DATE_RANGE_PICKER_ID, 'start_date'),
+    State(DATE_RANGE_PICKER_ID, 'end_date'),
     prevent_initial_call=True
 )
 @log_exception
 #@log_exectime
-def search_datasets(n_clicks, selected_variables, selected_stations_idx):
+def search_datasets(n_clicks, selected_variables, selected_stations_idx, start_date, end_date):
     if not (selected_stations_idx and selected_variables):
         raise dash.exceptions.PreventUpdate
 
@@ -111,6 +113,15 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx):
         datasets_df['platform_id'].isin(selected_stations['short_name']) &
         datasets_df['RI'].isin(selected_stations['RI'])     # short_name of the station might not be unique among RI's
     ]
+
+    # filter on date range
+    date_range_filter = True
+    if start_date is not None:
+        date_range_filter &= datasets_df_filtered['time_period_end'] > start_date
+    if end_date is not None:
+        date_range_filter &= datasets_df_filtered['time_period_start'] < end_date
+    if date_range_filter is not True:
+        datasets_df_filtered = datasets_df_filtered[date_range_filter]
 
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
     datasets_df_filtered['id'] = datasets_df_filtered.index

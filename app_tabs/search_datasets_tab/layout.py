@@ -40,6 +40,8 @@ SEARCH_DATASETS_BUTTON_ID = 'search-datasets-button'
 
 SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID = 'search-datasets-reset-stations-button'
 
+DATE_RANGE_PICKER_ID = 'search-datasets-date-picker-range'
+
 MAP_BACKGROUND_RADIO_ID = 'map-background-radio'
 
 
@@ -275,11 +277,14 @@ def get_search_datasets_tab():
                                     style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}
                                 ),
                                 dcc.DatePickerRange(
-                                    id='my-date-picker-range',
+                                    id=DATE_RANGE_PICKER_ID,
                                     min_date_allowed=datetime.date(1900, 1, 1),
-                                    max_date_allowed=datetime.date(2022, 12, 31),
-                                    initial_visible_month=datetime.date(2017, 8, 5),
-                                    end_date=datetime.date(2017, 8, 25)
+                                    max_date_allowed=datetime.date(2100, 12, 31),
+                                    initial_visible_month=datetime.date.today(),
+                                    display_format='YYYY-MM-DD',
+                                    clearable=True,
+                                    **get_dash_persistence_kwargs(persistence_id=True),
+                                    #end_date=datetime.date(2017, 8, 25),
                                 ),
                             ]),
                             get_bbox_selection_div(),
@@ -287,11 +292,11 @@ def get_search_datasets_tab():
                                 id=SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID,
                                 color='primary',
                                 type='submit',
-                                style={'font-weight': 'bold'},
+                                style={'font-weight': 'bold', 'margin-bottom': '10px'},
                                 children='Reset station selection',
                             ),
                             dbc.InputGroup([
-                                dbc.InputGroupText('Map background: '),
+                                dbc.InputGroupText('Map background: ', style={'margin-right': '10px'}),
                                 dbc.RadioItems(
                                     id=MAP_BACKGROUND_RADIO_ID,
                                     options=[
