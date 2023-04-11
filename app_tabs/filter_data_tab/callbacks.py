@@ -77,6 +77,7 @@ def update_histograms_callback(
     # TODO: use dash_ctx instead of ctx.triggered_id
     # dash_ctx = list(dash.ctx.triggered_prop_ids.values())
     # print(f'update_histograms_callback::dash_ctx={dash_ctx}')
+
     if ctx.triggered_id is None or integrate_datasets_request is None:
         raise PreventUpdate
 
@@ -194,10 +195,14 @@ def update_histograms_callback(
 @callback(
     Output(FILTER_TAB_CONTAINER_ROW_ID, 'children'),
     Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
+    Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
     prevent_initial_call=True,
 )
 @log_exception
-def data_filtering_create_layout_callback(integrate_datasets_request):
+def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_value):
+    if app_tab_value != FILTER_DATA_TAB_VALUE:
+        raise PreventUpdate
+
     if integrate_datasets_request is None:
         return []  # children=None instead of [] does not work
 

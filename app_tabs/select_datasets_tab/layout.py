@@ -28,8 +28,8 @@ BAR_UNSELECTED = 0
 BAR_PARTIALLY_SELECTED = 1
 BAR_SELECTED = 2
 
-UNSELECTED_GANTT_OPACITY = 0.2
-PARTIALLY_SELECTED_GANTT_OPACITY = 0.6
+UNSELECTED_GANTT_OPACITY = 0.15
+PARTIALLY_SELECTED_GANTT_OPACITY = 0.5
 SELECTED_GANTT_OPACITY = 1.0
 
 OPACITY_BY_BAR_SELECTION_STATUS = {
@@ -113,12 +113,12 @@ def get_select_datasets_tab():
                 style={'margin': '20px'},
                 children=[
                     html.Div(id='select-datasets-left-panel-div', className='five columns', children=[
-                        html.Div(id='select-datasets-left-left-subpanel-div', className='nine columns', children=gantt_view_radio),
-                        html.Div(id='select-datasets-left-right-subpanel-div', className='three columns', children=select_datasets_button),
-                        html.Div(id='select-datasets-left-main-subpanel-div', className='twelve columns', children=[
-                            reset_gantt_selection_button,
-                            gantt_graph,
+                        html.Div(id='select-datasets-1st-subpanel-div', className='twelve columns', children=select_datasets_button, style={'text-align': 'right', 'margin-bottom': '20px'}),
+                        html.Div(id='select-datasets-2nd-subpanel-div', className='twelve columns', style={'margin-bottom': '10px'}, children=[
+                            html.Div(id='select-datasets-2nd-left-subpanel-div', className='six columns', children=gantt_view_radio),
+                            html.Div(id='select-datasets-2nd-right-subpanel-div', className='six columns', children=reset_gantt_selection_button, style={'text-align': 'right'}),
                         ]),
+                        html.Div(id='select-datasets-3rd-subpanel-div2', className='twelve columns', children=gantt_graph),
                     ]),
                     html.Div(id='select-datasets-right-panel-div', className='seven columns', children=[
                         all_none_switch,

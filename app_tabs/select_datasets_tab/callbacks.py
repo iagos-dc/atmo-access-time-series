@@ -121,20 +121,31 @@ def update_selection_on_gantt_graph(
 
 @callback(
     Output(GANTT_GRAPH_ID, 'figure'),
-    #Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
+    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
     Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
-    # Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
+    Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
     State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
 @log_exception
 #@log_exectime
-def get_gantt_figure(gantt_view_type, datasets_json, selected_datasets):
+def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_datasets):
     # TODO: transfer gantt_figure_selectedData to that of output (now it is cleared)
+    if app_tab_value != SELECT_DATASETS_TAB_VALUE:
+        raise dash.exceptions.PreventUpdate
+
+    # reset selected datasets after "Search datasets" button clicked
+    ctx = list(dash.ctx.triggered_prop_ids.values())
+    if DATASETS_STORE_ID in ctx:
+        selected_datasets = None
+        selected_datasets_output = None
+    else:
+        selected_datasets_output = dash.no_update
+
     if datasets_json is None:
-        return charts.empty_figure(), None
+        return charts.empty_figure(), selected_datasets_output, None
 
     selected_datasets = set(selected_datasets) if selected_datasets is not None else set()
 
@@ -142,7 +153,7 @@ def get_gantt_figure(gantt_view_type, datasets_json, selected_datasets):
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
 
     if len(datasets_df) == 0:
-       return charts.empty_figure(), None, None
+       return charts.empty_figure(), selected_datasets_output, None
 
     if gantt_view_type == 'compact':
         fig = charts._get_timeline_by_station(datasets_df)
@@ -192,7 +203,7 @@ def get_gantt_figure(gantt_view_type, datasets_json, selected_datasets):
     # print(f'fig={fig_dict}')
     # print(f'gantt_selected_bars={gantt_selected_bars}')
 
-    return fig, gantt_selected_bars
+    return fig, selected_datasets_output, gantt_selected_bars,
 
 
 @callback(
