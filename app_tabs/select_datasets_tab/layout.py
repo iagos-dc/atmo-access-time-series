@@ -1,7 +1,8 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
 
-from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE
+from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG
+
 
 GANTT_VIEW_RADIO_ID = 'gantt-view-radio'
 # 'value' contains 'compact' or 'detailed'
@@ -66,7 +67,10 @@ def get_select_datasets_tab():
         children='Reset selection on the Gantt diagram',
     )
 
-    gantt_graph = dcc.Graph(id=GANTT_GRAPH_ID)
+    gantt_graph = dcc.Graph(
+        id=GANTT_GRAPH_ID,
+        config=NON_INTERACTIVE_GRAPH_CONFIG,
+    )
 
     all_none_switch = dbc.Switch(
         id=DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID,

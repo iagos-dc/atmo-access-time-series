@@ -46,80 +46,6 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
 
 
 @callback(
-    Output(GANTT_GRAPH_ID, 'figure'),
-    #Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
-    Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
-    Input(GANTT_VIEW_RADIO_ID, 'value'),
-    Input(DATASETS_STORE_ID, 'data'),
-    State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
-    prevent_initial_call=True,
-)
-@log_exception
-#@log_exectime
-def get_gantt_figure(gantt_view_type, datasets_json, selected_datasets):
-    # TODO: transfer gantt_figure_selectedData to that of output (now it is cleared)
-    if datasets_json is None:
-        return charts.empty_figure(), None
-
-    selected_datasets = set(selected_datasets) if selected_datasets is not None else set()
-
-    datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
-    datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
-
-    if len(datasets_df) == 0:
-       return charts.empty_figure(), None, None
-
-    if gantt_view_type == 'compact':
-        fig = charts._get_timeline_by_station(datasets_df)
-    else:
-        fig = charts._get_timeline_by_station_and_vars(datasets_df)
-
-    fig.update_traces(
-        selected={'marker_opacity': SELECTED_GANTT_OPACITY},
-        unselected={'marker_opacity': UNSELECTED_GANTT_OPACITY},
-        # marker={'opacity': UNSELECTED_GANTT_OPACITY},
-        # unselected={'marker': {'opacity': 0.4}, }
-        # mode='markers+text', marker={'color': 'rgba(0, 116, 217, 0.7)', 'size': 20},
-    )
-
-    # TODO: do it properly, using update_traces, etc.
-    fig_data = fig['data']
-    gantt_selected_bars = []
-
-    def get_bar_selection_status(datasets_idx):
-        datasets_idx = set(datasets_idx)
-        if datasets_idx.isdisjoint(selected_datasets):
-            return BAR_UNSELECTED
-        elif datasets_idx <= selected_datasets:
-            return BAR_SELECTED
-        else:
-            return BAR_PARTIALLY_SELECTED
-
-    for fig_data_category in fig_data:
-        fig_data_category_customdata = fig_data_category['customdata']
-        fig_data_category_len = len(fig_data_category_customdata)
-        gantt_selected_bars_for_category = [
-            get_bar_selection_status(fig_data_category_customdata_item[0])
-            for fig_data_category_customdata_item in fig_data_category_customdata
-        ]
-        # gantt_selected_bars_for_category = np.full(fig_data_category_len, BAR_UNSELECTED, dtype='i4')
-        gantt_selected_bars.append(gantt_selected_bars_for_category)
-        fig_data_category['marker']['opacity'] = pd.Series(gantt_selected_bars_for_category).map(OPACITY_BY_BAR_SELECTION_STATUS).values
-
-        # fig_data_category['marker']['pattern'] = {'solidity': 0.5, 'shape': '/', 'fillmode': 'overlay', 'fgopacity': 0.5, 'fgcolor': 'rgba(199, 100, 50, 1)', 'bgcolor': 'rgba(199, 100, 50, 1)'}
-    fig.update_layout(
-        selectionrevision=False,
-    )
-
-    import json
-    fig_dict = json.loads(fig.to_json())
-    print(f'fig={fig_dict}')
-    print(f'gantt_selected_bars={gantt_selected_bars}')
-
-    return fig, gantt_selected_bars
-
-
-@callback(
     Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
     Output(GANTT_GRAPH_ID, 'figure', allow_duplicate=True),
@@ -191,6 +117,82 @@ def update_selection_on_gantt_graph(
         return selected_datasets, selected_gantt_bars, patched_fig, None
 
     raise dash.exceptions.PreventUpdate
+
+
+@callback(
+    Output(GANTT_GRAPH_ID, 'figure'),
+    #Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
+    Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
+    Input(GANTT_VIEW_RADIO_ID, 'value'),
+    Input(DATASETS_STORE_ID, 'data'),
+    # Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
+    State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
+    prevent_initial_call=True,
+)
+@log_exception
+#@log_exectime
+def get_gantt_figure(gantt_view_type, datasets_json, selected_datasets):
+    # TODO: transfer gantt_figure_selectedData to that of output (now it is cleared)
+    if datasets_json is None:
+        return charts.empty_figure(), None
+
+    selected_datasets = set(selected_datasets) if selected_datasets is not None else set()
+
+    datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+    datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
+
+    if len(datasets_df) == 0:
+       return charts.empty_figure(), None, None
+
+    if gantt_view_type == 'compact':
+        fig = charts._get_timeline_by_station(datasets_df)
+    else:
+        fig = charts._get_timeline_by_station_and_vars(datasets_df)
+
+    fig.update_traces(
+        selected={'marker_opacity': SELECTED_GANTT_OPACITY},
+        unselected={'marker_opacity': UNSELECTED_GANTT_OPACITY},
+        # marker={'opacity': UNSELECTED_GANTT_OPACITY},
+        # unselected={'marker': {'opacity': 0.4}, }
+        # mode='markers+text', marker={'color': 'rgba(0, 116, 217, 0.7)', 'size': 20},
+    )
+
+    # TODO: do it properly, using update_traces, etc.
+    fig_data = fig['data']
+    gantt_selected_bars = []
+
+    def get_bar_selection_status(datasets_idx):
+        datasets_idx = set(datasets_idx)
+        if datasets_idx.isdisjoint(selected_datasets):
+            return BAR_UNSELECTED
+        elif datasets_idx <= selected_datasets:
+            return BAR_SELECTED
+        else:
+            return BAR_PARTIALLY_SELECTED
+
+    for fig_data_category in fig_data:
+        fig_data_category_customdata = fig_data_category['customdata']
+        fig_data_category_len = len(fig_data_category_customdata)
+        gantt_selected_bars_for_category = [
+            get_bar_selection_status(fig_data_category_customdata_item[0])
+            for fig_data_category_customdata_item in fig_data_category_customdata
+        ]
+        # gantt_selected_bars_for_category = np.full(fig_data_category_len, BAR_UNSELECTED, dtype='i4')
+        gantt_selected_bars.append(gantt_selected_bars_for_category)
+        fig_data_category['marker']['opacity'] = pd.Series(gantt_selected_bars_for_category).map(OPACITY_BY_BAR_SELECTION_STATUS).values
+
+        # fig_data_category['marker']['pattern'] = {'solidity': 0.5, 'shape': '/', 'fillmode': 'overlay', 'fgopacity': 0.5, 'fgcolor': 'rgba(199, 100, 50, 1)', 'bgcolor': 'rgba(199, 100, 50, 1)'}
+    fig.update_layout(
+        selectionrevision=False,
+        margin=dict(l=0, r=0, t=0, b=0),
+    )
+
+    # import json
+    # fig_dict = json.loads(fig.to_json())
+    # print(f'fig={fig_dict}')
+    # print(f'gantt_selected_bars={gantt_selected_bars}')
+
+    return fig, gantt_selected_bars
 
 
 @callback(

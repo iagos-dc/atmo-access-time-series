@@ -54,7 +54,7 @@ GRAPH_CONFIG = {
     'showAxisRangeEntryBoxes': True,
     'showTips': True,
     'displaylogo': False,
-    # 'responsive': True,
+    'responsive': True,
 }  # for more see: help(dcc.Graph)
 
 
@@ -62,7 +62,7 @@ NON_INTERACTIVE_GRAPH_CONFIG = {
     'autosizable': False,
     'displayModeBar': True,
     'editable': False,
-    'modeBarButtons': [['toImage']],
+    'modeBarButtons': [['autoScale2d'], ['toImage']],
     'toImageButtonOptions': {
         'filename': 'foo',
         'format': 'png',
@@ -72,7 +72,7 @@ NON_INTERACTIVE_GRAPH_CONFIG = {
     'showAxisRangeEntryBoxes': False,
     'showTips': True,
     'displaylogo': False,
-    # 'responsive': True,
+    'responsive': True,
 }  # for more see: help(dcc.Graph)
 
 

@@ -4,6 +4,7 @@ import pandas as pd
 import xarray as xr
 from plotly import express as px, graph_objects as go
 import plotly.colors
+import textwrap
 
 from log.log import logger, log_exectime
 from data_processing.utils import get_subsampling_mask
@@ -18,6 +19,15 @@ ICOS_COLOR_HEX = '#ec165c'
 CATEGORY_ORDER = ['ACTRIS', 'IAGOS', 'ICOS']
 COLOR_BY_CATEGORY = {'ACTRIS': ACTRIS_COLOR_HEX, 'IAGOS': IAGOS_COLOR_HEX, 'ICOS': ICOS_COLOR_HEX}
 COLOR_CATEGORY_ORDER = [COLOR_BY_CATEGORY[c] for c in CATEGORY_ORDER]
+
+MAX_WRAP = 20
+
+
+def _wrap_text(s):
+    if len(s) <= MAX_WRAP:
+        return s
+    else:
+        return '<br>'.join(textwrap.wrap(s, MAX_WRAP))
 
 
 def rgb_to_rgba(rgb, opacity):
@@ -176,11 +186,23 @@ def _get_timeline_by_station(datasets_df):
         color_discrete_sequence=COLOR_CATEGORY_ORDER,
         height=height
     )
+
     gantt.update_layout(
         clickmode='event',
         # selectdirection='h',
-        yaxis={'autorange': 'reversed'},
-        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.04, 'xanchor': 'left', 'x': 0},
+        legend={
+            'title': 'RI',
+            'orientation': 'h',
+            'yanchor': 'bottom', 'y': 1, 'xanchor': 'left', 'x': 0
+        },
+        yaxis={
+            'title': 'Platform',
+            'side': 'right',
+            'autorange': 'reversed',
+            'tickmode': 'array',
+            'tickvals': df['platform_id_RI'],
+            'ticktext': df['station_fullname'].map(_wrap_text),
+        },
     )
     return gantt
 
@@ -196,18 +218,32 @@ def _get_timeline_by_station_and_vars(datasets_df):
     no_var_codes_filtered = len(df['var_codes_filtered'].unique())
     no_facet_rows = (no_var_codes_filtered + facet_col_wrap - 1) // facet_col_wrap
     height = 100 + max(100, 50 + 25 * no_platforms) * no_facet_rows
+    platform_id_RI_var_codes_filtered = df['var_codes_filtered'] + ' : ' + df['platform_id_RI']
     gantt = px.timeline(
-        df, x_start='time_period_start', x_end='time_period_end', y='platform_id_RI', color='var_codes_filtered',
+        df, x_start='time_period_start', x_end='time_period_end', y=platform_id_RI_var_codes_filtered, color='var_codes_filtered',
         hover_name='station_fullname',
         hover_data={'station_fullname': True, 'platform_id_RI': True, 'var_codes_filtered': True, 'datasets': True},
         custom_data=['indices'],
-        height=height, facet_col='var_codes_filtered', facet_col_wrap=facet_col_wrap,
+        height=height,
     )
     gantt.update_layout(
         clickmode='event',
         # selectdirection='h',
-        legend={'orientation': 'h', 'yanchor': 'bottom', 'y': 1.06, 'xanchor': 'left', 'x': 0},
+        legend={
+            'title': 'Variable(s)',
+            'orientation': 'h',
+            'yanchor': 'bottom', 'y': 1, 'xanchor': 'left', 'x': 0
+        },
+        yaxis={
+            'title': 'Platform : Variable(s)',
+            'side': 'right',
+            'autorange': 'reversed',
+            'tickmode': 'array',
+            'tickvals': platform_id_RI_var_codes_filtered,
+            'ticktext': df['station_fullname'].map(_wrap_text),
+        }
     )
+    # print(f'gantt={json.loads(gantt.to_json())}')
     return gantt
 
 
