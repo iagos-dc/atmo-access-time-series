@@ -293,7 +293,7 @@ def get_search_datasets_tab():
                                 color='primary',
                                 type='submit',
                                 style={'font-weight': 'bold', 'margin-bottom': '10px'},
-                                children='Reset station selection',
+                                children='Clear station selection',
                             ),
                             dbc.InputGroup([
                                 dbc.InputGroupText('Map background: ', style={'margin-right': '10px'}),

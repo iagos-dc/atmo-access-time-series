@@ -24,6 +24,13 @@ def _get_description_table(actris_logo, iagos_logo, icos_logo):
                 ),
                 html.Span(") is also available through this service."),
             ]),
+            html.Div(children=[
+                html.Span("More information in the ACTRIS Data Center: "),
+                html.A(
+                    html.Span("https://www.actris.eu/topical-centre/data-centre"),
+                    href="https://www.actris.eu/topical-centre/data-centre", target="_blank"
+                ),
+            ]),
         ]),
         html.Td(
             "ACTRIS data are licensed under the Creative Commons Attribution 4.0 International licence (CC BY 4.0).")])
@@ -69,6 +76,13 @@ def _get_description_table(actris_logo, iagos_logo, icos_logo):
                 "The collection used contains the final quality controlled hourly averaged data for the mole fractions of CO2, CH4, N2O, CO and meteorological observations measured at the relevant vertical levels of the measurements stations."),
             html.Div(
                 "All stations follow the ICOS Atmospheric Station specification V2.0 (doi:10.18160/GK28-218) and are certified as ICOS atmospheric stations Class I or II. Data processing has been performed as described in Hazan et al., 2016"),
+            html.Div(children=[
+                html.Span("More information on the ICOS Data Portal: "),
+                html.A(
+                    html.Span("https://data.icos-cp.eu/"),
+                    href="https://data.icos-cp.eu/", target="_blank"
+                ),
+            ]),
         ]),
         html.Td(
             "ICOS data are licensed under the Creative Commons Attribution 4.0 International licence (CC BY 4.0).")])

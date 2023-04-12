@@ -64,7 +64,7 @@ def get_select_datasets_tab():
         color='primary',
         type='submit',
         style={'font-weight': 'bold'},
-        children='Reset selection on the Gantt diagram',
+        children='Clear selection on the Gantt diagram',
     )
 
     gantt_graph = dcc.Graph(
