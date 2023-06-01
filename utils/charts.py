@@ -46,7 +46,7 @@ def rgb_to_rgba(rgb, opacity):
     return f'rgba{rgba_tuple}'
 
 
-def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2, **kwargs):
+def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2, use_GL='auto', **kwargs):
     """
     This is a thin wrapper around plotly.graph_objects.Scatter. It workarounds plotly bug:
     Artifacts on line scatter plot when the first item is None #3959
@@ -65,7 +65,7 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
     # print(f'plotly_scatter: len(x)={len(x)}')
 
     # TODO: test if we can mix traces of scatter and scattergl type on a single go.Figure
-    if len(x) <= 500 or y_std is not None and std_mode == 'fill':
+    if use_GL is False or use_GL == 'auto' and (len(x) <= 500 or y_std is not None and std_mode == 'fill'):
         go_Scatter = go.Scatter
         go_scatter_ErrorY = go.scatter.ErrorY
     else:
@@ -105,7 +105,7 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
         y_max = np.nanmax(np.abs(y) + y_std) if len(y) > 0 else 1
         # this is a not very elegant workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
         y_lo = np.nan_to_num(y - y_std, nan=y_max * 1e10)
-        y_scatter_lo = plotly_scatter(x, y_lo, *args, **kwargs_lo)
+        y_scatter_lo = plotly_scatter(x, y_lo, use_GL=use_GL, *args, **kwargs_lo)
 
         kwargs_hi = kwargs_lo.copy()
         kwargs_hi['fill'] = 'tonexty'
@@ -122,7 +122,7 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
             kwargs_hi['fillcolor'] = rgb_to_rgba(color_rgb, std_fill_opacity)
         # this is a not very elegant workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
         y_hi = np.nan_to_num(y + y_std, nan=y_max * 1e10)
-        y_scatter_hi = plotly_scatter(x, y_hi, *args, **kwargs_hi)
+        y_scatter_hi = plotly_scatter(x, y_hi, use_GL=use_GL, *args, **kwargs_hi)
 
         return y_scatter, y_scatter_lo, y_scatter_hi
 
@@ -661,6 +661,7 @@ def multi_line(
         marker_opacity_by_sublabel=None,
         filtering_on_figure_extent=None,
         subsampling=None,
+        use_GL='auto',
 ):
     """
 
@@ -768,6 +769,7 @@ def multi_line(
                 legendgroup=variable_id,
                 mode=scatter_mode,
                 marker_color=color,
+                use_GL=use_GL,
                 **yaxis,
                 **extra_kwargs,
             )

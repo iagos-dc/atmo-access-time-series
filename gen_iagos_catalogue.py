@@ -6,9 +6,7 @@ import pkg_resources
 
 # from data_access.common import DATA_DIR
 
-DATA_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'resources'))
-
-
+DATA_DIR = pathlib.Path(pkg_resources.resource_filename('data_access', 'resources'))
 
 IAGOS_REGIONS = {
     'WNAm': ('western North America', [-125, -105], [40, 60]),
@@ -28,27 +26,36 @@ if __name__ == '__main__':
     for url in data_path.glob('*/*.nc'):
         rel_url = url.relative_to(data_path)
         with xr.open_dataset(url) as ds:
+            if 'CO_mean' in ds:
+                source_v = 'CO_mean'
+                v = 'Carbon Monoxide'
+            elif 'O3_mean' in ds:
+                source_v = 'O3_mean'
+                v = 'Ozone'
+            else:
+                continue
+
+            if len(ds['time']) == 0:
+                continue
+            non_empty_layers = []
+            for layer in ds['layer'].values.tolist():
+                if ds[source_v].sel({'layer': layer}).notnull().sum() > 0:
+                    non_empty_layers.append(layer)
+
             ds_md = {
                 'title': ds.attrs['title'],
                 'urls': str(rel_url),
             }
-
-            if 'CO_mean' in ds:
-                v = 'Carbon Monoxide'
-            elif 'O3_mean' in ds:
-                v = 'Ozone'
-            else:
-                continue
             ds_md['ecv_variables'] = [v]
 
-            t0, t1 = ds.time.min(), ds.time.max()
+            t0, t1 = ds['time'].min(), ds['time'].max()
             time_fmt = '%Y-%m-%dT%H:%M:%SZ'
             ds_md['time_period'] = [pd.Timestamp(t.values, tz='UTC').strftime(time_fmt) for t in (t0, t1)]
 
             ds_md['RI'] = 'IAGOS'
 
             ds_md['vars'] = list(ds)
-            ds_md['layer'] = list(ds.layer.values.tolist())
+            ds_md['layer'] = non_empty_layers
 
             if 'IATA_code' in ds.attrs:
                 ds_md['platform_id'] = ds.attrs['IATA_code']
