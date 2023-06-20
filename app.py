@@ -50,6 +50,7 @@ def get_dashboard_layout(app):
                         style={'float': 'right', 'height': '70px', 'margin-top': '10px'}
                     ),
                     href="https://www.atmo-access.eu/",
+                    target='_blank',
                 ),
             ]),
         ]
@@ -104,7 +105,7 @@ app = Dash(
 server = app.server
 
 app.layout = get_dashboard_layout(app)
-
+app.title = 'ATMO-ACCESS time-series analysis'
 
 # Begin of callback definitions and their helper routines.
 # See: https://dash.plotly.com/basic-callbacks

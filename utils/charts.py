@@ -1272,10 +1272,10 @@ def _get_fig_center(fig):
         return def_center
 
     def get_axis_domain_center(axis):
-        axis = layout.get(axis)
-        if axis is None:
+        _axis = layout.get(axis)
+        if _axis is None:
             return default_center_by_axis[axis]
-        return sum(axis.get('domain', (0, 1))) / 2
+        return sum(_axis.get('domain', (0, 1))) / 2
 
     x = get_axis_domain_center('xaxis')
     y = get_axis_domain_center('yaxis')

@@ -205,7 +205,7 @@ def get_bbox_selection_div():
                     type='number',
                     debounce=True,
                     min=-180, max=180,
-                    ** get_dash_persistence_kwargs(persistence_id=True)
+                    **get_dash_persistence_kwargs(persistence_id=True)
                 ),  # , step=0.01),
             ),
             html.Div(

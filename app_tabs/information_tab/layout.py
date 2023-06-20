@@ -47,14 +47,14 @@ def _get_description_table(actris_logo, iagos_logo, icos_logo):
             html.Div(
                 "The IAGOS datasets available are Level 3 data products derived from Level 2 products: Final quality controlled observational data."),
             html.Div(
-                "Monthly means timeseries have been calculated for all airports visited by the IAGOS fleet. Means are available for four pressure levels: surface (below 500 m),  planetary boundary layer (PBL), free troposphere (FT), upper troposphere (UT)."),
+                "Monthly means timeseries have been calculated for all airports visited by the IAGOS fleet. Means are available within four layers: surface layer (below 500 m a.g.l.), planetary boundary layer (PBL), free troposphere (FT), upper troposphere (UT)."),
             html.Div(
                 "Concentrations of Ozone, Carbon Monoxide, H2O gas and relative humidity are provided as well as meteorological fields: air pressure, air temperature and wind."),
             html.Div(children=[
                 html.Span("More information on the IAGOS Data Portal: "),
                 html.A(
-                    html.Span("https://iagos-data.fr"),
-                    href="http://iagos-data.fr", target="_blank"
+                    html.Span("https://iagos.org"),
+                    href="http://iagos.org", target="_blank"
                 ),
             ]),
         ]),
@@ -99,7 +99,7 @@ def get_information_tab(actris_logo, iagos_logo, icos_logo):
         value=INFORMATION_TAB_VALUE,
         children=[
             html.Div(children=[
-                html.H6('This tool allows you to search, analyse and visualise data from four Atmosphere European Research Infrastructures.'),
+                html.H6('This service allows you to search, analyse and visualise data from three Atmosphere European Research Infrastructures.'),
                 html.H6('It has been implemented in the framework of the European Project ATMO-ACCESS to demonstrate interoperability within the Research Infrastructures'),
                 html.H6('Only Essential Climate Variables are available. You can find more information about the provided datasets in the table below.'),
             ]),
