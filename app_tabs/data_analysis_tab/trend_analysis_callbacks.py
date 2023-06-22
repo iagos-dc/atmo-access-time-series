@@ -128,11 +128,12 @@ def get_trend_plots_callback(
     series_by_var = toolz.valmap(analysis._to_series, da_by_var)
 
     # ORIGINAL TIME SERIES
-    width = 'auto'  #1200
-    height = 400
+    # width = 'auto'  #1200
+    height = 500
     orig_timeseries_fig = charts.multi_line(
         series_by_var,
-        width=width, height=height,
+        # width=width,
+        height=height,
         variable_label_by_var=variable_label_by_var,
         yaxis_label_by_var=yaxis_label_by_var,
         color_mapping=colors_by_var,
@@ -239,11 +240,12 @@ def get_trend_plots_callback(
     autocorr_by_var = toolz.valmap(analysis.autocorrelation, stationary_series_by_var)
 
     # TREND FIGURE
-    width = 'auto' #1200
+    # width = 'auto' #1200
     height = 500
     trend_fig = charts.multi_line(
         series_and_trend_line_by_var,
-        width=width, height=height,
+        # width=width,
+        height=height,
         variable_label_by_var=variable_label_by_var,
         yaxis_label_by_var=yaxis_label_by_var,
         color_mapping=colors_by_var,
@@ -292,6 +294,7 @@ def get_trend_plots_callback(
     autocorr_fig.update_layout(
         autosize=True,
         margin={'l': 5, 'r': 5},
+        height=400,
         legend={
             'orientation': 'h',
             'xanchor': 'right',

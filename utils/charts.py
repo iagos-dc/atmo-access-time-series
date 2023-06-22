@@ -48,19 +48,25 @@ def rgb_to_rgba(rgb, opacity):
 
 def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2, use_GL='auto', **kwargs):
     """
-    This is a thin wrapper around plotly.graph_objects.Scatter. It workarounds plotly bug:
-    Artifacts on line scatter plot when the first item is None #3959
-    https://github.com/plotly/plotly.py/issues/3959
+    This a wrapper around plotly.graph_objects.Scatter for the purpose of plotting std as area plot
+    TODO: consider NOT masking out isolate points; what about std (as filled area) for isolated points?
+    TODO: refactor since the plotly bug mentioned below is already fixed
+    seems no longer an issue, and the workaround was removed
+    OLD: It workarounds plotly bug: Artifacts on line scatter plot when the first item is None #3959
+    OLD: https://github.com/plotly/plotly.py/issues/3959
 
     :param std_mode: 'fill', 'error_bars' or None;
     """
+    def mask_isolated_values(ar):
+        ar_isnan = np.isnan(ar).astype('i4')
+        isolated_points = np.diff(ar_isnan, n=2, prepend=1, append=1) == 2
+        return np.where(~isolated_points, ar, np.nan)
+
     assert std_mode in ['fill', 'error_bars', None]
 
     x = np.asanyarray(x)
     y = np.asanyarray(y)
-    y_isnan = np.isnan(y).astype('i4')
-    isolated_points = np.diff(y_isnan, n=2, prepend=1, append=1) == 2
-    y_without_isolated_points = np.where(~isolated_points, y, np.nan)
+    y = mask_isolated_values(y)
 
     # print(f'plotly_scatter: len(x)={len(x)}')
 
@@ -76,23 +82,41 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
         go_Scatter = go.Scattergl
         go_scatter_ErrorY = go.scattergl.ErrorY
 
-    if y_std is not None and std_mode == 'error_bars':
-        kwargs = kwargs.copy()
+    if y_std is not None:
         y_std = np.asanyarray(y_std)
-        y_std_without_isolated_points_y = np.where(~isolated_points, y_std, np.nan)
-        kwargs['error_y'] = go_scatter_ErrorY(array=y_std_without_isolated_points_y, symmetric=True, type='data')
+        if std_mode == 'error_bars':
+            y_std = np.where(~np.isnan(y), y_std, np.nan)
+            kwargs = kwargs.copy()
+            kwargs['error_y'] = go_scatter_ErrorY(array=y_std, symmetric=True, type='data')
 
     y_scatter = go_Scatter(
         x=x,
-        y=y_without_isolated_points,
+        y=y,
         *args,
         **kwargs
     )
     if y_std is None or std_mode != 'fill':
         return y_scatter
     else:
-        # y_std is not None ad std_mode == 'fill'
+        # y_std is not None and std_mode == 'fill'
         y_std = np.asanyarray(y_std)
+        # this is a workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
+        y_lo = mask_isolated_values(y - y_std)
+        y_hi = mask_isolated_values(y + y_std)
+        y_lo_isnan = np.isnan(y_lo)
+        _block_of_values_begins_after_nan = np.nonzero((np.diff(y_lo_isnan.astype('i4')) == -1))[0] + 1
+        _block_of_values_ends_before_nan = np.nonzero((np.diff(y_lo_isnan) == 1))[0]
+        _idx_to_insert_before = np.concatenate((_block_of_values_begins_after_nan, _block_of_values_ends_before_nan + 1))
+        _x_values_to_insert = np.concatenate((x[_block_of_values_begins_after_nan], x[_block_of_values_ends_before_nan]))
+        _y_values_to_insert = np.concatenate((y[_block_of_values_begins_after_nan], y[_block_of_values_ends_before_nan]))
+        x_std = np.insert(x, _idx_to_insert_before, _x_values_to_insert)
+        y_lo = np.insert(y_lo, _idx_to_insert_before, _y_values_to_insert)
+        y_hi = np.insert(y_hi, _idx_to_insert_before, _y_values_to_insert)
+
+        y_lo_notnan = ~np.isnan(y_lo)
+        x_std = x_std[y_lo_notnan]
+        y_lo = y_lo[y_lo_notnan]
+        y_hi = y_hi[y_lo_notnan]
 
         kwargs_lo = kwargs.copy()
         kwargs_lo['mode'] = 'lines'
@@ -102,10 +126,7 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
         kwargs_lo['hoverinfo'] = 'skip'
         kwargs_lo['showlegend'] = False
 
-        y_max = np.nanmax(np.abs(y) + y_std) if len(y) > 0 else 1
-        # this is a not very elegant workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
-        y_lo = np.nan_to_num(y - y_std, nan=y_max * 1e10)
-        y_scatter_lo = plotly_scatter(x, y_lo, use_GL=use_GL, *args, **kwargs_lo)
+        y_scatter_lo = plotly_scatter(x_std, y_lo, use_GL=use_GL, *args, **kwargs_lo)
 
         kwargs_hi = kwargs_lo.copy()
         kwargs_hi['fill'] = 'tonexty'
@@ -120,9 +141,8 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
             color_rgb = kwargs_hi['line_color']
         if color_rgb is not None:
             kwargs_hi['fillcolor'] = rgb_to_rgba(color_rgb, std_fill_opacity)
-        # this is a not very elegant workaround to the plotly bug https://github.com/plotly/plotly.js/issues/2736
-        y_hi = np.nan_to_num(y + y_std, nan=y_max * 1e10)
-        y_scatter_hi = plotly_scatter(x, y_hi, use_GL=use_GL, *args, **kwargs_hi)
+
+        y_scatter_hi = plotly_scatter(x_std, y_hi, use_GL=use_GL, *args, **kwargs_hi)
 
         return y_scatter, y_scatter_lo, y_scatter_hi
 
@@ -646,11 +666,13 @@ def get_sync_axis_props(range_tick0_dtick_by_var, fixedrange=True):
     return axis_props_by_var
 
 
+# TODO: fix an issue with reseting zoom: seems not always reset to manually defined ranges
 def multi_line(
         df,
         df_std=None,
         std_mode='fill',
-        width=1000, height=500,
+        width=None,
+        height=None,
         scatter_mode='lines',
         nticks=None,
         variable_label_by_var=None,
@@ -693,7 +715,7 @@ def multi_line(
     if not (nvars >= 1):
         return None
     if nticks is None:
-        nticks = max(height // 50, 3)
+        nticks = max(height // 50, 3) if isinstance(height, (int, float)) else 8
     if variable_label_by_var is None:
         variable_label_by_var = {}
     if yaxis_label_by_var is None:
@@ -778,14 +800,15 @@ def multi_line(
             else:
                 fig.add_trace(scatter)
 
-    delta_domain = min(75 / width, 0.5 / nvars) if isinstance(width, (int, float)) else 0.2 / nvars
+    delta_domain = min(75 / width, 0.5 / nvars) if isinstance(width, (int, float)) else 0.25 / nvars
     domain = [delta_domain * ((nvars - 1) // 2), min(1 - delta_domain * ((nvars - 2) // 2), 1)]
     fig.update_layout(xaxis={'domain': domain})
 
-    yaxis_props_by_var = get_sync_axis_props(range_tick0_dtick_by_var)
+    yaxis_props_by_var = get_sync_axis_props(range_tick0_dtick_by_var, fixedrange=False)
 
     for i, (variable_id, yaxis_props) in enumerate(yaxis_props_by_var.items()):
         yaxis_props.update({
+            #'rangeslider': {'visible': True},
             #'gridcolor': 'black',
             #'gridwidth': 1,
             'tickcolor': f'rgb{color_mapping[variable_id]}',
@@ -803,6 +826,7 @@ def multi_line(
             'zeroline': True,
             'zerolinewidth': 1,
             #'zerolinecolor': 'black',
+            # 'automargin': True, # ???
         })
 
         idx_of_last_variable_on_left_side = (nvars + 1) // 2 - 1
@@ -834,6 +858,7 @@ def multi_line(
         yaxis_id = 'yaxis' if i == 0 else f'yaxis{i+1}'
         fig.update_layout({yaxis_id: yaxis_props})
 
+    # fig_size = {'minreducedwidth': 500}
     fig_size = {}
     if height:
         #fig_size['minreducedheight'] = height
@@ -850,7 +875,7 @@ def multi_line(
         'xanchor': 'left',
         'yanchor': 'top',
         'x': 0,
-        'y': -0.1,
+        'y': -0.2,
     })
 
     return fig

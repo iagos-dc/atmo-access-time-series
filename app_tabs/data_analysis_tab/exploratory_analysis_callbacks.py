@@ -133,7 +133,8 @@ def get_exploratory_plot_callback(
             mean_by_var,
             df_std=std_by_var if show_std else None,
             std_mode=std_mode,
-            width=width, height=600,
+            # width=width,
+            height=600,
             scatter_mode=scatter_mode,
             variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
@@ -178,7 +179,8 @@ def get_exploratory_plot_callback(
         width = 1200
         fig = charts.multi_line(
             quantiles_by_p_by_var,
-            width=width, height=600,
+            # width=width,
+            height=600,
             scatter_mode=scatter_mode,
             variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
@@ -199,10 +201,11 @@ def get_exploratory_plot_callback(
         _, period_adjective = exploratory_analysis_layout.AGGREGATION_PERIOD_WORDINGS[aggregation_period]
         plot_title = f'{period_adjective.title()} moving average'
 
-        width = 1200
+        # width = 1200
         fig = charts.multi_line(
             moving_average_by_var,
-            width=width, height=600,
+            # width=width,
+            height=600,
             scatter_mode=scatter_mode,
             variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
@@ -225,4 +228,5 @@ def get_exploratory_plot_callback(
     #     fig = charts.apply_figure_extent(fig, relayout_data)
 
     # print(f'get_plot_callback fig size={len(fig.to_json()) / 1e3}k')
+    # fig.write_html('/home/wolp/tmp/fig.html', include_plotlyjs=False)
     return fig

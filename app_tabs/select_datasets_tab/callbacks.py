@@ -320,7 +320,7 @@ def popup_graphs(active_cell, datasets_json):
                 lambda da: data_processing.utils.subsampling(da.to_series(), n=3000),
                 da_by_var
             )
-            fig = charts.multi_line(series_by_var, width=1000)
+            fig = charts.multi_line(series_by_var) #, width=1000)
             fig = charts.add_watermark(fig)
             fig.update_layout(
                 legend=dict(orientation='h'),

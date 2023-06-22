@@ -38,7 +38,7 @@ GRAPH_CONFIG = {
     #'fillFrame': True,
     #'editSelection': True,
     #'editable': False,
-    'modeBarButtons': [['zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d'], ['autoScale2d'], ['toImage']],
+    'modeBarButtons': [['zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d'], ['resetScale2d'], ['toImage']],
     'edits': {
         'titleText': True,
         'axisTitleText': True,
@@ -47,10 +47,11 @@ GRAPH_CONFIG = {
     },
     'toImageButtonOptions': {
         'filename': 'foo',
-        'format': 'png',
+        'format': 'svg',
         'height': 800,
     },
     'showAxisDragHandles': True,
+    'scrollZoom': True,
     'showAxisRangeEntryBoxes': True,
     'showTips': True,
     'displaylogo': False,
