@@ -19,10 +19,10 @@ from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
 from log import logger, log_exception, log_exectime
 from utils import charts
-from utils.exception_handler import handle_exception
+from utils.exception_handler import callback_with_exc_handling, handle_exception
 
 
-@callback(
+@callback_with_exc_handling(
     Output(SELECT_DATASETS_TAB_VALUE, 'disabled'),
     Input(DATASETS_STORE_ID, 'data'),
 )
@@ -31,7 +31,7 @@ def enable_select_datasets_tab(datasets_json):
     return datasets_json is None
 
 
-# @callback(
+# @callback_with_exc_handling(
 #     Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
 #     Input(GANTT_GRAPH_ID, 'selectedData'),
 #     Input(DATASETS_STORE_ID, 'data'),
@@ -46,10 +46,9 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
         return gantt_figure_selectedData
 
 
-_callback_with_exc_handling = handle_exception(callback)
-_custom_callback_with_exc_handling = handle_exception(callback, dash.no_update, dash.no_update, dash.no_update, None)
+custom_callback_with_exc_handling = handle_exception(callback, dash.no_update, dash.no_update, dash.no_update, None)
 
-@_custom_callback_with_exc_handling(
+@custom_callback_with_exc_handling(
     Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
     Output(GANTT_GRAPH_ID, 'figure', allow_duplicate=True),
@@ -121,7 +120,7 @@ def update_selection_on_gantt_graph(
     raise dash.exceptions.PreventUpdate
 
 
-@callback(
+@callback_with_exc_handling(
     Output(GANTT_GRAPH_ID, 'figure'),
     Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
     Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
@@ -208,7 +207,7 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_dat
     return fig, selected_datasets_output, gantt_selected_bars,
 
 
-@callback(
+@callback_with_exc_handling(
     Output(DATASETS_TABLE_ID, 'columns'),
     Output(DATASETS_TABLE_ID, 'data'),
     Output(DATASETS_TABLE_ID, 'selected_rows'),
@@ -281,7 +280,7 @@ def datasets_as_table(
     return table_columns, table_data, selected_rows, selected_row_ids
 
 
-@_callback_with_exc_handling(
+@callback_with_exc_handling(
     Output(QUICKLOOK_POPUP_ID, 'children'),
     Input(DATASETS_TABLE_ID, 'active_cell'),
     State(DATASETS_STORE_ID, 'data'),
@@ -300,26 +299,18 @@ def popup_graphs(active_cell, datasets_json):
     else:
         selector = None
 
-    try:
-        ri = ds_md['RI']
-        url = ds_md['url']
-        selector = ds_md['selector'] if 'selector' in ds_md else None
-        req = data_processing.ReadDataRequest(ri, url, ds_md, selector=selector)
-        da_by_var = req.compute()
-        # da_by_var = data_access.read_dataset(ds_md['RI'], ds_md['url'], ds_md)
-        # for v, da in da_by_var.items():
-        #     da.to_netcdf(CACHE_DIR / 'tmp' / f'{v}.nc')
-        ds_exc = None
-    except Exception as e:
-        da_by_var = None
-        ds_exc = e
+    ri = ds_md['RI']
+    url = ds_md['url']
+    selector = ds_md['selector'] if 'selector' in ds_md else None
+    req = data_processing.ReadDataRequest(ri, url, ds_md, selector=selector)
+    da_by_var = req.compute()
 
     if da_by_var is not None:
         da_by_var = toolz.valfilter(lambda da: da.squeeze().ndim == 1, da_by_var)
         if len(da_by_var) > 0:
             series_by_var = toolz.valmap(
                 # due to performance, make a random subsampling of the timeseries
-                lambda da: data_processing.utils.subsampling(da.to_series(), n=3000),
+                lambda da: data_processing.utils.subsampling(da.squeeze(drop=True).to_series(), n=3000),
                 da_by_var
             )
             fig = charts.multi_line(series_by_var) #, width=1000)
@@ -339,9 +330,11 @@ def popup_graphs(active_cell, datasets_json):
                 }
             )
         else:
-            ds_plot = None
+            raise ValueError('This dataset has more than 1 dimension. For the moment it cannot be handled by the service. Please try again later.')
+            # ds_plot = None
     else:
-        ds_plot = repr(ds_exc)
+        raise ValueError('Cannot retrieve the requested dataset.')
+        # ds_plot = repr(ds_exc)
 
     popup = dbc.Modal(
         [
@@ -360,7 +353,7 @@ def popup_graphs(active_cell, datasets_json):
     return popup #, ds_md.to_json(orient='index', date_format='iso')
 
 
-# @callback(
+# @callback_with_exc_handling(
 #     Output('download_csv', 'data'),
 #     Input('btn_csv', 'n_clicks'),
 #     State(DATASET_MD_STORE_ID, 'data'),
@@ -378,7 +371,7 @@ def download_csv(n_clicks, ds_md_json):
         logger().exception(f'Failed to download the dataset {ds_md_json}', exc_info=e)
 
 
-@callback(
+@callback_with_exc_handling(
     Output(SELECT_DATASETS_BUTTON_ID, 'disabled'),
     Input(DATASETS_TABLE_ID, 'selected_row_ids'),
 )
@@ -387,7 +380,7 @@ def select_datasets_button_disabled(selected_row_ids):
     return not selected_row_ids
 
 
-@callback(
+@callback_with_exc_handling(
     Output(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     Output(APP_TABS_ID, 'value', allow_duplicate=True),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),

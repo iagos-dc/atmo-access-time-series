@@ -10,12 +10,10 @@ from app_tabs.data_analysis_tab import exploratory_analysis_layout
 from log import log_exception, logger, log_callback
 from utils import dash_dynamic_components as ddc, charts, helper
 from utils.broadcast import broadcast
-from utils.exception_handler import handle_exception
+from utils.exception_handler import dynamic_callback_with_exc_handling
 
 
-_callback_with_exc_handling = handle_exception(ddc.dynamic_callback)
-
-@_callback_with_exc_handling(
+@dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_1_ID, 'children'),
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_2_ID, 'children'),
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_3_ID, 'children'),

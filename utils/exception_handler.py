@@ -1,4 +1,5 @@
 import functools
+import dash
 from dash import html, Output, no_update, ctx
 from dash.exceptions import DashException
 import dash_bootstrap_components as dbc
@@ -66,3 +67,7 @@ def handle_exception(callback_decorator, *default_outputs):
 
 
 error_message_popup = html.Div(id=ERROR_MESSAGE_POPUP_ID)
+
+
+callback_with_exc_handling = handle_exception(dash.callback)
+dynamic_callback_with_exc_handling = handle_exception(ddc.dynamic_callback)

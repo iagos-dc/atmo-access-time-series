@@ -8,6 +8,14 @@ from dash.development.base_component import Component
 
 from log import log_exception
 
+# TODO: for the moment, callback_with_exc_handling is not adapted for the callbacks below;
+#  must implement the restrictive pattern-matching with MATCH wildcard, cf:
+#   Output 5 (error_message_popup.children@0f7761093e5cf37a5e7e2e5976580b9b)
+#   does not have MATCH wildcards on the same keys as
+#   Output 0 ({"aio_class":MATCH,"aio_id":MATCH,"component":"GraphWithHorizontalSelectionAIO","subcomponent":"from_input"}.value).
+#   MATCH wildcards must be on the same keys for all Outputs.
+# from utils.exception_handler import callback_with_exc_handling
+
 
 _GRAPH_WITH_HORIZONTAL_SELECTION_CONFIG = {
     'autosizable': False,
