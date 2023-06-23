@@ -120,7 +120,8 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx, start_d
         date_range_filter &= datasets_df_filtered['time_period_end'] > start_date
     if end_date is not None:
         date_range_filter &= datasets_df_filtered['time_period_start'] < end_date
-    if date_range_filter is not True:
+    # temporary patch, until error handling will be done
+    if False and date_range_filter is not True:
         datasets_df_filtered = datasets_df_filtered[date_range_filter]
 
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
