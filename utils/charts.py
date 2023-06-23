@@ -1260,8 +1260,11 @@ def plotly_hexbin(
     return fig
 
 
-def empty_figure():
-    return go.Figure()
+def empty_figure(height=None):
+    fig = go.Figure()
+    if height is not None:
+        fig.update_layout(height=height)
+    return fig
 
 
 def _get_watermark_size(fig):

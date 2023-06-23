@@ -48,7 +48,12 @@ def handle_exception(callback_decorator, *default_outputs):
                     raise
                 except Exception as e:
                     error_message = get_error_message(e.args)
+
                 if error_message is None:
+                    if no_outputs == 1:
+                        callback_result = (callback_result,)
+                    elif no_outputs == 0:
+                        callback_result = ()
                     callback_func_with_exception_handling_result = callback_result + (no_update, )
                 else:
                     outputs = default_outputs + (no_update, ) * (no_outputs - no_default_outputs)

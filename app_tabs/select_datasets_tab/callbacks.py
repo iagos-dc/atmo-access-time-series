@@ -46,6 +46,7 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
         return gantt_figure_selectedData
 
 
+_callback_with_exc_handling = handle_exception(callback)
 _custom_callback_with_exc_handling = handle_exception(callback, dash.no_update, dash.no_update, dash.no_update, None)
 
 @_custom_callback_with_exc_handling(
@@ -70,11 +71,6 @@ def update_selection_on_gantt_graph(
 
     print(f'click_data={click_data}')
     print(f'selected_gantt_bars={selected_gantt_bars}')
-
-    import random
-    _chance = random.random()
-    if _chance > .5:
-        raise ValueError('foo bar', _chance)
 
     if selected_gantt_bars is None:
         # it means that the figure is not initialized (= it is None)
@@ -151,7 +147,7 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_dat
         selected_datasets_output = dash.no_update
 
     if datasets_json is None:
-        return charts.empty_figure(), selected_datasets_output, None
+        return charts.empty_figure(height=400), selected_datasets_output, None
 
     selected_datasets = set(selected_datasets) if selected_datasets is not None else set()
 
@@ -159,7 +155,7 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_dat
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
 
     if len(datasets_df) == 0:
-       return charts.empty_figure(), selected_datasets_output, None
+       return charts.empty_figure(height=400), selected_datasets_output, None
 
     if gantt_view_type == 'compact':
         fig = charts._get_timeline_by_station(datasets_df)
@@ -285,7 +281,7 @@ def datasets_as_table(
     return table_columns, table_data, selected_rows, selected_row_ids
 
 
-@callback(
+@_callback_with_exc_handling(
     Output(QUICKLOOK_POPUP_ID, 'children'),
     Input(DATASETS_TABLE_ID, 'active_cell'),
     State(DATASETS_STORE_ID, 'data'),

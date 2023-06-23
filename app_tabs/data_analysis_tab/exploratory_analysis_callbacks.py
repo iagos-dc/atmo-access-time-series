@@ -24,13 +24,9 @@ _callback_with_exc_handling = handle_exception(ddc.dynamic_callback)
 )
 @log_exception
 def get_extra_parameters(analysis_method):
-    import random
-    _chance = random.random()
-    print('_chance', _chance)
-    if _chance > .5:
-        raise ValueError('get_extra_parameters', _chance)
-
-    if analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
+    if analysis_method is None:
+        raise dash.exceptions.PreventUpdate
+    elif analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
         return (
             exploratory_analysis_layout.aggregation_period_input,
             common_layout.minimal_sample_size_input,
@@ -107,7 +103,7 @@ def get_exploratory_plot_callback(
 
     da_by_var = toolz.keyfilter(lambda v: v in vs, da_by_var)
     if len(da_by_var) == 0:
-        return charts.empty_figure()
+        return charts.empty_figure(height=600)
 
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
     variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
