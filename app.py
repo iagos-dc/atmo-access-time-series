@@ -22,6 +22,7 @@ from app_tabs.filter_data_tab.layout import FILTER_DATA_BUTTON_ID, \
 from app_tabs.data_analysis_tab.tabs_layout import get_data_analysis_tab
 from log import log_exception
 from utils.dash_persistence import get_dash_persistence_kwargs
+from utils.exception_handler import error_message_popup, error_message_popup2
 
 
 # logos
@@ -84,7 +85,9 @@ def get_dashboard_layout(app):
                     title_and_logo_bar,
                     app_tabs,
                 ]
-            )
+            ),
+            error_message_popup,
+            error_message_popup2,
         ]
     )
 
@@ -100,6 +103,7 @@ app = Dash(
         dbc.themes.BOOTSTRAP,
         'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css',
     ],
+    prevent_initial_callbacks='initial_duplicate',
 )
 
 server = app.server

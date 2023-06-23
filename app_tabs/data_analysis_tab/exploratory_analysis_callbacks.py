@@ -10,35 +10,59 @@ from app_tabs.data_analysis_tab import exploratory_analysis_layout
 from log import log_exception, logger, log_callback
 from utils import dash_dynamic_components as ddc, charts, helper
 from utils.broadcast import broadcast
+from utils.exception_handler import handle_exception
 
 
-@ddc.dynamic_callback(
+#_callback_with_exc_handling = handle_exception(ddc.dynamic_callback)
+_callback_with_exc_handling = ddc.dynamic_callback
+
+
+from dash import Output, no_update
+from utils.exception_handler import ERROR_MESSAGE_POPUP_ID, ERROR_MESSAGE_POPUP_ID2, get_error_message
+
+
+@_callback_with_exc_handling(
+    ddc.DynamicOutput(ERROR_MESSAGE_POPUP_ID2, 'children', allow_duplicate=True),
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_1_ID, 'children'),
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_2_ID, 'children'),
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_3_ID, 'children'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_METHOD_RADIO_ID, 'value'),
+    prevent_initial_call=True,
 )
 @log_exception
 def get_extra_parameters(analysis_method):
+    import random
+    _chance = random.random()
+    print('_chance', _chance)
+    if _chance > .5:
+        print(111)
+        return get_error_message(f'_change={_chance}'), no_update, no_update, no_update
+        #raise ValueError('get_extra_parameters', _chance)
+
+    print(222)
     if analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
         return (
+            no_update,
             exploratory_analysis_layout.aggregation_period_input,
             common_layout.minimal_sample_size_input,
             exploratory_analysis_layout.std_style_inputs,
         )
     elif analysis_method == exploratory_analysis_layout.PERCENTILES_METHOD:
         return (
+            no_update,
             exploratory_analysis_layout.aggregation_period_input,
             common_layout.minimal_sample_size_input,
             exploratory_analysis_layout.percentiles_input_params,
         )
     elif analysis_method == exploratory_analysis_layout.MOVING_AVERAGE_METHOD:
         return (
+            no_update,
             exploratory_analysis_layout.aggregation_period_input,
             common_layout.minimal_sample_size_input,
             [],  # children=None instead of [] does not work
         )
     else:
+        print(333)
         raise RuntimeError(f'invalid analysis method: {analysis_method}')
 
 

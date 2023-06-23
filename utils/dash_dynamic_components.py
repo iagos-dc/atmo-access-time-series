@@ -21,9 +21,10 @@ def add_active_to_component_id(component_id, active=True):
 
 
 class _DynamicDashDependency:
-    def __init__(self, component_id, component_property):
+    def __init__(self, component_id, component_property, **kwargs):
         self.component_id = component_id
         self.component_property = component_property
+        self.kwargs = kwargs
 
     def __str__(self):
         return f"{self.component_id_str()}.{self.component_property}"
@@ -47,15 +48,15 @@ class _DynamicDashDependency:
         return i
 
 
-class DynamicOutput(_DynamicDashDependency):
+class DynamicOutput(_DynamicDashDependency, Output):
     pass
 
 
-class DynamicInput(_DynamicDashDependency):
+class DynamicInput(_DynamicDashDependency, Input):
     pass
 
 
-class DynamicState(_DynamicDashDependency):
+class DynamicState(_DynamicDashDependency, State):
     pass
 
 
@@ -70,7 +71,7 @@ def _transform_dash_dependency(dash_dependency):
     if isinstance(dash_dependency, _DynamicDashDependency):
         new_component_id = add_active_to_component_id(dash_dependency.component_id, active=ALL)
         new_dash_dependency_type = _dash_dependency_types_mapping[type(dash_dependency)]
-        return new_dash_dependency_type(new_component_id, dash_dependency.component_property)
+        return new_dash_dependency_type(new_component_id, dash_dependency.component_property, **dash_dependency.kwargs)
     else:
         return dash_dependency
 

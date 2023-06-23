@@ -1345,6 +1345,8 @@ def get_figure_extent(relayout_data):
     :param relayout_data:
     :return: dict or True; True if autosize=True is within relayout_data
     """
+    print(f'get_figure_extent(relayout_data) for relayout_data={relayout_data}')
+
     if relayout_data is not None:
         layout_dict = {}
         try:

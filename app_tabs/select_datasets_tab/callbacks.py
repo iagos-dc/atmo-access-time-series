@@ -19,6 +19,7 @@ from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
 from log import logger, log_exception, log_exectime
 from utils import charts
+from utils.exception_handler import handle_exception
 
 
 @callback(
@@ -45,7 +46,9 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
         return gantt_figure_selectedData
 
 
-@callback(
+_callback_with_exc_handling = handle_exception(callback, dash.no_update, dash.no_update, dash.no_update, None)
+
+@_callback_with_exc_handling(
     Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
     Output(GANTT_GRAPH_ID, 'figure', allow_duplicate=True),
@@ -54,7 +57,6 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
     Input(GANTT_GRAPH_ID, 'clickData'),
     State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     State(GANTT_SELECTED_BARS_STORE_ID, 'data'),
-    # State(GANTT_GRAPH_ID, 'figure'),
     prevent_initial_call=True,
 )
 @log_exception
@@ -63,16 +65,20 @@ def update_selection_on_gantt_graph(
         click_data,
         selected_datasets,
         selected_gantt_bars,
-        # fig,
 ):
+    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
+
+    print(f'click_data={click_data}')
+    print(f'selected_gantt_bars={selected_gantt_bars}')
+
+    import random
+    _chance = random.random()
+    if _chance > .5:
+        raise ValueError('foo bar', _chance)
+
     if selected_gantt_bars is None:
         # it means that the figure is not initialized (= it is None)
         raise dash.exceptions.PreventUpdate
-
-    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
-
-    # print(f'click_data={click_data}')
-    # print(f'selected_gantt_bars={selected_gantt_bars}')
 
     patched_fig = Patch()
 
