@@ -1,6 +1,6 @@
 import functools
 import json
-from dash import callback, ALL, ALLSMALLER
+from dash import callback, ALL, ALLSMALLER, ctx
 from dash.dependencies import Input, Output, State
 
 from log import log_exception
@@ -127,11 +127,27 @@ def dynamic_callback(*args, **kwargs):
                 return None
             elif len(output_become_one_elem_list) == 1:
                 callback_result = [callback_result]
+                ctx_outputs_list = [ctx.outputs_list]
+            else:
+                ctx_outputs_list = ctx.outputs_list
 
-            new_callback_result = tuple(
-                [arg] if becomes_list else arg
-                for arg, becomes_list in zip(callback_result, output_become_one_elem_list)
-            )
+            new_callback_result = []
+            for result_item, becomes_list, output_item in zip(callback_result, output_become_one_elem_list, ctx_outputs_list):
+                if becomes_list:
+                    if not isinstance(output_item, list):
+                        raise RuntimeError(f'output_item should be a list; got type(output_item)={type(output_item)}; output_item={output_item}; ctx.outputs_list={ctx.outputs_list}')
+                    if len(output_item) > 1:
+                        raise RuntimeError(f'output_item should be 1- or 0-element list; got len(output_item)={len(output_item)}; output_item={output_item}; ctx.outputs_list={ctx.outputs_list}')
+                    if len(output_item) == 0:
+                        # we must ignore the result_item, whatever it is, because ALL wildcard matched no components; normally, the output_item should be just dash.no_update
+                        new_result_item = []
+                    else:
+                        new_result_item = [result_item]
+                else:
+                    new_result_item = result_item
+                new_callback_result.append(new_result_item)
+            new_callback_result = tuple(new_callback_result)
+
             if len(output_become_one_elem_list) == 1:
                 new_callback_result = new_callback_result[0]
 

@@ -46,9 +46,9 @@ def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
         return gantt_figure_selectedData
 
 
-_callback_with_exc_handling = handle_exception(callback, dash.no_update, dash.no_update, dash.no_update, None)
+_custom_callback_with_exc_handling = handle_exception(callback, dash.no_update, dash.no_update, dash.no_update, None)
 
-@_callback_with_exc_handling(
+@_custom_callback_with_exc_handling(
     Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
     Output(GANTT_GRAPH_ID, 'figure', allow_duplicate=True),
