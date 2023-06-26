@@ -22,7 +22,7 @@ class AppWarning(UserWarning):
 alert_popups = []
 
 
-def get_alert_popup(errors_msgs, warnings_msgs):
+def get_alert_popup(errors_msgs, warnings_msgs, modal_id):
     msgs = []
     for warning_msgs in warnings_msgs:
         msgs.append('Warning: ' + '; '.join(warning_msgs))
@@ -52,8 +52,8 @@ def get_alert_popup(errors_msgs, warnings_msgs):
             dbc.ModalHeader(dbc.ModalTitle(title)),
             dbc.ModalBody(children=msg),
         ],
-        id="modal-xl",
-        size="xl",
+        id=modal_id,
+        size='lg',
         is_open=True,
     )
     return popup
@@ -103,11 +103,11 @@ def handle_exception(callback_decorator, *default_outputs):
                         callback_result = (callback_result,)
                     elif no_outputs == 0:
                         callback_result = ()
-                    alert_popup = get_alert_popup([], warnings_msgs)
+                    alert_popup = get_alert_popup([], warnings_msgs, f'{alert_popup_id}-modal')
                     callback_func_with_exception_handling_result = callback_result + (alert_popup, )
                 else:
                     outputs = default_outputs + (no_update, ) * (no_outputs - no_default_outputs)
-                    alert_popup = get_alert_popup([error_msgs], warnings_msgs)
+                    alert_popup = get_alert_popup([error_msgs], warnings_msgs, f'{alert_popup_id}-modal')
                     callback_func_with_exception_handling_result = outputs + (alert_popup, )
                 return callback_func_with_exception_handling_result
             return callback_decorator(*new_args, **kwargs)(callback_func_with_exception_handling)

@@ -1,3 +1,4 @@
+import functools
 import toolz
 import numpy as np
 import pandas as pd
@@ -307,12 +308,15 @@ def get_avail_data_by_var_gantt(ds):
     return gantt
 
 
+@functools.lru_cache()
 def colors():
     list_of_rgb_triples = [plotly.colors.hex_to_rgb(hex_color) for hex_color in px.colors.qualitative.Dark24]
     return list_of_rgb_triples
 
 
 def get_color_mapping(variables):
+    if len(variables) > len(colors()):
+        raise ValueError(f'too many variables: len(variables)={len(variables)} cannot exceed len(colors())={len(colors())}')
     return dict(zip(variables, colors()))
 
 

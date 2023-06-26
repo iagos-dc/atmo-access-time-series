@@ -1,3 +1,4 @@
+import warnings
 import json
 import toolz
 import numpy as np
@@ -19,7 +20,7 @@ from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
 from log import logger, log_exception, log_exectime
 from utils import charts
-from utils.exception_handler import callback_with_exc_handling, handle_exception
+from utils.exception_handler import callback_with_exc_handling, handle_exception, AppException
 
 
 @callback_with_exc_handling(
@@ -31,22 +32,8 @@ def enable_select_datasets_tab(datasets_json):
     return datasets_json is None
 
 
-# @callback_with_exc_handling(
-#     Output(GANTT_SELECTED_ITEMS_STORE_ID, 'data'),
-#     Input(GANTT_GRAPH_ID, 'selectedData'),
-#     Input(DATASETS_STORE_ID, 'data'),
-# )
-@log_exception
-def get_gantt_selected_items_store(gantt_figure_selectedData, datasets_json):
-    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
-    print(f'get_gantt_selected_items_store::dash_ctx={dash_ctx}')
-    if DATASETS_STORE_ID in dash_ctx and GANTT_GRAPH_ID not in dash_ctx:
-        return {'points': []}
-    else:
-        return gantt_figure_selectedData
-
-
 custom_callback_with_exc_handling = handle_exception(callback, dash.no_update, dash.no_update, dash.no_update, None)
+
 
 @custom_callback_with_exc_handling(
     Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
@@ -282,6 +269,7 @@ def datasets_as_table(
 
 @callback_with_exc_handling(
     Output(QUICKLOOK_POPUP_ID, 'children'),
+    Output(DATASETS_TABLE_ID, 'active_cell'),
     Input(DATASETS_TABLE_ID, 'active_cell'),
     State(DATASETS_STORE_ID, 'data'),
     prevent_initial_call=True,
@@ -289,7 +277,7 @@ def datasets_as_table(
 @log_exception
 def popup_graphs(active_cell, datasets_json):
     if datasets_json is None or active_cell is None:
-        return []  # children=None instead of [] does not work
+        return [], None  # children=None instead of [] does not work
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     ds_md = datasets_df.loc[active_cell['row_id']]
@@ -330,11 +318,9 @@ def popup_graphs(active_cell, datasets_json):
                 }
             )
         else:
-            raise ValueError('This dataset has more than 1 dimension. For the moment it cannot be handled by the service. Please try again later.')
-            # ds_plot = None
+            raise AppException('This dataset has more than 1 dimension. For the moment it cannot be handled by the service. Please try again later.')
     else:
-        raise ValueError('Cannot retrieve the requested dataset.')
-        # ds_plot = repr(ds_exc)
+        raise AppException('Cannot retrieve the requested dataset.')
 
     popup = dbc.Modal(
         [
@@ -345,12 +331,12 @@ def popup_graphs(active_cell, datasets_json):
                 # dcc.Download(id='download_csv'),
             ]),
         ],
-        id="modal-xl",
-        size="xl",
+        id=f'{QUICKLOOK_POPUP_ID}_modal',
+        size='xl',
         is_open=True,
     )
 
-    return popup #, ds_md.to_json(orient='index', date_format='iso')
+    return popup, None #, ds_md.to_json(orient='index', date_format='iso')
 
 
 # @callback_with_exc_handling(
@@ -404,11 +390,18 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
         # req.compute()  ###
         read_dataset_requests.append(req)
 
+    print(f'len(read_dataset_requests)={len(read_dataset_requests)}')
     if len(read_dataset_requests) == 0:
-        raise dash.exceptions.PreventUpdate  # TODO: instead, show a popup with the warning, that no datasets were found
+        raise AppException('No datasets were found')
+
+    if len(read_dataset_requests) > 10:
+        raise AppException('Too many datasets selected. Please select at most 10 datasets.')
 
     req = data_processing.IntegrateDatasetsRequest(read_dataset_requests)
     # TODO: do it asynchronously? will it work with dash/flask? look at options of @app.callback decorator (background=True, ???)
-    req.compute()
+    req_result = req.compute()
+    max_variables = len(charts.colors())
+    if len(req_result) > max_variables:
+        raise AppException(f'The selected datasets contain more than {max_variables} variables. Please refine your selection of datasets.')
 
     return req.to_dict(), FILTER_DATA_TAB_VALUE
