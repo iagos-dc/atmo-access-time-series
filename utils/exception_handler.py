@@ -8,7 +8,7 @@ from utils import dash_dynamic_components as ddc
 from log import dump_exception_to_log
 
 
-ERROR_MESSAGE_POPUP_ID = 'error_message_popup'
+ALERT_POPUP_ID = 'alert_popup'
 
 
 class AppException(Exception):
@@ -17,6 +17,9 @@ class AppException(Exception):
 
 class AppWarning(UserWarning):
     pass
+
+
+alert_popups = []
 
 
 def get_alert_popup(errors_msgs, warnings_msgs):
@@ -58,6 +61,10 @@ def get_alert_popup(errors_msgs, warnings_msgs):
 
 def handle_exception(callback_decorator, *default_outputs):
     def callback_decorator_with_exception_handler(*args, **kwargs):
+        alert_popup_id = f'{ALERT_POPUP_ID}-{len(alert_popups) + 1}'
+        print(alert_popup_id)
+        alert_popups.append(html.Div(id=alert_popup_id))
+
         no_outputs = len([arg for arg in args if isinstance(arg, Output)])
         no_default_outputs = len(default_outputs)
         if no_default_outputs > no_outputs:
@@ -66,9 +73,7 @@ def handle_exception(callback_decorator, *default_outputs):
         # set the extra error popup output as the last output;
         # this is important if a callback relies on the indices of the outputs,
         # cf. utils/graph_with_horizontal_selection_AIO.py/update_from_and_to_input_values (line ca. 107)
-        new_args = args[:no_outputs] + (Output(ERROR_MESSAGE_POPUP_ID, 'children', allow_duplicate=True), ) + args[no_outputs:]
-        new_kwargs = dict(kwargs)
-        new_kwargs.update(prevent_initial_call=True)
+        new_args = args[:no_outputs] + (Output(alert_popup_id, 'children'), ) + args[no_outputs:]
 
         def callback_func_transform(callback_func):
             @functools.wraps(callback_func)
@@ -105,13 +110,10 @@ def handle_exception(callback_decorator, *default_outputs):
                     alert_popup = get_alert_popup([error_msgs], warnings_msgs)
                     callback_func_with_exception_handling_result = outputs + (alert_popup, )
                 return callback_func_with_exception_handling_result
-            return callback_decorator(*new_args, **new_kwargs)(callback_func_with_exception_handling)
+            return callback_decorator(*new_args, **kwargs)(callback_func_with_exception_handling)
 
         return callback_func_transform
     return callback_decorator_with_exception_handler
-
-
-error_message_popup = html.Div(id=ERROR_MESSAGE_POPUP_ID)
 
 
 callback_with_exc_handling = handle_exception(dash.callback)

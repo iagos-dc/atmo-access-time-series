@@ -22,7 +22,7 @@ from app_tabs.filter_data_tab.layout import FILTER_DATA_BUTTON_ID, \
 from app_tabs.data_analysis_tab.tabs_layout import get_data_analysis_tab
 from log import log_exception
 from utils.dash_persistence import get_dash_persistence_kwargs
-from utils.exception_handler import error_message_popup
+from utils.exception_handler import alert_popups
 
 
 # logos
@@ -86,8 +86,8 @@ def get_dashboard_layout(app):
                     app_tabs,
                 ]
             ),
-            error_message_popup,
-        ]
+            # error_message_popup,
+        ] + alert_popups,
     )
 
     return layout
