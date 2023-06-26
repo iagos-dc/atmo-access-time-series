@@ -1,9 +1,11 @@
 import functools
+import warnings
 import dash
 from dash import html, Output, no_update, ctx
 from dash.exceptions import DashException
 import dash_bootstrap_components as dbc
 from utils import dash_dynamic_components as ddc
+from log import dump_exception_to_log
 
 
 ERROR_MESSAGE_POPUP_ID = 'error_message_popup'
@@ -13,10 +15,39 @@ class AppException(Exception):
     pass
 
 
-def get_error_message(msg):
+class AppWarning(UserWarning):
+    pass
+
+
+def get_alert_popup(errors_msgs, warnings_msgs):
+    msgs = []
+    for warning_msgs in warnings_msgs:
+        msgs.append('Warning: ' + '; '.join(warning_msgs))
+    for error_msgs in errors_msgs:
+        msgs.append('Error: ' + '; '.join(error_msgs))
+    if len(msgs) == 0:
+        return no_update
+
+    if len(msgs) > 1:
+        msg = [msgs[0]] + sum(([html.Br(), _msg] for _msg in msgs[1:]), start=[])
+    else:
+        msg = msgs[0]
+
+    title = []
+    if len(warnings_msgs) == 1:
+        title.append('warning')
+    elif len(warnings_msgs) > 1:
+        title.append(f'{len(warnings_msgs)} warnings')
+    if len(errors_msgs) == 1:
+        title.append('error')
+    elif len(errors_msgs) > 1:
+        title.append(f'{len(errors_msgs)} errors')
+    title = ' and '.join(title).capitalize()
+
     popup = dbc.Modal(
         [
-            dbc.ModalHeader(dbc.ModalTitle(msg)),
+            dbc.ModalHeader(dbc.ModalTitle(title)),
+            dbc.ModalBody(children=msg),
         ],
         id="modal-xl",
         size="xl",
@@ -42,23 +73,37 @@ def handle_exception(callback_decorator, *default_outputs):
         def callback_func_transform(callback_func):
             @functools.wraps(callback_func)
             def callback_func_with_exception_handling(*callback_args):
-                error_message = None
-                try:
-                    callback_result = callback_func(*callback_args)
-                except DashException:
-                    raise
-                except Exception as e:
-                    error_message = get_error_message(e.args)
+                error_msgs = None
+                with warnings.catch_warnings(record=True) as warnings_list:
+                    # show AppWarning only
+                    warnings.resetwarnings()
+                    warnings.simplefilter('ignore', category=Warning)
+                    warnings.simplefilter('always', category=AppWarning)
 
-                if error_message is None:
+                    try:
+                        callback_result = callback_func(*callback_args)
+                    except DashException:
+                        # Dash exceptions (e.g. PreventUpdate) are keep as is
+                        raise
+                    except AppException as e:
+                        error_msgs = e.args
+                        dump_exception_to_log(e, func=callback_func, args=callback_args)
+                    except Exception as e:
+                        error_msgs = ('Internal application error. Please try another action and/or choose another dataset(s).', )
+                        dump_exception_to_log(e, func=callback_func, args=callback_args)
+
+                warnings_msgs = [warn.message.args for warn in warnings_list]
+                if error_msgs is None:
                     if no_outputs == 1:
                         callback_result = (callback_result,)
                     elif no_outputs == 0:
                         callback_result = ()
-                    callback_func_with_exception_handling_result = callback_result + (no_update, )
+                    alert_popup = get_alert_popup([], warnings_msgs)
+                    callback_func_with_exception_handling_result = callback_result + (alert_popup, )
                 else:
                     outputs = default_outputs + (no_update, ) * (no_outputs - no_default_outputs)
-                    callback_func_with_exception_handling_result = outputs + (error_message, )
+                    alert_popup = get_alert_popup([error_msgs], warnings_msgs)
+                    callback_func_with_exception_handling_result = outputs + (alert_popup, )
                 return callback_func_with_exception_handling_result
             return callback_decorator(*new_args, **new_kwargs)(callback_func_with_exception_handling)
 

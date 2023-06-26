@@ -1,5 +1,5 @@
 import pathlib
-
+import warnings
 import numpy as np
 import pandas as pd
 import pkg_resources
@@ -19,12 +19,10 @@ from utils.charts import CATEGORY_ORDER
 from log import logger, log_exception, log_exectime
 from data_processing.utils import points_inside_polygons
 from utils.helper import all_is_None
+from utils.exception_handler import callback_with_exc_handling, AppException, AppWarning
 
 
-DEBUG_GET_DATASETS = False
-
-
-@callback(
+@callback_with_exc_handling(
     Output(VARIABLES_CHECKLIST_ID, 'value'),
     Input(VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
     prevent_initial_call=True,
@@ -37,7 +35,7 @@ def toogle_variable_checklist(variables_checklist_all_none_switch):
         return []
 
 
-@callback(
+@callback_with_exc_handling(
     Output(SEARCH_DATASETS_BUTTON_ID, 'disabled'),
     Input(SELECTED_STATIONS_STORE_ID, 'data'),
     Input(VARIABLES_CHECKLIST_ID, 'value'),
@@ -47,10 +45,10 @@ def search_datasets_button_disabled(selected_stations_idx, selected_variables):
     return not (selected_stations_idx and selected_variables)
 
 
-@callback(
+@callback_with_exc_handling(
     Output(STATIONS_MAP_ID, 'figure', allow_duplicate=True),
     Input(MAP_BACKGROUND_RADIO_ID, 'value'),
-    prevent_initial_call='initial_duplicate'
+    prevent_initial_call=True
 )
 @log_exception
 def change_map_background(map_background):
@@ -61,7 +59,7 @@ def change_map_background(map_background):
     return patched_fig
 
 
-@callback(
+@callback_with_exc_handling(
     Output(DATASETS_STORE_ID, 'data'),
     Output(APP_TABS_ID, 'value', allow_duplicate=True),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
@@ -88,22 +86,6 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx, start_d
     lon_min, lon_max, lat_min, lat_max = _get_bounding_box(selected_stations_idx)
 
     datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
-    if DEBUG_GET_DATASETS:
-        datasets_df2 = data_access.get_datasets_old(selected_variables, lon_min, lon_max, lat_min, lat_max)
-        datasets_df_not_match = False
-        if datasets_df is None and datasets_df2 is not None or datasets_df is not None and datasets_df2 is None:
-            datasets_df_not_match = True
-        elif datasets_df is not None:
-            datasets_df_not_match = datasets_df.equals(datasets_df2)
-        if not datasets_df_not_match:
-            logger().error(f'datasets dfs do not match: selected_variables={selected_variables}, '
-                           f'lon_min={lon_min}, lon_max={lon_max}, lat_min={lat_min}, lat_max={lat_max}\n'
-                           f'datasets_df={datasets_df}\n'
-                           f'datasets_df2={datasets_df2}')
-            datasets_df.to_pickle(data_access.common.CACHE_DIR / '_datasets_df.pkl')
-            datasets_df2.to_pickle(data_access.common.CACHE_DIR / '_datasets_df2.pkl')
-        else:
-            logger().info('datasets_df == datasets_df2')
 
     if datasets_df is None:
         datasets_df = empty_datasets_df
@@ -127,7 +109,11 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx, start_d
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
     datasets_df_filtered['id'] = datasets_df_filtered.index
 
-    new_tab = SELECT_DATASETS_TAB_VALUE if len(datasets_df_filtered) > 0 else dash.no_update
+    if len(datasets_df_filtered) > 0:
+        new_tab = SELECT_DATASETS_TAB_VALUE
+    else:
+        new_tab = dash.no_update
+        warnings.warn('No datasets found. Change search criteria.', category=AppWarning)
 
     return datasets_df_filtered.to_json(orient='split', date_format='iso'), new_tab
 
@@ -187,7 +173,7 @@ def _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_opti
     # return options.to_dict(orient='records'), list(options['value'])
 
 
-@callback(
+@callback_with_exc_handling(
     Output(SELECTED_STATIONS_STORE_ID, 'data'),
     Output(STATIONS_MAP_ID, 'figure'),
     Output(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
