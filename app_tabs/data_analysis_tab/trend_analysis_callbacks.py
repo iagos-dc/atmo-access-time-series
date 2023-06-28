@@ -1,7 +1,11 @@
+import warnings
 import numpy as np
 import pandas as pd
-import dash
 import toolz
+import plotly
+import plotly.graph_objects as go
+import plotly.subplots
+import dash
 from dash import Input, Output, ALL
 import dash_bootstrap_components as dbc
 
@@ -14,10 +18,7 @@ from log import log_exception, log_profiler_info
 from utils import dash_dynamic_components as ddc, charts, dash_persistence, helper
 from utils.broadcast import broadcast
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id
-
-import plotly
-import plotly.graph_objects as go
-import plotly.subplots
+from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning
 
 
 def _get_min_max_time(da_by_var):
@@ -38,21 +39,23 @@ def _get_min_max_time(da_by_var):
     return t_min, t_max
 
 
-@ddc.dynamic_callback(
+@dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(trend_analysis_layout.AGGREGATE_COLLAPSE_ID, 'is_open'),
     ddc.DynamicInput(trend_analysis_layout.AGGREGATE_CHECKBOX_ID, 'value'),
+    prevent_initial_call=True
 )
 @log_exception
 def show_aggregate_card(aggregate_checkbox):
     return aggregate_checkbox
 
 
-@ddc.dynamic_callback(
+@dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'disabled'),
     ddc.DynamicOutput(trend_analysis_layout.APPLY_MOVING_AVERAGE_COLLAPSE_ID, 'is_open'),
     ddc.DynamicOutput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'disabled'),
     ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'value'),
+    prevent_initial_call=True
 )
 @log_exception
 def show_moving_average_card(deseasonize_checkbox, apply_moving_average_checkbox):
@@ -65,7 +68,7 @@ def _get_theil_sen_slope(series):
     return (a, b), (ci0, ci1), (x_unit, y_unit)
 
 
-@ddc.dynamic_callback(
+@dynamic_callback_with_exc_handling(
     Output(figure_data_store_id(trend_analysis_layout.TREND_ANALYSIS_AIO_ID + '-time', trend_analysis_layout.TREND_ANALYSIS_AIO_CLASS), 'data'),
     ddc.DynamicOutput(trend_analysis_layout.TREND_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(trend_analysis_layout.AUTOCORRELATION_GRAPH_ID, 'figure'),
@@ -80,7 +83,8 @@ def _get_theil_sen_slope(series):
     ddc.DynamicInput(common_layout.MIN_SAMPLE_SIZE_INPUT_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'value'),
-    ddc.DynamicInput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'value')
+    ddc.DynamicInput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'value'),
+    prevent_initial_call=True
 )
 @log_exception
 #@log_profiler_info()
@@ -117,7 +121,8 @@ def get_trend_plots_callback(
     da_by_var = toolz.keyfilter(lambda v: v in vs, da_by_var)
     colors_by_var = toolz.keyfilter(lambda v: v in vs, colors_by_var)
     if len(da_by_var) == 0:
-        raise dash.exceptions.PreventUpdate
+        warnings.warn('No variable selected. Please select one.', category=AppWarning)
+        return None, None, None, None
 
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
     variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)

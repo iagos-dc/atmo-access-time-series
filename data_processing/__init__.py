@@ -14,6 +14,7 @@ from .filtering import (
 )
 
 
+# TODO: not used anymore?
 def retrieve_and_integrate_datasets(datasets_df):
     read_dataset_requests = []
     for idx, ds_metadata in datasets_df.iterrows():

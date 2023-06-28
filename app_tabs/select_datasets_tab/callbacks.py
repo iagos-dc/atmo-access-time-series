@@ -20,7 +20,7 @@ from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
 from log import logger, log_exception, log_exectime
 from utils import charts
-from utils.exception_handler import callback_with_exc_handling, handle_exception, AppException
+from utils.exception_handler import callback_with_exc_handling, handle_exception, AppException, AppWarning
 
 
 @callback_with_exc_handling(
@@ -403,5 +403,10 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
     max_variables = len(charts.colors())
     if len(req_result) > max_variables:
         raise AppException(f'The selected datasets contain more than {max_variables} variables. Please refine your selection of datasets.')
+    if len(req_result) == 0:
+        warnings.warn('The selected dataset(s) contain no data. Please choose another dataset(s)', category=AppWarning)
+        next_tab = dash.no_update
+    else:
+        next_tab = FILTER_DATA_TAB_VALUE
 
-    return req.to_dict(), FILTER_DATA_TAB_VALUE
+    return req.to_dict(), next_tab

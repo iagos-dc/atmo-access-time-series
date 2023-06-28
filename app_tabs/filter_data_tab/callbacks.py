@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import dash
 import dash_bootstrap_components as dbc
@@ -17,12 +18,13 @@ from utils import charts
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id, \
     GraphWithHorizontalSelectionAIO, graph_id, interval_input_group_id
 from log import log_exception
+from utils.exception_handler import callback_with_exc_handling, AppException, AppWarning
 
 
 DATA_FILTER_AIO_CLASS = 'data_filter'
 
 
-@callback(
+@callback_with_exc_handling(
     Output(FILTER_DATA_TAB_VALUE, 'disabled'),
     Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
 )
@@ -49,7 +51,7 @@ def _get_min_max_time(da_by_var):
     return t_min, t_max
 
 
-@callback(
+@callback_with_exc_handling(
     Output(figure_data_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
     Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'disabled'),
     Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'style'),
@@ -110,8 +112,12 @@ def update_histograms_callback(
     def get_fig(aio_id):
         variable_label = selected_range_by_aio_id[aio_id]['variable_label']
 
-        x_min = ds[variable_label].min().item()
-        x_max = ds[variable_label].max().item()
+        da = ds[variable_label]
+        if len(da) > 0:
+            x_min = da.min().item()
+            x_max = da.max().item()
+        else:
+            x_min, x_max = None, None
 
         log_scale_switch = get_value_by_aio_id(aio_id, log_scale_switch_ids, log_scale_switches)
         log_x = 'log_x' in log_scale_switch
@@ -192,7 +198,7 @@ def update_histograms_callback(
         raise RuntimeError(f'unknown trigger: {ctx.triggered_id}')
 
 
-@callback(
+@callback_with_exc_handling(
     Output(FILTER_TAB_CONTAINER_ROW_ID, 'children'),
     Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
@@ -208,6 +214,9 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
 
     req = data_processing.IntegrateDatasetsRequest.from_dict(integrate_datasets_request)
     ds = req.compute()
+    if len(ds) == 0:
+        warnings.warn('No variables found. Choose another dataset(s).', category=AppWarning)
+        return []  # children=None does not work
 
     color_mapping = charts.get_color_mapping(ds)
 
@@ -307,7 +316,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
 
 
 # TODO: lots of duplications with utils.crossfiltering.update_histograms_callback
-@callback(
+@callback_with_exc_handling(
     Output(FILTER_DATA_REQUEST_ID, 'data'),
     Output(APP_TABS_ID, 'value', allow_duplicate=True),
     Input(FILTER_DATA_BUTTON_ID, 'n_clicks'),
@@ -354,6 +363,15 @@ def filter_data_callback(
         cross_filtering_time_coincidence_dt
     )
 
-    filter_data_req.compute()
+    da_filtered_by_var = filter_data_req.compute()
+    if len(da_filtered_by_var) == 0:
+        warnings.warn(
+            'The applied data filter is too restrictive: all variables\' values were masked out. '
+            'Please change the filter.',
+            category=AppWarning
+        )
+        next_tab = dash.no_update
+    else:
+        next_tab = DATA_ANALYSIS_TAB_VALUE
 
-    return filter_data_req.to_dict(), DATA_ANALYSIS_TAB_VALUE
+    return filter_data_req.to_dict(), next_tab

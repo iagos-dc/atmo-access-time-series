@@ -1,3 +1,4 @@
+import warnings
 import dash
 import numpy as np
 import pandas as pd
@@ -11,9 +12,10 @@ from app_tabs.data_analysis_tab import multivariate_analysis_layout
 from data_processing import metadata
 from log import log_exception, logger
 from utils import dash_dynamic_components as ddc, charts, helper
+from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning
 
 
-@ddc.dynamic_callback(
+@dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_VARIABLES_CARDBODY_ID, 'children'),
     ddc.DynamicInput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_METHOD_RADIO_ID, 'value'),
     Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
@@ -31,7 +33,8 @@ def get_multivariate_analysis_variables_cardbody_callback(analysis_method, filte
 
     vs = list(metadata_by_var)
     if len(vs) <= 1:
-        return multivariate_analysis_layout.get_message_not_enough_variables_for_multivariate_analysis()
+        warnings.warn('For multivariate analysis choose at least 2 variables', category=AppWarning)
+        return []
 
     options = [{'label': f'{v} : {md[metadata.VARIABLE_LABEL]}', 'value': v} for v, md in metadata_by_var.items()]
     options_c = ([{'label': '---', 'value': '---'}] + options) if len(vs) >= 3 else None
@@ -62,15 +65,19 @@ def get_multivariate_analysis_variables_cardbody_callback(analysis_method, filte
     ]
 
 
-@ddc.dynamic_callback(
+@dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_PARAMETERS_FORM_ROW_2_ID, 'children'),
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_PARAMETERS_FORM_ROW_3_ID, 'children'),
     ddc.DynamicInput(multivariate_analysis_layout.PLOT_TYPE_RADIO_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'disabled'),
+    prevent_initial_call=True,
 )
 @log_exception
 def get_extra_parameters(plot_type, c_variable, c_variable_disabled):
+    if plot_type is None:
+        raise dash.exceptions.PreventUpdate
+
     if plot_type == multivariate_analysis_layout.INDIVIDUAL_OBSERVATIONS_PLOT:
         return [], []  # children=None instead of [] does not work
     elif plot_type == multivariate_analysis_layout.HEXBIN_PLOT:
@@ -85,7 +92,7 @@ def get_extra_parameters(plot_type, c_variable, c_variable_disabled):
         raise ValueError(f'unknown plot_type={plot_type}')
 
 
-@ddc.dynamic_callback(
+@dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_VARIABLES_CARDHEADER_ID, 'children'),
     Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
@@ -98,6 +105,7 @@ def get_extra_parameters(plot_type, c_variable, c_variable_disabled):
     ddc.DynamicInput(multivariate_analysis_layout.HEXBIN_PLOT_RESOLUTION_SLIDER_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.AGGREGATOR_DISPLAY_BUTTONS_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.MULTIVARIATE_GRAPH_ID, 'relayoutData'),
+    prevent_initial_call=True,
 )
 @log_exception
 #@log_exectime
@@ -145,6 +153,15 @@ def get_multivariate_plot_callback(
     # drop all nan's (take into account only complete observations)
     ds = ds.dropna('time')
     nb_observations = len(ds['time'])
+    if nb_observations == 0:
+        selected_vars_as_str = ', '.join(selected_vars)
+        warnings.warn(
+            f'No observations for the variables {selected_vars_as_str}' 
+            f'Please select another set of XY- (and C-) variables or change the data filter from the previous step',
+            category=AppWarning
+        )
+        return None, None
+
     nb_observations_as_str = f'Variables ({nb_observations:.4g} observations)'
 
     apply_existing_figure_extent = all([

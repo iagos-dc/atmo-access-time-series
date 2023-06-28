@@ -163,6 +163,9 @@ def filter_dataset(
             da = da.where(cond, drop=False)
         if filter_data_request and time_cond is not True:
             da = da.where(time_cond, drop=True)
-        ds_filtered[v] = da
+
+        # if the variable contains only NaN's, skip it
+        if da.notnull().any():
+            ds_filtered[v] = da
 
     return ds_filtered

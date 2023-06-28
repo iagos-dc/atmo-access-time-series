@@ -187,11 +187,15 @@ def integrate_datasets(dss):
                 _var_id = '_'.join(var_id)
                 for i, da in enumerate(das):
                     da.name = f'{_var_id}_{i}'
-                    da_by_var_id[da.name] = da
+                    # if the variable contains only NaN's, skip it
+                    if da.notnull().any():
+                        da_by_var_id[da.name] = da
                 continue
 
             da.name = '_'.join(var_id)
-            da_by_var_id[da.name] = da
+            # if the variable contains only NaN's, skip it
+            if da.notnull().any():
+                da_by_var_id[da.name] = da
         else:
             raise RuntimeError(f'got an empty list of DataArrays for var_id={var_id}')
 

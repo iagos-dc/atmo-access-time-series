@@ -1,3 +1,4 @@
+import warnings
 import dash
 import dash_bootstrap_components as dbc
 import toolz
@@ -9,9 +10,10 @@ from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from data_processing import metadata
 from log import log_exception
 from utils import dash_dynamic_components as ddc, dash_persistence
+from utils.exception_handler import callback_with_exc_handling, dynamic_callback_with_exc_handling, AppException, AppWarning
 
 
-@ddc.dynamic_callback(
+@dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(common_layout.DATA_ANALYSIS_VARIABLES_CARDBODY_ROW_2_ID, 'children'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
@@ -19,6 +21,13 @@ from utils import dash_dynamic_components as ddc, dash_persistence
 )
 @log_exception
 def get_variables_callback(filter_data_request, variables_checklist_all_none_switch):
+    def get_checklist(_id, options=None, value=None, **kwargs):
+        if options is None:
+            options = []
+        return dbc.Checklist(id=_id, options=options, value=value, **kwargs)
+
+    checklist_id = ddc.add_active_to_component_id(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID)
+
     if filter_data_request is None:
         raise dash.exceptions.PreventUpdate
 
@@ -29,7 +38,8 @@ def get_variables_callback(filter_data_request, variables_checklist_all_none_swi
 
     vs = list(metadata_by_var)
     if len(vs) == 0:
-        raise dash.exceptions.PreventUpdate
+        warnings.warn('No variables found. Choose another dataset(s).', category=AppWarning)
+        return get_checklist(_id=checklist_id)
 
     options = [{'label': f'{v} : {md[metadata.VARIABLE_LABEL]}', 'value': v} for v, md in metadata_by_var.items()]
     if variables_checklist_all_none_switch:
@@ -39,8 +49,8 @@ def get_variables_callback(filter_data_request, variables_checklist_all_none_swi
 
     integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
 
-    return dbc.Checklist(
-        id=ddc.add_active_to_component_id(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID),
+    return get_checklist(
+        _id=checklist_id,
         options=options,
         value=value,
         **dash_persistence.get_dash_persistence_kwargs(persistence_id=integrate_datasets_request_hash)

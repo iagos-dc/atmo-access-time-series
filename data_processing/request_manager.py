@@ -290,15 +290,15 @@ class FilterDataRequest(Request):
         # print(f'execute {str(self)}')
         ds = self.integrate_datasets_request.compute()
 
-        ds_filtered_by_var = filter_dataset(
+        da_filtered_by_var = filter_dataset(
             ds,
             self.rng_by_varlabel,
             cross_filtering=self.cross_filtering,
             tolerance=self.cross_filtering_time_coincidence_dt,
             filter_data_request=True,
         )
-
-        return ds_filtered_by_var
+        print(da_filtered_by_var)
+        return da_filtered_by_var
 
     def get_hashable(self):
         if self.cross_filtering_time_coincidence_dt is not None:

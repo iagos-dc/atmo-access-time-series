@@ -1,3 +1,4 @@
+import warnings
 import dash
 import toolz
 from dash import Input
@@ -10,7 +11,7 @@ from app_tabs.data_analysis_tab import exploratory_analysis_layout
 from log import log_exception, logger, log_callback
 from utils import dash_dynamic_components as ddc, charts, helper
 from utils.broadcast import broadcast
-from utils.exception_handler import dynamic_callback_with_exc_handling
+from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning
 
 
 @dynamic_callback_with_exc_handling(
@@ -46,7 +47,7 @@ def get_extra_parameters(analysis_method):
         raise RuntimeError(f'invalid analysis method: {analysis_method}')
 
 
-@ddc.dynamic_callback(
+@dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID, 'figure'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
@@ -61,7 +62,6 @@ def get_extra_parameters(analysis_method):
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID, 'relayoutData'),
 )
 @log_exception
-#@log_callback()
 def get_exploratory_plot_callback(
         filter_data_request,
         vs,
@@ -101,6 +101,7 @@ def get_exploratory_plot_callback(
 
     da_by_var = toolz.keyfilter(lambda v: v in vs, da_by_var)
     if len(da_by_var) == 0:
+        warnings.warn('No variable selected. Please select one.', category=AppWarning)
         return charts.empty_figure(height=600)
 
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)

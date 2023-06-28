@@ -474,6 +474,11 @@ def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_
         x_min = np.log(x_min) if x_min is not None and x_min > 0 else None
         x_max = np.log(x_max) if x_max is not None and x_max > 0 else None
 
+    if np.isnan(x_min):
+        x_min = None
+    if np.isnan(x_max):
+        x_max = None
+
     rng = [x_min, x_max] if x_min is not None and x_max is not None else None
     h, edges = np.histogram(ar, bins=bins, range=rng)
 

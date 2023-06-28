@@ -131,10 +131,6 @@ def _get_multivariate_plot():
 multivariate_plot = _get_multivariate_plot()
 
 
-def get_message_not_enough_variables_for_multivariate_analysis():
-    return 'For multivariate analysis choose at least 2 variables'
-
-
 def get_variable_dropdown(dropdown_id, axis_label, options, value, disabled=False, persistence_id=None):
     return dbc.InputGroup([
         dbc.InputGroupText(axis_label),

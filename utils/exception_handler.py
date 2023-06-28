@@ -62,7 +62,7 @@ def get_alert_popup(errors_msgs, warnings_msgs, modal_id):
 def handle_exception(callback_decorator, *default_outputs):
     def callback_decorator_with_exception_handler(*args, **kwargs):
         alert_popup_id = f'{ALERT_POPUP_ID}-{len(alert_popups) + 1}'
-        print(alert_popup_id)
+        # print(alert_popup_id)
         alert_popups.append(html.Div(id=alert_popup_id))
 
         no_outputs = len([arg for arg in args if isinstance(arg, Output)])

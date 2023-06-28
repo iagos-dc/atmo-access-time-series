@@ -9,9 +9,10 @@ from app_tabs.data_analysis_tab.exploratory_analysis_layout import exploratory_a
 from app_tabs.data_analysis_tab.trend_analysis_layout import get_time_filter, get_trend_analysis_cardbody, trend_graph, autocorrelation_graph, trend_summary_bar_graph
 from app_tabs.data_analysis_tab.multivariate_analysis_layout import multivariate_analysis_cardbody, multivariate_plot
 from log import log_exception
+from utils.exception_handler import callback_with_exc_handling, AppException
 
 
-@callback(
+@callback_with_exc_handling(
     Output(DATA_ANALYSIS_TAB_VALUE, 'disabled'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
 )
@@ -20,7 +21,7 @@ def enable_data_analysis_tab(filter_data_request):
     return filter_data_request is None
 
 
-@callback(
+@callback_with_exc_handling(
     Output(DATA_ANALYSIS_PARAMETERS_CARDBODY_ID, 'children'),
     Output(DATA_ANALYSIS_FIGURE_CONTAINER_ID, 'children'),
     Input(KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
