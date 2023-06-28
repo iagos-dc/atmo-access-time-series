@@ -1,3 +1,4 @@
+import functools
 import dash
 from dash import dcc, callback, MATCH, ctx
 import dash_bootstrap_components as dbc
@@ -5,6 +6,9 @@ import pandas as pd
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 from dash.development.base_component import Component
+
+import utils.dash_dynamic_components as ddc
+
 
 from log import log_exception
 
@@ -58,11 +62,6 @@ interval_input_group_id = _component_id('interval_input_group')
 reset_selection_button_id = _component_id('reset_selection_button')
 
 
-@callback(
-    Output(graph_id(MATCH, MATCH), 'figure'),
-    Input(figure_data_store_id(MATCH, MATCH), 'data'),
-    Input(selected_range_store_id(MATCH, MATCH), 'data'),
-)
 @log_exception
 #@log_callback_with_ret_value()
 def update_graph_figure(fig_data, selected_range):
@@ -93,26 +92,34 @@ def update_graph_figure(fig_data, selected_range):
     return fig
 
 
-@callback(
-    Output(from_input_id(MATCH, MATCH), 'value'),
-    Output(to_input_id(MATCH, MATCH), 'value'),
-    Output(from_input_id(MATCH, MATCH), 'invalid'),
-    Output(to_input_id(MATCH, MATCH), 'invalid'),
-    Output(selected_range_store_id(MATCH, MATCH), 'data'),
-    Input(graph_id(MATCH, MATCH), 'selectedData'),
-    Input(reset_selection_button_id(MATCH, MATCH), 'n_clicks'),
-    Input(from_input_id(MATCH, MATCH), 'value'),
-    Input(to_input_id(MATCH, MATCH), 'value'),
-    State(selected_range_store_id(MATCH, MATCH), 'data'),
-)
+callback(
+    Output(graph_id(MATCH, MATCH), 'figure'),
+    Input(figure_data_store_id(MATCH, MATCH), 'data'),
+    Input(selected_range_store_id(MATCH, MATCH), 'data'),
+)(update_graph_figure)
+
+ddc.dynamic_callback(
+    ddc.DynamicOutput(graph_id(MATCH, MATCH), 'figure'),
+    ddc.DynamicInput(figure_data_store_id(MATCH, MATCH), 'data'),
+    ddc.DynamicInput(selected_range_store_id(MATCH, MATCH), 'data'),
+)(update_graph_figure)
+
+
 @log_exception
 # @log_callback_with_ret_value()
-def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clicks, x0, x1, selected_range):
+def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clicks, x0, x1, selected_range, dynamic_component=False):
     if ctx.triggered_id is None:
         raise dash.exceptions.PreventUpdate
         # return None, None, False, False, {'variable_label': selected_range['variable_label'], 'x_sel_min': None, 'x_sel_max': None}
 
-    x_axis_type = ctx.outputs_list[0]['id']['aio_id'].split('-')[-1]
+    first_output = ctx.outputs_list[0]
+    if dynamic_component:
+        if first_output:
+            first_output = first_output[0]
+        else:
+            raise dash.exceptions.PreventUpdate
+    x_axis_type = first_output['id']['aio_id'].split('-')[-1]
+
     if ctx.triggered_id.subcomponent == 'reset_selection_button':
         return None, None, False, False, {'variable_label': selected_range['variable_label'], 'x_sel_min': None, 'x_sel_max': None}
     elif ctx.triggered_id.subcomponent == 'graph':
@@ -158,6 +165,34 @@ def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clic
         return x0, x1, is_invalid(x0_valid), is_invalid(x1_valid), update_sel_range
     else:
         raise RuntimeError(f'unknown callback trigger: ctx.triggered_id={ctx.triggered_id}')
+
+
+callback(
+    Output(from_input_id(MATCH, MATCH), 'value'),
+    Output(to_input_id(MATCH, MATCH), 'value'),
+    Output(from_input_id(MATCH, MATCH), 'invalid'),
+    Output(to_input_id(MATCH, MATCH), 'invalid'),
+    Output(selected_range_store_id(MATCH, MATCH), 'data'),
+    Input(graph_id(MATCH, MATCH), 'selectedData'),
+    Input(reset_selection_button_id(MATCH, MATCH), 'n_clicks'),
+    Input(from_input_id(MATCH, MATCH), 'value'),
+    Input(to_input_id(MATCH, MATCH), 'value'),
+    State(selected_range_store_id(MATCH, MATCH), 'data'),
+)(update_from_and_to_input_values)
+
+ddc.dynamic_callback(
+    ddc.DynamicOutput(from_input_id(MATCH, MATCH), 'value'),
+    ddc.DynamicOutput(to_input_id(MATCH, MATCH), 'value'),
+    ddc.DynamicOutput(from_input_id(MATCH, MATCH), 'invalid'),
+    ddc.DynamicOutput(to_input_id(MATCH, MATCH), 'invalid'),
+    ddc.DynamicOutput(selected_range_store_id(MATCH, MATCH), 'data'),
+    ddc.DynamicInput(graph_id(MATCH, MATCH), 'selectedData'),
+    ddc.DynamicInput(reset_selection_button_id(MATCH, MATCH), 'n_clicks'),
+    ddc.DynamicInput(from_input_id(MATCH, MATCH), 'value'),
+    ddc.DynamicInput(to_input_id(MATCH, MATCH), 'value'),
+    ddc.DynamicState(selected_range_store_id(MATCH, MATCH), 'data'),
+)(functools.partial(update_from_and_to_input_values, dynamic_component=True))
+
 
 
 def _valid(x):
@@ -215,12 +250,12 @@ def figure_dict_update_layout(figure_dict):
     return figure_dict
 
 
-def graph(aio_id, aio_class, figure=Component.UNDEFINED):
+def graph(aio_id, aio_class, id_transform, figure=Component.UNDEFINED):
     if figure is not Component.UNDEFINED:
         figure = figure_update_layout(figure)
 
     return dcc.Graph(
-        id=graph_id(aio_id, aio_class),
+        id=id_transform(graph_id(aio_id, aio_class)),
         config=_GRAPH_WITH_HORIZONTAL_SELECTION_CONFIG,
         **_my_explicitize_args(figure=figure),
     )
@@ -247,26 +282,26 @@ def scalar_input_field(i):
     )
 
 
-def interval_inputs(aio_id, aio_class, x_axis_type, x_label=None):
+def interval_inputs(aio_id, aio_class, id_transform, x_axis_type, x_label=None):
     if x_axis_type == 'time':
         return dbc.InputGroup(
             [
                 dbc.InputGroupText('From'),
-                time_input_field(from_input_id(aio_id, aio_class)),
+                time_input_field(id_transform(from_input_id(aio_id, aio_class))),
                 dbc.InputGroupText('to'),
-                time_input_field(to_input_id(aio_id, aio_class)),
+                time_input_field(id_transform(to_input_id(aio_id, aio_class))),
             ],
-            id=interval_input_group_id(aio_id, aio_class),
+            id=id_transform(interval_input_group_id(aio_id, aio_class)),
             className='mb-3',
         )
     else:
         return dbc.InputGroup(
             [
-                scalar_input_field(from_input_id(aio_id, aio_class)),
+                scalar_input_field(id_transform(from_input_id(aio_id, aio_class))),
                 dbc.InputGroupText(f'< {x_label if x_label is not None else "x"} <'),
-                scalar_input_field(to_input_id(aio_id, aio_class)),
+                scalar_input_field(id_transform(to_input_id(aio_id, aio_class))),
             ],
-            id=interval_input_group_id(aio_id, aio_class),
+            id=id_transform(interval_input_group_id(aio_id, aio_class)),
             className='mb-3',
         )
 
@@ -274,6 +309,7 @@ def interval_inputs(aio_id, aio_class, x_axis_type, x_label=None):
 def interval_controls_container(
         aio_id,
         aio_class,
+        id_transform,
         x_axis_type,
         x_label=None,
         extra_dash_components=None,
@@ -289,13 +325,13 @@ def interval_controls_container(
         extra_dash_components2 = [extra_dash_components2]
 
     return [
-        dbc.Row(dbc.Col(interval_inputs(aio_id, aio_class, x_axis_type, x_label=x_label))),
+        dbc.Row(dbc.Col(interval_inputs(aio_id, aio_class, id_transform, x_axis_type, x_label=x_label))),
         dbc.Row(
             [
                 dbc.Col(
                     dbc.Button(
                         children='Reset filter',
-                        id=reset_selection_button_id(aio_id, aio_class)
+                        id=id_transform(reset_selection_button_id(aio_id, aio_class))
                     ),
                     width='auto',
                     align='center',
@@ -311,13 +347,13 @@ def interval_controls_container(
     ]
 
 
-def selected_range_store(aio_id, aio_class, variable_label=None, x_sel_min=None, x_sel_max=None):
+def selected_range_store(aio_id, aio_class, id_transform, variable_label=None, x_sel_min=None, x_sel_max=None):
     data = {'variable_label': variable_label, 'x_sel_min': x_sel_min, 'x_sel_max': x_sel_max}
-    return dcc.Store(id=selected_range_store_id(aio_id, aio_class), data=data)
+    return dcc.Store(id=id_transform(selected_range_store_id(aio_id, aio_class)), data=data)
 
 
-def figure_data_store(aio_id, aio_class, data=None):
-    return dcc.Store(id=figure_data_store_id(aio_id, aio_class), data=data)
+def figure_data_store(aio_id, aio_class, id_transform, data=None):
+    return dcc.Store(id=id_transform(figure_data_store_id(aio_id, aio_class)), data=data)
 
 
 class GraphWithHorizontalSelectionAIO:
@@ -326,6 +362,7 @@ class GraphWithHorizontalSelectionAIO:
             aio_id,
             x_axis_type,
             aio_class='a-class',
+            dynamic_component=False,
             variable_label=None,
             x_min=None,
             x_max=None,
@@ -334,6 +371,8 @@ class GraphWithHorizontalSelectionAIO:
             extra_dash_components=None,
             extra_dash_components2=None,
     ):
+        id_transform = ddc.add_active_to_component_id if dynamic_component else lambda _id: _id
+
         if x_axis_type not in ['time', 'scalar']:
             raise ValueError(f"x_axis_type must be 'time' or 'scalar'; got {x_axis_type}")
 
@@ -346,6 +385,7 @@ class GraphWithHorizontalSelectionAIO:
         _selected_range_store = selected_range_store(
             aio_id,
             aio_class,
+            id_transform,
             variable_label=variable_label,
             x_sel_min=None,
             x_sel_max=None,
@@ -354,6 +394,7 @@ class GraphWithHorizontalSelectionAIO:
         _figure_data_store = figure_data_store(
             aio_id,
             aio_class,
+            id_transform,
             data=figure_data
         )
 
@@ -364,6 +405,7 @@ class GraphWithHorizontalSelectionAIO:
                children=interval_controls_container(
                    aio_id,
                    aio_class,
+                   id_transform,
                    x_axis_type,
                    x_label=x_label,
                    extra_dash_components=extra_dash_components,
@@ -372,7 +414,7 @@ class GraphWithHorizontalSelectionAIO:
             ),
         ])
 
-        self.graph = graph(aio_id, aio_class, figure=figure)
+        self.graph = graph(aio_id, aio_class, id_transform, figure=figure)
 
     def get_data_stores(self):
         return self.data_stores

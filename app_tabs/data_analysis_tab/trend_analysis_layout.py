@@ -66,7 +66,7 @@ def get_time_filter():
     time_filter = GraphWithHorizontalSelectionAIO(
         aio_id=TREND_ANALYSIS_AIO_ID,
         aio_class=TREND_ANALYSIS_AIO_CLASS,
-        # dynamic_component=True,
+        dynamic_component=True,
         x_axis_type='time',
         variable_label='time',
         x_label='time',

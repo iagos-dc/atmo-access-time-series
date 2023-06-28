@@ -69,14 +69,14 @@ def _get_theil_sen_slope(series):
 
 
 @dynamic_callback_with_exc_handling(
-    Output(figure_data_store_id(trend_analysis_layout.TREND_ANALYSIS_AIO_ID + '-time', trend_analysis_layout.TREND_ANALYSIS_AIO_CLASS), 'data'),
+    ddc.DynamicOutput(figure_data_store_id(trend_analysis_layout.TREND_ANALYSIS_AIO_ID + '-time', trend_analysis_layout.TREND_ANALYSIS_AIO_CLASS), 'data'),
     ddc.DynamicOutput(trend_analysis_layout.TREND_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(trend_analysis_layout.AUTOCORRELATION_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(trend_analysis_layout.TREND_SUMMARY_BAR_GRAPH_ID, 'figure'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.TREND_ANALYSIS_METHOD_RADIO_ID, 'value'),
-    Input(selected_range_store_id(trend_analysis_layout.TREND_ANALYSIS_AIO_ID + '-time', trend_analysis_layout.TREND_ANALYSIS_AIO_CLASS), 'data'),
+    ddc.DynamicInput(selected_range_store_id(trend_analysis_layout.TREND_ANALYSIS_AIO_ID + '-time', trend_analysis_layout.TREND_ANALYSIS_AIO_CLASS), 'data'),
     ddc.DynamicInput(trend_analysis_layout.AGGREGATE_CHECKBOX_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.AGGREGATION_PERIOD_SELECT_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.AGGREGATION_FUNCTION_SELECT_ID, 'value'),
