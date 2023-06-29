@@ -2,6 +2,7 @@ import functools
 import dash
 from dash import dcc, callback, MATCH, ctx
 import dash_bootstrap_components as dbc
+import numpy as np
 import pandas as pd
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
@@ -123,6 +124,7 @@ def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clic
     if ctx.triggered_id.subcomponent == 'reset_selection_button':
         return None, None, False, False, {'variable_label': selected_range['variable_label'], 'x_sel_min': None, 'x_sel_max': None}
     elif ctx.triggered_id.subcomponent == 'graph':
+        # print('selected_data_on_fig =', selected_data_on_fig)
         if selected_data_on_fig is not None and 'range' in selected_data_on_fig:
             new_x0, new_x1 = selected_data_on_fig['range']['x']
 
@@ -131,6 +133,11 @@ def update_from_and_to_input_values(selected_data_on_fig, reset_selection_n_clic
                 new_x0, new_x1 = new_x1, new_x0
 
             if x_axis_type == 'time':
+                try:
+                    new_x0 = np.datetime64(new_x0)
+                    new_x1 = np.datetime64(new_x1)
+                except ValueError:
+                    raise dash.exceptions.PreventUpdate
                 new_x0 = pd.Timestamp(new_x0).strftime('%Y-%m-%d %H:%M')
                 new_x1 = pd.Timestamp(new_x1).strftime('%Y-%m-%d %H:%M')
             return new_x0, new_x1, False, False, update_selected_range(new_x0, new_x1, True, True, selected_range)

@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import toolz
 from dash import Input
 
-from . import common_layout
+from . import common_layout, tabs_layout
 import data_processing
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from data_processing import metadata
@@ -15,12 +15,16 @@ from utils.exception_handler import callback_with_exc_handling, dynamic_callback
 
 @dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(common_layout.DATA_ANALYSIS_VARIABLES_CARDBODY_ROW_2_ID, 'children'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
     prevent_initial_call=False,
 )
 @log_exception
-def get_variables_callback(filter_data_request, variables_checklist_all_none_switch):
+def get_variables_callback(tab_id, filter_data_request, variables_checklist_all_none_switch):
+    if tab_id not in [tabs_layout.EXPLORATORY_ANALYSIS_TAB_ID, tabs_layout.TREND_ANALYSIS_TAB_ID]:
+        raise dash.exceptions.PreventUpdate
+
     def get_checklist(_id, options=None, value=None, **kwargs):
         if options is None:
             options = []
@@ -38,7 +42,7 @@ def get_variables_callback(filter_data_request, variables_checklist_all_none_swi
 
     vs = list(metadata_by_var)
     if len(vs) == 0:
-        warnings.warn('No variables found. Choose another dataset(s).', category=AppWarning)
+        warnings.warn('No variables found. Choose another dataset(s) or change your data filter.', category=AppWarning)
         return get_checklist(_id=checklist_id)
 
     options = [{'label': f'{v} : {md[metadata.VARIABLE_LABEL]}', 'value': v} for v, md in metadata_by_var.items()]

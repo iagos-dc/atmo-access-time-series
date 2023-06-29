@@ -297,7 +297,6 @@ class FilterDataRequest(Request):
             tolerance=self.cross_filtering_time_coincidence_dt,
             filter_data_request=True,
         )
-        print(da_filtered_by_var)
         return da_filtered_by_var
 
     def get_hashable(self):

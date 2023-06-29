@@ -55,9 +55,6 @@ def update_selection_on_gantt_graph(
 ):
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
 
-    print(f'click_data={click_data}')
-    print(f'selected_gantt_bars={selected_gantt_bars}')
-
     if selected_gantt_bars is None:
         # it means that the figure is not initialized (= it is None)
         raise dash.exceptions.PreventUpdate
@@ -71,16 +68,10 @@ def update_selection_on_gantt_graph(
             selected_gantt_bars_in_category[:] = BAR_UNSELECTED
             selected_gantt_bars_new.append(selected_gantt_bars_in_category)
             patched_fig['data'][trace_no]['marker']['opacity'] = pd.Series(selected_gantt_bars_in_category).map(OPACITY_BY_BAR_SELECTION_STATUS).values
-            # patched_fig['data'][trace_no]['marker']['opacity'] = np.where(
-            #     selected_gantt_bars_in_category,
-            #     SELECTED_GANTT_OPACITY,
-            #     UNSELECTED_GANTT_OPACITY
-            # )
 
         return [], selected_gantt_bars_new, patched_fig, None
 
     if GANTT_GRAPH_ID in dash_ctx and click_data is not None:
-        print(f'click_data={click_data}')
         try:
             click_datasets = click_data['points'][0]['customdata'][0]
             trace_no = click_data['points'][0]['curveNumber']
@@ -185,11 +176,6 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_dat
         selectionrevision=False,
         margin=dict(l=0, r=0, t=0, b=0),
     )
-
-    # import json
-    # fig_dict = json.loads(fig.to_json())
-    # print(f'fig={fig_dict}')
-    # print(f'gantt_selected_bars={gantt_selected_bars}')
 
     return fig, selected_datasets_output, gantt_selected_bars,
 
@@ -390,7 +376,6 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
         # req.compute()  ###
         read_dataset_requests.append(req)
 
-    print(f'len(read_dataset_requests)={len(read_dataset_requests)}')
     if len(read_dataset_requests) == 0:
         raise AppException('No datasets were found')
 

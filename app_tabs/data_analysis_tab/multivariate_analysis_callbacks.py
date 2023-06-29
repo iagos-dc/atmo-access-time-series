@@ -8,22 +8,23 @@ from dash import Input
 import data_processing
 import data_processing.analysis
 from app_tabs.common import layout as common_layout
-from app_tabs.data_analysis_tab import multivariate_analysis_layout
+from . import multivariate_analysis_layout, tabs_layout
 from data_processing import metadata
 from log import log_exception, logger
 from utils import dash_dynamic_components as ddc, charts, helper
-from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning
+from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning, EmptyFigureException
 
 
 @dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_VARIABLES_CARDBODY_ID, 'children'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     ddc.DynamicInput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_METHOD_RADIO_ID, 'value'),
     Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
     prevent_initial_call=False,
 )
 @log_exception
-def get_multivariate_analysis_variables_cardbody_callback(analysis_method, filter_data_request):
-    if filter_data_request is None:
+def get_multivariate_analysis_variables_cardbody_callback(tab_id, analysis_method, filter_data_request):
+    if filter_data_request is None or tab_id != tabs_layout.MULTIVARIATE_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
@@ -68,14 +69,15 @@ def get_multivariate_analysis_variables_cardbody_callback(analysis_method, filte
 @dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_PARAMETERS_FORM_ROW_2_ID, 'children'),
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_PARAMETERS_FORM_ROW_3_ID, 'children'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     ddc.DynamicInput(multivariate_analysis_layout.PLOT_TYPE_RADIO_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'disabled'),
     prevent_initial_call=True,
 )
 @log_exception
-def get_extra_parameters(plot_type, c_variable, c_variable_disabled):
-    if plot_type is None:
+def get_extra_parameters(tab_id, plot_type, c_variable, c_variable_disabled):
+    if plot_type is None or tab_id != tabs_layout.MULTIVARIATE_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
 
     if plot_type == multivariate_analysis_layout.INDIVIDUAL_OBSERVATIONS_PLOT:
@@ -95,6 +97,7 @@ def get_extra_parameters(plot_type, c_variable, c_variable_disabled):
 @dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_VARIABLES_CARDHEADER_ID, 'children'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(multivariate_analysis_layout.X_VARIABLE_SELECT_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.Y_VARIABLE_SELECT_ID, 'value'),
@@ -110,6 +113,7 @@ def get_extra_parameters(plot_type, c_variable, c_variable_disabled):
 @log_exception
 #@log_exectime
 def get_multivariate_plot_callback(
+        tab_id,
         filter_data_request,
         x_var,
         y_var,
@@ -121,6 +125,9 @@ def get_multivariate_plot_callback(
         agg_func,
         relayout_data,
 ):
+    if tab_id != tabs_layout.MULTIVARIATE_ANALYSIS_TAB_ID:
+        raise dash.exceptions.PreventUpdate
+
     # print(f'analysis_method={analysis_method}, plot_type={plot_type}')
     # print(f'relayoutData={relayout_data}')
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
@@ -228,17 +235,21 @@ def get_multivariate_plot_callback(
         plot_type = 'Hex-bin plot'
         if C is not None and agg_func is None or hexbin_resolution is None:
             return dash.no_update, nb_observations_as_str
-        fig = charts.plotly_hexbin(
-            x=X, y=Y, C=C,
-            reduce_function=multivariate_analysis_layout.AGGREGATOR_FUNCTIONS.get(agg_func),
-            mode='3d+sample_size_as_hexagon_scaling' if C is not None else '2d',
-            gridsize=hexbin_resolution,
-            min_count=1,
-            xaxis_title=f'{x_var} ({units_by_var.get(x_var, "???")})',
-            yaxis_title=f'{y_var} ({units_by_var.get(y_var, "???")})',
-            colorbar_title=f'{color_var} ({units_by_var.get(color_var, "???")})' if C is not None else 'Sample size',
-            width=1000, height=700,
-        )
+        try:
+            fig = charts.plotly_hexbin(
+                x=X, y=Y, C=C,
+                reduce_function=multivariate_analysis_layout.AGGREGATOR_FUNCTIONS.get(agg_func),
+                mode='3d+sample_size_as_hexagon_scaling' if C is not None else '2d',
+                gridsize=hexbin_resolution,
+                min_count=1,
+                xaxis_title=f'{x_var} ({units_by_var.get(x_var, "???")})',
+                yaxis_title=f'{y_var} ({units_by_var.get(y_var, "???")})',
+                colorbar_title=f'{color_var} ({units_by_var.get(color_var, "???")})' if C is not None else 'Sample size',
+                width=1000, height=700,
+            )
+        except EmptyFigureException:
+            warnings.warn('No data within this range. Reset the zoom', category=AppWarning)
+            return dash.no_update, nb_observations_as_str
     else:
         raise ValueError(f'plot_type={plot_type}')
 

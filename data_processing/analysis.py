@@ -113,7 +113,7 @@ def linear_regression(df, x_var, y_var):
     return a, b, r2
 
 
-def theil_sen_slope(series, subsampling=3000, deseasonalize=True):
+def theil_sen_slope(series, subsampling=3000):
     series = series.dropna()
     if len(series) <= 1:
         raise ValueError(f'cannot estimate slope from {len(series)} value(s); series={series}')
@@ -173,16 +173,19 @@ def _custom_asfreq(x, freq, method=None, limit=None, tolerance=None):
 def extract_seasonality(da, period=pd.Timedelta('1Y')):
     series = _to_series(da)
 
-    assert series.index.is_monotonic_increasing
-    assert series.index.is_all_dates
+    assert series.index.is_monotonic_increasing, f'The index of the series is not monotone; series={series}, index={series.index}'
+    assert series.index.is_all_dates, f'The index of the series is not all dates; series={series}, index={series.index}'
+
     # freq = x.index.freq
     # if freq is None:
     freq = _infer_ts_frequency(xr.DataArray(series))
-    assert freq > pd.Timedelta(0)
+    assert freq > pd.Timedelta(0), f'The frequency of the series index cannot be inferred; series={series}, index={series.index}'
 
     # x = custom_asfreq(x, freq, method='nearest', tolerance=freq / 2)  # maybe: freq - pd.Timedelta(1, 'ns') ???
 
     period = pd.Timedelta(period)
+    assert series.index[-1] - series.index[0] >= 2 * period, f'The series time span is < 2 * {period}; series={series}, index={series.index}'
+
     m = moving_average(series, period)
     x_m = (series - m).to_frame(name='x_m')
 
@@ -201,8 +204,8 @@ def extract_seasonality(da, period=pd.Timedelta('1Y')):
 def autocorrelation(da, period=pd.Timedelta('365D')):
     series = _to_series(da)
 
-    assert series.index.is_monotonic_increasing
-    assert series.index.is_all_dates
+    assert series.index.is_monotonic_increasing, f'The index of the series is not monotone; series={series}, index={series.index}'
+    assert series.index.is_all_dates, f'The index of the series is not all dates; series={series}, index={series.index}'
 
     time = pd.Series(series.index)
     dtime = time - time.iloc[0]

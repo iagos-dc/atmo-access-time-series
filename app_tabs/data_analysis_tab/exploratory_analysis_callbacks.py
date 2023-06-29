@@ -3,14 +3,13 @@ import dash
 import toolz
 from dash import Input
 
-from . import common_layout
+from . import common_layout, tabs_layout
 import data_processing
 from data_processing import metadata, analysis
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from app_tabs.data_analysis_tab import exploratory_analysis_layout
 from log import log_exception, logger, log_callback
 from utils import dash_dynamic_components as ddc, charts, helper
-from utils.broadcast import broadcast
 from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning
 
 
@@ -18,12 +17,13 @@ from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarni
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_1_ID, 'children'),
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_2_ID, 'children'),
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_PARAMETERS_FORM_ROW_3_ID, 'children'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_METHOD_RADIO_ID, 'value'),
     prevent_initial_call=True,
 )
 @log_exception
-def get_extra_parameters(analysis_method):
-    if analysis_method is None:
+def get_extra_parameters(tab_id, analysis_method):
+    if analysis_method is None or tab_id != tabs_layout.EXPLORATORY_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
     elif analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
         return (
@@ -49,6 +49,7 @@ def get_extra_parameters(analysis_method):
 
 @dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID, 'figure'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_METHOD_RADIO_ID, 'value'),
@@ -63,6 +64,7 @@ def get_extra_parameters(analysis_method):
 )
 @log_exception
 def get_exploratory_plot_callback(
+        tab_id,
         filter_data_request,
         vs,
         analysis_method,
@@ -75,6 +77,8 @@ def get_exploratory_plot_callback(
         scatter_mode,
         relayout_data
 ):
+    if tab_id != tabs_layout.EXPLORATORY_ANALYSIS_TAB_ID:
+        raise dash.exceptions.PreventUpdate
     # print(f'relayoutData={relayout_data}')
 
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
@@ -116,29 +120,25 @@ def get_exploratory_plot_callback(
         filtering_on_figure_extent = None
 
     if analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
-        get_gaussian_mean_and_std_by_var = broadcast([0])(analysis.gaussian_mean_and_std)
-        moving_average_by_var = get_gaussian_mean_and_std_by_var(
-            da_by_var,
-            aggregation_period,
-            min_sample_size=min_sample_size
-        )
-
-        mean_by_var, std_by_var, _ = (
-            toolz.valmap(lambda t: t[i], moving_average_by_var)
-            for i in range(3)
-        )
+        mean_by_var = {}
+        std_by_var = {}
+        for v, da in da_by_var.items():
+            mean, std, _ = analysis.gaussian_mean_and_std(da, aggregation_period, min_sample_size=min_sample_size)
+            if mean.isna().all():
+                warnings.warn(f'Not enough data to estimate Gaussian means for {v}. Try a longer aggregation period, decrease the minimal sample size for period or change the data filter.', category=AppWarning)
+                continue
+            mean_by_var[v] = mean
+            std_by_var[v] = std
 
         _, period_adjective = exploratory_analysis_layout.AGGREGATION_PERIOD_WORDINGS[aggregation_period]
         plot_title = f'{period_adjective.title()} mean'
         if show_std:
             plot_title += ' and standard deviation'
 
-        width = 1200
         fig = charts.multi_line(
             mean_by_var,
             df_std=std_by_var if show_std else None,
             std_mode=std_mode,
-            # width=width,
             height=600,
             scatter_mode=scatter_mode,
             variable_label_by_var=variable_label_by_var,
@@ -150,20 +150,17 @@ def get_exploratory_plot_callback(
     elif analysis_method == exploratory_analysis_layout.PERCENTILES_METHOD:
         if user_def_percentile is not None:
             percentiles = list(percentiles) + [user_def_percentile]
+        if len(percentiles) == 0:
+            warnings.warn('Choose at least one percentile', category=AppWarning)
         percentiles = sorted(set(percentiles))
 
-        get_percentiles_by_var = broadcast([0])(analysis.percentiles)
-        quantiles_by_p_and_count_by_var = get_percentiles_by_var(
-            da_by_var,
-            aggregation_period,
-            p=percentiles,
-            min_sample_size=min_sample_size
-        )
-
-        quantiles_by_p_by_var, _ = (
-            toolz.valmap(lambda t: t[i], quantiles_by_p_and_count_by_var)
-            for i in range(2)
-        )
+        quantiles_by_p_by_var = {}
+        for v, da in da_by_var.items():
+            quantiles_by_p, _ = analysis.percentiles(da, aggregation_period, p=percentiles, min_sample_size=min_sample_size)
+            if any(quantiles.isna().all() for quantiles in quantiles_by_p.values()):
+                warnings.warn(f'Not enough data to estimate percentiles for {v}. Try a longer aggregation period, decrease the minimal sample size for period or change the data filter.', category=AppWarning)
+                continue
+            quantiles_by_p_by_var[v] = quantiles_by_p
 
         def percentile_to_str(p):
             if p == 0:
@@ -181,10 +178,8 @@ def get_exploratory_plot_callback(
         _, period_adjective = exploratory_analysis_layout.AGGREGATION_PERIOD_WORDINGS[aggregation_period]
         plot_title = f'{period_adjective.title()} percentiles: ' + ', '.join(map(percentile_to_str, percentiles))
 
-        width = 1200
         fig = charts.multi_line(
             quantiles_by_p_by_var,
-            # width=width,
             height=600,
             scatter_mode=scatter_mode,
             variable_label_by_var=variable_label_by_var,
@@ -194,22 +189,26 @@ def get_exploratory_plot_callback(
             filtering_on_figure_extent=filtering_on_figure_extent,
             subsampling=5_000,
         )
-    else:
+    elif analysis_method == exploratory_analysis_layout.MOVING_AVERAGE_METHOD:
         window_size = exploratory_analysis_layout.AGGREGATION_PERIOD_TIMEDELTA[aggregation_period]
-        get_moving_average_by_var = broadcast([0])(analysis.moving_average)
-        moving_average_by_var = get_moving_average_by_var(
-            da_by_var,
-            window_size,
-            min_sample_size=min_sample_size
-        )
+
+        moving_average_by_var = {}
+        for v, da in da_by_var.items():
+            moving_average = analysis.moving_average(da, window_size, min_sample_size=min_sample_size)
+            if moving_average.isna().all():
+                warnings.warn(
+                    f'Not enough data to calculate the moving average for {v}. '
+                    f'Try a larger window size, decrease the minimal sample size per window or change the data filter.',
+                    category=AppWarning
+                )
+                continue
+            moving_average_by_var[v] = moving_average
 
         _, period_adjective = exploratory_analysis_layout.AGGREGATION_PERIOD_WORDINGS[aggregation_period]
         plot_title = f'{period_adjective.title()} moving average'
 
-        # width = 1200
         fig = charts.multi_line(
             moving_average_by_var,
-            # width=width,
             height=600,
             scatter_mode=scatter_mode,
             variable_label_by_var=variable_label_by_var,
@@ -218,6 +217,8 @@ def get_exploratory_plot_callback(
             filtering_on_figure_extent=filtering_on_figure_extent,
             subsampling=5_000,
         )
+    else:
+        raise ValueError(f'unknown analysis method={analysis_method}')
 
     # show title, watermark, etc.
     fig.update_layout(

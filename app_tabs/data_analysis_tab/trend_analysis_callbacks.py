@@ -12,13 +12,12 @@ import dash_bootstrap_components as dbc
 import data_processing
 from data_processing import metadata, analysis
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
-from . import common_layout
+from . import common_layout, tabs_layout
 from app_tabs.data_analysis_tab import trend_analysis_layout
-from log import log_exception, log_profiler_info
+from log import log_exception, log_profiler_info, dump_exception_to_log
 from utils import dash_dynamic_components as ddc, charts, dash_persistence, helper
-from utils.broadcast import broadcast
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id
-from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning
+from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning, AppException
 
 
 def _get_min_max_time(da_by_var):
@@ -41,11 +40,14 @@ def _get_min_max_time(da_by_var):
 
 @dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(trend_analysis_layout.AGGREGATE_COLLAPSE_ID, 'is_open'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     ddc.DynamicInput(trend_analysis_layout.AGGREGATE_CHECKBOX_ID, 'value'),
     prevent_initial_call=True
 )
 @log_exception
-def show_aggregate_card(aggregate_checkbox):
+def show_aggregate_card(tab_id, aggregate_checkbox):
+    if tab_id != tabs_layout.TREND_ANALYSIS_TAB_ID:
+        raise dash.exceptions.PreventUpdate
     return aggregate_checkbox
 
 
@@ -53,12 +55,15 @@ def show_aggregate_card(aggregate_checkbox):
     ddc.DynamicOutput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'disabled'),
     ddc.DynamicOutput(trend_analysis_layout.APPLY_MOVING_AVERAGE_COLLAPSE_ID, 'is_open'),
     ddc.DynamicOutput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'disabled'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'value'),
     prevent_initial_call=True
 )
 @log_exception
-def show_moving_average_card(deseasonize_checkbox, apply_moving_average_checkbox):
+def show_moving_average_card(tab_id, deseasonize_checkbox, apply_moving_average_checkbox):
+    if tab_id != tabs_layout.TREND_ANALYSIS_TAB_ID:
+        raise dash.exceptions.PreventUpdate
     return not deseasonize_checkbox, apply_moving_average_checkbox, not deseasonize_checkbox
 
 
@@ -73,6 +78,7 @@ def _get_theil_sen_slope(series):
     ddc.DynamicOutput(trend_analysis_layout.TREND_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(trend_analysis_layout.AUTOCORRELATION_GRAPH_ID, 'figure'),
     ddc.DynamicOutput(trend_analysis_layout.TREND_SUMMARY_BAR_GRAPH_ID, 'figure'),
+    Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
     Input(FILTER_DATA_REQUEST_ID, 'data'),
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.TREND_ANALYSIS_METHOD_RADIO_ID, 'value'),
@@ -89,7 +95,8 @@ def _get_theil_sen_slope(series):
 @log_exception
 #@log_profiler_info()
 def get_trend_plots_callback(
-        filter_data_request,
+        tab_id,
+        filter_data_request_as_dict,
         vs,
         analysis_method,
         time_rng,
@@ -101,11 +108,16 @@ def get_trend_plots_callback(
         apply_moving_average,
         moving_average_period
 ):
-    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
-    # print(f'get_trend_plot_callback dash_ctx={dash_ctx}')
+    if tab_id != tabs_layout.TREND_ANALYSIS_TAB_ID:
+        raise dash.exceptions.PreventUpdate
 
+    args = (
+        tab_id, filter_data_request_as_dict, vs, analysis_method, time_rng, do_aggregate, aggregation_period,
+        aggregation_function, min_sample_size, do_deseasonize, apply_moving_average,
+        moving_average_period
+    )
     if helper.any_is_None(
-        filter_data_request,
+        filter_data_request_as_dict,
         vs,
         analysis_method,
         do_aggregate, aggregation_period, aggregation_function, min_sample_size,
@@ -113,7 +125,9 @@ def get_trend_plots_callback(
     ):
         raise dash.exceptions.PreventUpdate
 
-    filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
+    # print(f'get_trend_plots_callback with ctx={list(dash.ctx.triggered_prop_ids.values())}')
+
+    filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request_as_dict)
     integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
     da_by_var = filter_data_request.compute()
     colors_by_var = charts.get_color_mapping(da_by_var.keys())
@@ -122,7 +136,11 @@ def get_trend_plots_callback(
     colors_by_var = toolz.keyfilter(lambda v: v in vs, colors_by_var)
     if len(da_by_var) == 0:
         warnings.warn('No variable selected. Please select one.', category=AppWarning)
-        return None, None, None, None
+        empty_fig_data = {
+            'fig': charts.empty_figure(),
+            'rng': [None, None],
+        }
+        return (empty_fig_data, ) + (charts.empty_figure(), ) * 3
 
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
     variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
@@ -133,11 +151,9 @@ def get_trend_plots_callback(
     series_by_var = toolz.valmap(analysis._to_series, da_by_var)
 
     # ORIGINAL TIME SERIES
-    # width = 'auto'  #1200
     height = 500
     orig_timeseries_fig = charts.multi_line(
         series_by_var,
-        # width=width,
         height=height,
         variable_label_by_var=variable_label_by_var,
         yaxis_label_by_var=yaxis_label_by_var,
@@ -179,14 +195,35 @@ def get_trend_plots_callback(
 
     if do_aggregate:
         agg_func = trend_analysis_layout.AGGREGATION_FUNCTIONS[aggregation_function]
-        get_aggregated_da_by_var = broadcast([0])(analysis.aggregate)
-        series_by_var = get_aggregated_da_by_var(series_by_var, aggregation_period, agg_func, min_sample_size=min_sample_size)
+        aggregated_series_by_var = {}
+        for v, series in series_by_var.items():
+            aggregated_series = analysis.aggregate(series, aggregation_period, agg_func, min_sample_size=min_sample_size)
+            if aggregated_series.isna().all():
+                warnings.warn(
+                    f'Not enough data to calculate the moving average for {v}. '
+                    f'Try a larger window size, decrease the minimal sample size per window or change the data filter.',
+                    category=AppWarning
+                )
+                continue
+            aggregated_series_by_var[v] = aggregated_series
+        series_by_var = aggregated_series_by_var
 
     if do_deseasonize:
-        series_by_var = toolz.valmap(
-            lambda series: series - analysis.extract_seasonality(series),
-            series_by_var
-        )
+        deseasonized_series_by_var = {}
+        for v, series in series_by_var.items():
+            try:
+                deseasonized_series = series - analysis.extract_seasonality(series)
+            except AssertionError as e:
+                dump_exception_to_log(e, func=get_trend_plots_callback, args=args)
+                warnings.warn(
+                    f'Cannot estimate a seasonal component for the variable {v}. '
+                    f'Possible cause: not enought data or time span is less 2 years. '
+                    f'Please try to change the filtering criteria or deselect this variable.',
+                    category=AppWarning
+                )
+                continue
+            deseasonized_series_by_var[v] = deseasonized_series
+        series_by_var = deseasonized_series_by_var
 
     if do_deseasonize and apply_moving_average:
         series_by_var = toolz.valmap(
@@ -197,7 +234,18 @@ def get_trend_plots_callback(
             series_by_var
         )
 
-    theil_sen_slope_by_var = toolz.valmap(_get_theil_sen_slope, series_by_var)
+    theil_sen_slope_by_var = {}
+    for v, series in series_by_var.items():
+        try:
+            theil_sen_slope_by_var[v] = _get_theil_sen_slope(series)
+        except ValueError as e:
+            dump_exception_to_log(e, func=get_trend_plots_callback, args=args)
+            warnings.warn(
+                f'Cannot estimate trend for the variable {v}. '
+                f'Possible cause: not enough data available. '
+                f'Please try to change the filtering criteria or deselect this variable.',
+                category=AppWarning
+            )
 
     if do_deseasonize:
         TIMESERIES_LEGEND_SUBLABEL = 'time series without seasonal component'
@@ -211,7 +259,7 @@ def get_trend_plots_callback(
     trend_by_var = {}
     trend_error_by_var = {}
     trend_unit_by_var = {}
-    for v in series_by_var:
+    for v in theil_sen_slope_by_var:
         series = series_by_var[v]
         (a, b), (ci0, ci1), (x_unit, y_unit) = theil_sen_slope_by_var[v]
         t = series.index #.to_numpy(dtype="M8[ns]")
@@ -324,58 +372,61 @@ def get_trend_plots_callback(
     autocorr_fig = charts.add_watermark(autocorr_fig)
 
     # TREND SUMMARY ON BAR PLOT
-    bars = []
-    _series_by_unit = {}
-    _error_series_by_unit = {}
-    for units, trend_df_for_units in trend_summary_df.groupby('trend_unit'):
-        _series_by_unit[units] = trend_df_for_units['trend']
-        _error_series_by_unit[units] = trend_df_for_units['trend_error']
+    if len(trend_by_var) > 0:
+        bars = []
+        _series_by_unit = {}
+        _error_series_by_unit = {}
+        for units, trend_df_for_units in trend_summary_df.groupby('trend_unit'):
+            _series_by_unit[units] = trend_df_for_units['trend']
+            _error_series_by_unit[units] = trend_df_for_units['trend_error']
 
-        bars_for_units = go.Bar(
-            x=trend_df_for_units.index,
-            y=trend_df_for_units['trend'],
-            error_y={
-                'type': 'data',
-                'array': trend_df_for_units['trend_error'],
-            },
-            customdata=trend_df_for_units['trend_unit'],
-            hovertemplate='%{y:.3g} &plusmn; %{error_y.array:.3g} %{customdata}<extra></extra>',
-            marker_color=trend_df_for_units['color'],
-            orientation='v',
-        )
-        bars.append(bars_for_units)
+            bars_for_units = go.Bar(
+                x=trend_df_for_units.index,
+                y=trend_df_for_units['trend'],
+                error_y={
+                    'type': 'data',
+                    'array': trend_df_for_units['trend_error'],
+                },
+                customdata=trend_df_for_units['trend_unit'],
+                hovertemplate='%{y:.3g} &plusmn; %{error_y.array:.3g} %{customdata}<extra></extra>',
+                marker_color=trend_df_for_units['color'],
+                orientation='v',
+            )
+            bars.append(bars_for_units)
 
-    _bars_count_by_unit = toolz.valmap(len, _series_by_unit)
-    _bars_count_list = list(_bars_count_by_unit.values())
-    single_bar_fraction_gap = 1.
-    delta_domain = 1 / (sum(_bars_count_list) + (len(_bars_count_list) - 1) * single_bar_fraction_gap)
-    domain_left_ends = np.hstack(([0], np.array(_bars_count_list[:-1]) + single_bar_fraction_gap)).cumsum() * delta_domain
-    domain_right_ends = ((np.array(_bars_count_list) + single_bar_fraction_gap).cumsum() - single_bar_fraction_gap) * delta_domain
+        _bars_count_by_unit = toolz.valmap(len, _series_by_unit)
+        _bars_count_list = list(_bars_count_by_unit.values())
+        single_bar_fraction_gap = 1.
+        delta_domain = 1 / (sum(_bars_count_list) + (len(_bars_count_list) - 1) * single_bar_fraction_gap)
+        domain_left_ends = np.hstack(([0], np.array(_bars_count_list[:-1]) + single_bar_fraction_gap)).cumsum() * delta_domain
+        domain_right_ends = ((np.array(_bars_count_list) + single_bar_fraction_gap).cumsum() - single_bar_fraction_gap) * delta_domain
 
-    range_tick0_dtick_by_unit = charts.get_range_tick0_dtick_by_var(_series_by_unit, nticks=5, error_df=_error_series_by_unit, align_zero=True)
-    yaxis_props_by_unit = charts.get_sync_axis_props(range_tick0_dtick_by_unit)
-    yaxes_props = []
-    for units, yaxis_props in yaxis_props_by_unit.items():
-        yaxis_props['title_text'] = units
-        yaxis_props['title_standoff'] = 0
-        yaxes_props.append(yaxis_props)
+        range_tick0_dtick_by_unit = charts.get_range_tick0_dtick_by_var(_series_by_unit, nticks=5, error_df=_error_series_by_unit, align_zero=True)
+        yaxis_props_by_unit = charts.get_sync_axis_props(range_tick0_dtick_by_unit)
+        yaxes_props = []
+        for units, yaxis_props in yaxis_props_by_unit.items():
+            yaxis_props['title_text'] = units
+            yaxis_props['title_standoff'] = 0
+            yaxes_props.append(yaxis_props)
 
-    trend_summary_fig = plotly.subplots.make_subplots(rows=1, cols=len(bars))
-    xaxis_props_by_xaxis_id = {}
-    yaxis_props_by_yaxis_id = {}
-    for i, (bars_for_units, yaxis_props) in enumerate(zip(bars, yaxes_props)):
-        trend_summary_fig.add_trace(bars_for_units, row=1, col=i + 1)
-        xaxis_id = 'xaxis' if i == 0 else f'xaxis{i + 1}'
-        xaxis_props_by_xaxis_id[xaxis_id] = {'fixedrange': True, 'domain': [domain_left_ends[i], domain_right_ends[i]]}
-        yaxis_id = 'yaxis' if i == 0 else f'yaxis{i + 1}'
-        yaxis_props_by_yaxis_id[yaxis_id] = yaxis_props
-        yaxis_props_by_yaxis_id[yaxis_id].update({
-            'anchor': 'free',
-            'position': domain_left_ends[i],
-            'side': 'left',
-        })
+        trend_summary_fig = plotly.subplots.make_subplots(rows=1, cols=len(bars))
+        xaxis_props_by_xaxis_id = {}
+        yaxis_props_by_yaxis_id = {}
+        for i, (bars_for_units, yaxis_props) in enumerate(zip(bars, yaxes_props)):
+            trend_summary_fig.add_trace(bars_for_units, row=1, col=i + 1)
+            xaxis_id = 'xaxis' if i == 0 else f'xaxis{i + 1}'
+            xaxis_props_by_xaxis_id[xaxis_id] = {'fixedrange': True, 'domain': [domain_left_ends[i], domain_right_ends[i]]}
+            yaxis_id = 'yaxis' if i == 0 else f'yaxis{i + 1}'
+            yaxis_props_by_yaxis_id[yaxis_id] = yaxis_props
+            yaxis_props_by_yaxis_id[yaxis_id].update({
+                'anchor': 'free',
+                'position': domain_left_ends[i],
+                'side': 'left',
+            })
 
-    trend_summary_fig.update_layout(**xaxis_props_by_xaxis_id, **yaxis_props_by_yaxis_id)
+        trend_summary_fig.update_layout(**xaxis_props_by_xaxis_id, **yaxis_props_by_yaxis_id)
+    else:
+        trend_summary_fig = charts.empty_figure(height=400)
 
     trend_summary_fig.update_layout(
         autosize=True,

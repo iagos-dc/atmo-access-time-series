@@ -10,6 +10,7 @@ import textwrap
 from log.log import logger, log_exectime
 from data_processing.utils import get_subsampling_mask
 from utils import helper
+from utils.exception_handler import EmptyFigureException
 
 
 # Color codes
@@ -333,6 +334,9 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         color_mapping = get_color_mapping(ds)
 
     def get_data_avail_with_freq(ds, granularity):
+        if len(list(ds)) == 0:
+            return None
+
         if granularity == 'year':
             freq = 'YS'
         elif granularity == 'season':
@@ -419,6 +423,8 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         return heatmap
 
     ds_avail = get_data_avail_with_freq(ds, granularity)
+    if ds_avail is None:
+        return empty_figure()
 
     n_vars = max(len(ds_avail.data_vars), 1)
     layout_dict = {
@@ -445,6 +451,9 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
 
 
 def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_x=False, log_y=False):
+    if da is None:
+        return empty_figure(), 1
+
     color = f'rgb{color}' if isinstance(color, tuple) and len(color) == 3 else color
 
     ar = da.where(da.notnull(), drop=True).values
@@ -722,7 +731,8 @@ def multi_line(
     df = dict(df)
     nvars = len(list(df))
     if not (nvars >= 1):
-        return None
+        return empty_figure(height=height)
+
     if nticks is None:
         nticks = max(height // 50, 3) if isinstance(height, (int, float)) else 8
     if variable_label_by_var is None:
@@ -984,7 +994,7 @@ def _get_hexagonal_binning(
         C = C[mask_notnan]
 
     if x.shape[0] == 0:
-        return None
+        raise EmptyFigureException()
 
     p_min = np.array([np.amin(x), np.amin(y)])
     p_max = np.array([np.amax(x), np.amax(y)])
@@ -1357,7 +1367,7 @@ def get_figure_extent(relayout_data):
     :param relayout_data:
     :return: dict or True; True if autosize=True is within relayout_data
     """
-    print(f'get_figure_extent(relayout_data) for relayout_data={relayout_data}')
+    print(f'get_figure_extent(relayout_data={relayout_data})')
 
     if relayout_data is not None:
         layout_dict = {}

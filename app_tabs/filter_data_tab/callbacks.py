@@ -108,6 +108,9 @@ def update_histograms_callback(
             cross_filtering=cross_filtering,
             tolerance=cross_filtering_time_coincidence_dt,
         )
+    else:
+        # TODO: this is a dirty patch; do it properly as indicated in the comment in the l. 132
+        ds_filtered_by_var = {}
 
     def get_fig(aio_id):
         variable_label = selected_range_by_aio_id[aio_id]['variable_label']
@@ -126,7 +129,8 @@ def update_histograms_callback(
         bins = get_value_by_aio_id(aio_id, nbars_ids, nbars)
 
         new_fig, y_max = charts.get_histogram(
-            ds_filtered_by_var[variable_label],
+            # TODO: is ds_filtered_by_var always set? check if the condition in l. 105 implies the condition from l.148&152|176
+            ds_filtered_by_var.get(variable_label),
             variable_label,
             bins=bins,
             color=color_mapping[variable_label],

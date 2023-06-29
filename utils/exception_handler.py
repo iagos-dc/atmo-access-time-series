@@ -15,6 +15,10 @@ class AppException(Exception):
     pass
 
 
+class EmptyFigureException(AppException):
+    pass
+
+
 class AppWarning(UserWarning):
     pass
 

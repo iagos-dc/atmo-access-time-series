@@ -204,8 +204,6 @@ def get_selected_stations_bbox_and_dropdown(
         stations_dropdown_options
 ):
     ctx = list(dash.ctx.triggered_prop_ids.values())
-    # print(f'map_ctx={ctx}')
-    # print(f'bbox={lon_min, lon_max, lat_min, lat_max}')
 
     if SELECTED_STATIONS_DROPDOWN_ID in ctx and stations_dropdown is not None:
         selected_stations_idx = sorted(stations_dropdown)
@@ -256,7 +254,6 @@ def get_selected_stations_bbox_and_dropdown(
         # the callback was not fired by user's input on bbox, so we possibly enlarge the bbox to fit all selected stations
         if selected_stations_idx is not None and len(selected_stations_idx) > 0:
             stations_lon_min, stations_lon_max, stations_lat_min, stations_lat_max = _get_bounding_box(selected_stations_idx)
-            print(stations_lon_min, stations_lon_max, stations_lat_min, stations_lat_max)
             if lon_min is not None and stations_lon_min < lon_min:
                 new_lon_min = stations_lon_min
             if lon_max is not None and stations_lon_max > lon_max:
