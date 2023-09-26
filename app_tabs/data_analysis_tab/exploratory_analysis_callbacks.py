@@ -109,8 +109,9 @@ def get_exploratory_plot_callback(
         return charts.empty_figure(height=600)
 
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
-    variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
+    # variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
     yaxis_label_by_var = toolz.valmap(lambda md: md[metadata.YAXIS_LABEL], metadata_by_var)
+    variable_id_by_var = dict(zip(list(metadata_by_var), list(metadata_by_var)))
 
     apply_existing_figure_extent = FILTER_DATA_REQUEST_ID not in dash_ctx
     if apply_existing_figure_extent:
@@ -141,7 +142,8 @@ def get_exploratory_plot_callback(
             std_mode=std_mode,
             height=600,
             scatter_mode=scatter_mode,
-            variable_label_by_var=variable_label_by_var,
+            variable_label_by_var=variable_id_by_var,
+            # variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
             color_mapping=colors_by_var,
             filtering_on_figure_extent=filtering_on_figure_extent,
@@ -182,7 +184,8 @@ def get_exploratory_plot_callback(
             quantiles_by_p_by_var,
             height=600,
             scatter_mode=scatter_mode,
-            variable_label_by_var=variable_label_by_var,
+            variable_label_by_var=variable_id_by_var,
+            # variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
             color_mapping=colors_by_var,
             line_dash_style_by_sublabel=exploratory_analysis_layout.LINE_DASH_STYLE_BY_PERCENTILE,
@@ -211,7 +214,8 @@ def get_exploratory_plot_callback(
             moving_average_by_var,
             height=600,
             scatter_mode=scatter_mode,
-            variable_label_by_var=variable_label_by_var,
+            variable_label_by_var=variable_id_by_var,
+            # variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
             color_mapping=colors_by_var,
             filtering_on_figure_extent=filtering_on_figure_extent,

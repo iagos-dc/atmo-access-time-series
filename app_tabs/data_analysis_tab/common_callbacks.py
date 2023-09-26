@@ -2,14 +2,14 @@ import warnings
 import dash
 import dash_bootstrap_components as dbc
 import toolz
-from dash import Input
+from dash import Input, html
 
 from . import common_layout, tabs_layout
 import data_processing
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from data_processing import metadata
 from log import log_exception
-from utils import dash_dynamic_components as ddc, dash_persistence
+from utils import dash_dynamic_components as ddc, dash_persistence, charts
 from utils.exception_handler import callback_with_exc_handling, dynamic_callback_with_exc_handling, AppException, AppWarning
 
 
@@ -39,13 +39,29 @@ def get_variables_callback(tab_id, filter_data_request, variables_checklist_all_
     da_by_var = filter_data_request.compute()
     da_by_var = {v: da_by_var[v] for v in sorted(da_by_var)}
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
+    colors_by_var = charts.get_color_mapping(da_by_var)
 
     vs = list(metadata_by_var)
     if len(vs) == 0:
         warnings.warn('No variables found. Choose another dataset(s) or change your data filter.', category=AppWarning)
         return get_checklist(_id=checklist_id)
 
-    options = [{'label': f'{v} : {md[metadata.VARIABLE_LABEL]}', 'value': v} for v, md in metadata_by_var.items()]
+    options = [
+        {
+            'label': html.Div(
+                [
+                    f'{v} : ',
+                    html.Span(
+                        f'{md[metadata.VARIABLE_LABEL]}',
+                        style={'color': f'rgb{colors_by_var[v]}'}
+                    )
+                ]
+            ),
+            #'label': f'{v} : {md[metadata.VARIABLE_LABEL]}',
+            'value': v
+        }
+        for v, md in metadata_by_var.items()
+    ]
     if variables_checklist_all_none_switch:
         value = vs
     else:

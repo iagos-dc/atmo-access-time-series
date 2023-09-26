@@ -134,6 +134,10 @@ class _Tree:
         return result
 
 
+def _get_variable_id(var_id):
+    return '_'.join([v for v in var_id if v])
+
+
 def integrate_datasets(dss):
     tree_of_var_ids = _Tree()
     for ri, selector, md, ds in dss:
@@ -166,12 +170,12 @@ def integrate_datasets(dss):
             var_id = tuple(map(lambda i: str(i) if i is not None else '', var_id))  # ensure all parts of var_id are strings
             tree_of_var_ids.add_path(var_id, da)
 
-    das_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=1)  # we want to keep v_ri_freq in the var_id
+    das_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=3)  # we want to keep v_ri_freq in the var_id
     da_by_var_id = {}
     for var_id, das in das_by_var_id.items():
         if len(das) == 1:
             da, = das
-            da.name = '_'.join(var_id)
+            da.name = _get_variable_id(var_id)
             da_by_var_id[da.name] = da
         elif len(das) > 1:
             logger().info(f'var_id={var_id}: concatenate {len(das)} DataArrays:')
@@ -184,7 +188,7 @@ def integrate_datasets(dss):
                     f'var_id={var_id}: concatenate of {len(das)} DataArrays failed; '
                     f'fall back to present them separately by add an No. to their var_id', exc_info=e
                 )
-                _var_id = '_'.join(var_id)
+                _var_id = _get_variable_id(var_id)
                 for i, da in enumerate(das):
                     da.name = f'{_var_id}_{i}'
                     # if the variable contains only NaN's, skip it
@@ -192,7 +196,7 @@ def integrate_datasets(dss):
                         da_by_var_id[da.name] = da
                 continue
 
-            da.name = '_'.join(var_id)
+            da.name = _get_variable_id(var_id)
             # if the variable contains only NaN's, skip it
             if da.notnull().any():
                 da_by_var_id[da.name] = da

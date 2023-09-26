@@ -163,6 +163,7 @@ def get_trend_analysis_cardbody(time_filter):
         dbc.CardBody([
             dbc.Form([
                 dbc.Row(dbc.Label('Time filter:')),
+                dbc.Row(time_filter.get_graph()), #, width=6, style=BORDER_STYLE),
                 dbc.Row(time_filter.get_range_controller()),
                 dbc.Row(aggregate_checkbox),
                 dbc.Collapse(

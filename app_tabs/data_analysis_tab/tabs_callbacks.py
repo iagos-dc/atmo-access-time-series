@@ -37,8 +37,8 @@ def get_data_analysis_carbody_content(tab_id):
         figure_container_children = dbc.Container(
             [
                 dbc.Row([
-                    dbc.Col(time_filter.get_graph(), width=6, style=BORDER_STYLE),
-                    dbc.Col(trend_graph, width=6, style=BORDER_STYLE),
+                    # dbc.Col(time_filter.get_graph(), width=6, style=BORDER_STYLE),
+                    dbc.Col(trend_graph, width=12, style=BORDER_STYLE),
                 ]),
                 dbc.Row([
                     dbc.Col(trend_summary_bar_graph, width=6, style=BORDER_STYLE),

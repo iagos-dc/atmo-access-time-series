@@ -33,10 +33,10 @@ def da_attr_to_metadata_dict(da=None, attrs=None):
             _attrs.update(attrs)
         attrs = _attrs
 
-    variable_label = dict_get(attrs, 'long_name', 'label', '_da_name', '??? unknown variable ???')
+    variable_label = dict_get(attrs, 'long_name', 'label', '_da_name', default='??? unknown variable ???')
     units = attrs.get('units', '???')
     yaxis_label = units  # units = f'{variable_label} ({units})'
-    city_or_station_name = dict_get(attrs, 'city', 'station_name')
+    city_or_station_name = dict_get(attrs, 'city', 'station_name', 'region', 'ebas_station_name')
 
     metadata = {
         VARIABLE_LABEL: variable_label,

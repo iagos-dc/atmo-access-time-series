@@ -143,19 +143,21 @@ def get_trend_plots_callback(
         return (empty_fig_data, ) + (charts.empty_figure(), ) * 3
 
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
-    variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
+    # variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
     yaxis_label_by_var = toolz.valmap(lambda md: md[metadata.YAXIS_LABEL], metadata_by_var)
+    variable_id_by_var = dict(zip(list(metadata_by_var), list(metadata_by_var)))
 
     t_min, t_max = _get_min_max_time(da_by_var)
 
     series_by_var = toolz.valmap(analysis._to_series, da_by_var)
 
     # ORIGINAL TIME SERIES
-    height = 500
+    height = 300
     orig_timeseries_fig = charts.multi_line(
         series_by_var,
         height=height,
-        variable_label_by_var=variable_label_by_var,
+        variable_label_by_var=variable_id_by_var,
+        # variable_label_by_var=variable_label_by_var,
         yaxis_label_by_var=yaxis_label_by_var,
         color_mapping=colors_by_var,
         subsampling=10_000,
@@ -164,16 +166,17 @@ def get_trend_plots_callback(
     # show title, legend, watermark, etc.
     orig_timeseries_fig.update_layout(
         autosize=True,
-        margin={'l': 5, 'r': 5},
+        margin={'t': 0, 'l': 15, 'r': 15},
         # legend={
         #     'xanchor': 'right',
         #     'yanchor': 'top',
         #     'x': 0.99,
         #     'y': 0.99,
         # },
-        legend_y=-0.4,
-        title='Original timeseries (setup time filter here)',
-        xaxis={'title': 'time'},
+        # legend_y=-0.4,
+        # legend_y=-0.4,
+        # title='Original timeseries (setup time filter here)',
+        # xaxis={'title': 'time'},
         uirevision=integrate_datasets_request_hash,
     )
     orig_timeseries_fig_data = {
@@ -299,7 +302,8 @@ def get_trend_plots_callback(
         series_and_trend_line_by_var,
         # width=width,
         height=height,
-        variable_label_by_var=variable_label_by_var,
+        variable_label_by_var=variable_id_by_var,
+        # variable_label_by_var=variable_label_by_var,
         yaxis_label_by_var=yaxis_label_by_var,
         color_mapping=colors_by_var,
         line_dash_style_by_sublabel={
@@ -339,7 +343,8 @@ def get_trend_plots_callback(
             y=autocorr.values,
             legendgroup=variable_id,
             marker_color=plotly.colors.label_rgb(colors_by_var[variable_id]),
-            name=variable_label_by_var[variable_id],
+            name=variable_id,
+            # name=variable_label_by_var[variable_id],
         )
         autocorr_fig.add_trace(autocorr_fig_trace)
 
