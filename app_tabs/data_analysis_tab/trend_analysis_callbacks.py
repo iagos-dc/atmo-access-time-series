@@ -176,7 +176,9 @@ def get_trend_plots_callback(
         # legend_y=-0.4,
         # legend_y=-0.4,
         # title='Original timeseries (setup time filter here)',
+        title='',
         # xaxis={'title': 'time'},
+        xaxis={'title': ''},
         uirevision=integrate_datasets_request_hash,
     )
     orig_timeseries_fig_data = {
@@ -420,7 +422,11 @@ def get_trend_plots_callback(
         for i, (bars_for_units, yaxis_props) in enumerate(zip(bars, yaxes_props)):
             trend_summary_fig.add_trace(bars_for_units, row=1, col=i + 1)
             xaxis_id = 'xaxis' if i == 0 else f'xaxis{i + 1}'
-            xaxis_props_by_xaxis_id[xaxis_id] = {'fixedrange': True, 'domain': [domain_left_ends[i], domain_right_ends[i]]}
+            xaxis_props_by_xaxis_id[xaxis_id] = {
+                'fixedrange': True,
+                'domain': [domain_left_ends[i], domain_right_ends[i]],
+                'title': '',
+            }
             yaxis_id = 'yaxis' if i == 0 else f'yaxis{i + 1}'
             yaxis_props_by_yaxis_id[yaxis_id] = yaxis_props
             yaxis_props_by_yaxis_id[yaxis_id].update({

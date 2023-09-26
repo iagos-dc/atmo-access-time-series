@@ -44,9 +44,11 @@ GRAPH_CONFIG = {
         'axisTitleText': True,
         'legendText': True,
         'colorbarTitleText': True,
+        'annotationText': False,
+        'annotationPosition': False,
     },
     'toImageButtonOptions': {
-        'filename': 'foo',
+        'filename': 'atmo-access-plot',
         'format': 'svg',
         'height': 800,
     },
@@ -62,10 +64,18 @@ GRAPH_CONFIG = {
 NON_INTERACTIVE_GRAPH_CONFIG = {
     'autosizable': False,
     'displayModeBar': True,
-    'editable': False,
+    'editable': True,
+    'edits': {
+        'titleText': True,
+        'axisTitleText': True,
+        'legendText': True,
+        'colorbarTitleText': True,
+        'annotationText': False,
+        'annotationPosition': False,
+    },
     'modeBarButtons': [['autoScale2d'], ['toImage']],
     'toImageButtonOptions': {
-        'filename': 'foo',
+        'filename': 'atmo-access-plot',
         'format': 'png',
         'height': 800,
     },

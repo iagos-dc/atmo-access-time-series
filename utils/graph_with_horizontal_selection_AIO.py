@@ -24,11 +24,25 @@ from log import log_exception
 
 _GRAPH_WITH_HORIZONTAL_SELECTION_CONFIG = {
     'autosizable': False,
-    'displayModeBar': False,
+    'displayModeBar': True,
     # 'fillFrame': True,
     'editSelection': True,
-    'modeBarButtons': [['select2d']],
-    'editable': False,
+    #'modeBarButtons': [['select2d'], ['toImage']],
+    'modeBarButtons': [['toImage']],
+    'toImageButtonOptions': {
+        'filename': 'atmo-access-plot',
+        'format': 'png',
+        'height': 800,
+    },
+    'editable': True,
+    'edits': {
+        'titleText': True,
+        'axisTitleText': True,
+        'legendText': True,
+        'colorbarTitleText': True,
+        'annotationText': False,
+        'annotationPosition': False,
+    },
     'showAxisDragHandles': False,
     'showAxisRangeEntryBoxes': False,
     'showTips': False,

@@ -162,7 +162,7 @@ def update_histograms_callback(
                     time_granularity[0],
                     color_mapping=color_mapping
                 )
-                fig = fig.update_layout(title='Data availability')
+                fig = fig.update_layout(title='Data availability (in %)')
 
                 new_fig = {
                     'fig': fig,
@@ -190,7 +190,7 @@ def update_histograms_callback(
             time_granularity[0],
             color_mapping=color_mapping
         )
-        fig = fig.update_layout(title='Data availability')
+        fig = fig.update_layout(title='Data availability (in %)')
 
         new_fig = {
             'fig': fig,
@@ -227,7 +227,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
     t_min, t_max = _get_min_max_time(ds)
 
     avail_data_by_var_heatmap = charts.get_avail_data_by_var_heatmap(ds, 'year', color_mapping=color_mapping)
-    avail_data_by_var_heatmap = avail_data_by_var_heatmap.update_layout(title='Data availability')
+    avail_data_by_var_heatmap = avail_data_by_var_heatmap.update_layout(title='Data availability (in %)')
 
     time_filter = GraphWithHorizontalSelectionAIO(
         aio_id='time_filter',
@@ -241,7 +241,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
         extra_dash_components=get_time_granularity_radio(),
     )
 
-    filter_and_title_by_v = {'time': (time_filter, 'Data availability')}
+    filter_and_title_by_v = {'time': (time_filter, 'Data availability (in %)')}
     for v, da in ds.items():
         x_min = da.min().item()
         x_max = da.max().item()

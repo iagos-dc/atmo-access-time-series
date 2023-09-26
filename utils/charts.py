@@ -447,6 +447,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         ticklabelmode='period',
         title='time',
     )
+    fig.update_layout({'yaxis': {'title': ''}})
     return fig
 
 
@@ -524,6 +525,7 @@ def get_histogram(da, x_label, bins=50, color=None, x_min=None, x_max=None, log_
             'domain': [0, 0.775],
         },
         'yaxis2': {
+            'title': '',
             'domain': [0.825, 1],
         }
     }
