@@ -526,6 +526,11 @@ def read_dataset(ri, url, ds_metadata, selector=None):
     ri = ri.lower()
     if ri == 'actris':
         ds = _ri_query_module_by_ri[ri].read_dataset(url, ds_metadata['ecv_variables_filtered'])
+        # TODO: this is a temporary patch !!! to be done properly
+        if len(ds.dims) > 1:
+            non_time_dims = [d for d in ds.dims if d != 'time']
+            non_time_dims_selector = {d: 0 for d in non_time_dims}
+            ds = ds.isel(non_time_dims_selector, drop=True)
     elif ri == 'icos':
         ds = _ri_query_module_by_ri[ri].read_dataset(url)
         vars_long = get_vars_long()

@@ -193,7 +193,7 @@ def _contiguous_periods(start, end, var_codes=None, dt=pd.Timedelta('1D')):
 
 def _get_timeline_by_station(datasets_df):
     df = datasets_df\
-        .groupby(['platform_id_RI', 'station_fullname', 'RI'])\
+        .groupby(['platform_id_RI', 'station_fullname', 'RI'], group_keys=True)\
         .apply(lambda x: _contiguous_periods(x['time_period_start'], x['time_period_end'], x['var_codes_filtered']))\
         .reset_index()
     df = df.sort_values('platform_id_RI')
