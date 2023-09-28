@@ -17,6 +17,7 @@ from .merge_datasets import merge_datasets, integrate_datasets
 from .filtering import filter_dataset
 
 
+_REQUESTS_URL = str(data_access.common.CACHE_DIR / 'requests.tmp')
 _CACHE_URL = str(data_access.common.CACHE_DIR / 'cache.tmp')
 
 _RESULT_EXPIRE = 3600 * 12  # 12h
@@ -25,7 +26,8 @@ _FAIL_EXPIRE = 30  # 30 sec
 
 
 # see: https://grantjenks.com/docs/diskcache/tutorial.html
-_cache_map = diskcache.Cache(_CACHE_URL)
+_request_map = diskcache.Deque(directory=_REQUESTS_URL)
+_cache_map = diskcache.Cache(directory=_CACHE_URL)
 
 
 def _get_hashable(obj):
@@ -86,6 +88,15 @@ def cache_setdefault(req):
                 logger().warning(f'deterministic_hash collision: req={str(req)} and req_in_map={str(req_in_cache)} '
                                  f'have the same hash={i}')
                 i = hex(int(i, 16) + 1)[2:]
+
+
+def request_store(func):
+    @functools.wraps(func)
+    def _(req):
+        time_now = pd.Timestamp.now(tz='UTC')
+        _request_map.append((req, time_now))
+        return func(req)
+    return _
 
 
 def request_cache(custom_expire=-1):
@@ -159,6 +170,7 @@ class Request(abc.ABC):
     def __eq__(self, other):
         return self.get_hashable() == other.get_hashable()
 
+    @request_store
     @request_cache()
     def compute(self):
         return self.execute()

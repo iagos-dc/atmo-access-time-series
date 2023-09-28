@@ -20,7 +20,6 @@ from icoscp.station import station
 from icoscp.cpb.dobj import Dobj
 from icoscp.sparql.runsparql import RunSparql
 
-import data_processing
 from data_access import helper
 
 
@@ -246,6 +245,7 @@ def query_datasets(variables=[], temporal=[], spatial=[]):
     df['platform_id'] = ids
 
     outlist = []
+    import data_processing
     for r in df.iterrows():
         d = {
             'title': data_processing.GetICOSDatasetTitleRequest(r[1].dobj).compute(),  

@@ -224,7 +224,7 @@ def start_logging(log_filename=None, logging_level=logging.WARNING):
 def start_logging_callbacks(log_filename):
     global _callback_args_by_time
     import diskcache
-    _callback_args_by_time = diskcache.Cache(log_filename)
+    _callback_args_by_time = diskcache.Cache(directory=log_filename)
 
 
 logfile = pkg_resources.resource_filename('log', 'log.txt')
