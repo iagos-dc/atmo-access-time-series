@@ -6,7 +6,7 @@ import data_access
 
 
 CACHE_DIR = pathlib.PurePath(pkg_resources.resource_filename('data_access', 'cache'))
-CACHE_URL = str(CACHE_DIR / '_cache.tmp')
+CACHE_URL = str(CACHE_DIR / 'cache.tmp')
 
 
 if __name__ == '__main__':
