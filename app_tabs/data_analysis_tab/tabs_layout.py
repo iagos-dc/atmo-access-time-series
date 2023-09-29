@@ -60,7 +60,7 @@ def get_data_analysis_tab():
     ])
 
     data_analysis_tab = dcc.Tab(
-        label='Data analysis',
+        label='5. Data analysis',
         id=DATA_ANALYSIS_TAB_VALUE,
         value=DATA_ANALYSIS_TAB_VALUE,
         disabled=True,

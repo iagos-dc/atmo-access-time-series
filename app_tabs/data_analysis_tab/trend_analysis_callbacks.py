@@ -128,9 +128,10 @@ def get_trend_plots_callback(
     # print(f'get_trend_plots_callback with ctx={list(dash.ctx.triggered_prop_ids.values())}')
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request_as_dict)
-    integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
+    integrate_datasets_request = filter_data_request.integrate_datasets_request
+    colors_by_var = charts.get_color_mapping(integrate_datasets_request.compute())
+    integrate_datasets_request_hash = integrate_datasets_request.deterministic_hash()
     da_by_var = filter_data_request.compute()
-    colors_by_var = charts.get_color_mapping(da_by_var.keys())
 
     da_by_var = toolz.keyfilter(lambda v: v in vs, da_by_var)
     colors_by_var = toolz.keyfilter(lambda v: v in vs, colors_by_var)

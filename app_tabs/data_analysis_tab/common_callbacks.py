@@ -36,10 +36,10 @@ def get_variables_callback(tab_id, filter_data_request, variables_checklist_all_
         raise dash.exceptions.PreventUpdate
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
+    integrate_datasets_request = filter_data_request.integrate_datasets_request
+    colors_by_var = charts.get_color_mapping(integrate_datasets_request.compute())
     da_by_var = filter_data_request.compute()
-    da_by_var = {v: da_by_var[v] for v in sorted(da_by_var)}
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), da_by_var)
-    colors_by_var = charts.get_color_mapping(da_by_var)
 
     vs = list(metadata_by_var)
     if len(vs) == 0:
@@ -57,7 +57,6 @@ def get_variables_callback(tab_id, filter_data_request, variables_checklist_all_
                     )
                 ]
             ),
-            #'label': f'{v} : {md[metadata.VARIABLE_LABEL]}',
             'value': v
         }
         for v, md in metadata_by_var.items()

@@ -128,7 +128,7 @@ def get_filtering_type_radio():
 
 def get_filter_data_tab():
     return dcc.Tab(
-        label='Filter data',
+        label='4. Filter data',
         id=FILTER_DATA_TAB_VALUE,
         value=FILTER_DATA_TAB_VALUE,
         disabled=True,

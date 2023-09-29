@@ -94,7 +94,7 @@ def _get_description_table(actris_logo, iagos_logo, icos_logo):
 
 def get_information_tab(actris_logo, iagos_logo, icos_logo):
     return dcc.Tab(
-        label='Information',
+        label='1. Information',
         id=INFORMATION_TAB_VALUE,
         value=INFORMATION_TAB_VALUE,
         children=[

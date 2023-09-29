@@ -15,8 +15,9 @@ LINE_DASH_STYLE_BY_PERCENTILE = {
 }
 
 
-def mean_std_plot(ds_by_var, show_std=True, std_mode='fill', scatter_mode='lines', plot_title=None):
-    colors_by_var = charts.get_color_mapping(ds_by_var)
+def mean_std_plot(ds_by_var, show_std=True, std_mode='fill', scatter_mode='lines', plot_title=None, colors_by_var=None):
+    if colors_by_var is None:
+        colors_by_var = charts.get_color_mapping(ds_by_var)
 
     metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), ds_by_var)
     metadata_by_var = {v: md[f'{v}_mean'] for v, md in metadata_by_var.items()}
@@ -51,8 +52,9 @@ def mean_std_plot(ds_by_var, show_std=True, std_mode='fill', scatter_mode='lines
     return fig
 
 
-def percentiles_plot(ds_by_var, scatter_mode='lines', plot_title=None):
-    colors_by_var = charts.get_color_mapping(ds_by_var)
+def percentiles_plot(ds_by_var, scatter_mode='lines', plot_title=None, colors_by_var=None):
+    if colors_by_var is None:
+        colors_by_var = charts.get_color_mapping(ds_by_var)
 
     _metadata_by_var = toolz.valmap(lambda da: metadata.da_attr_to_metadata_dict(da=da), ds_by_var)
     metadata_by_var = {}

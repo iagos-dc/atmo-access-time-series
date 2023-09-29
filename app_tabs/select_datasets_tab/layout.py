@@ -104,7 +104,7 @@ def get_select_datasets_tab():
 
 
     return dcc.Tab(
-        label='Select datasets',
+        label='3. Select datasets',
         id=SELECT_DATASETS_TAB_VALUE,
         value=SELECT_DATASETS_TAB_VALUE,
         disabled=True,
