@@ -3,10 +3,10 @@ import pandas as pd
 import diskcache
 
 
-_REQUEST_DIR = pkg_resources.resource_filename('data_access', 'cache')
+_REQUESTS_DIR = pkg_resources.resource_filename('data_access', 'cache/requests.tmp')
 
 
-def analyze_requests(requests_dir=_REQUEST_DIR):
+def analyze_requests(requests_dir=_REQUESTS_DIR):
     requests = diskcache.Deque(directory=requests_dir)
     df1 = pd.DataFrame.from_records(list(requests), columns=['req', 'time'])
     df1['day'] = df1['time'].dt.floor('D')
