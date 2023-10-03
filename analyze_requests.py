@@ -11,4 +11,4 @@ def analyze_requests(requests_dir=_REQUESTS_DIR):
     df1 = pd.DataFrame.from_records(list(requests), columns=['req', 'time'])
     df1['day'] = df1['time'].dt.floor('D')
     df2 = pd.DataFrame.from_records(df1['req'].map(lambda req: req.to_dict()))
-    return pd.concat([df1, df2])
+    return pd.concat([df1, df2], axis='columns')
