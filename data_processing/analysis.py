@@ -170,7 +170,7 @@ def _custom_asfreq(x, freq, method=None, limit=None, tolerance=None):
     return x.reindex(idx, method=method, limit=limit, tolerance=tolerance)
 
 
-def extract_seasonality(da, period=pd.Timedelta('1Y')):
+def extract_seasonality(da, period=pd.Timedelta(8766, unit='H')):  # the default period is 365 days + 6 hours
     series = _to_series(da)
 
     assert series.index.is_monotonic_increasing, f'The index of the series is not monotone; series={series}, index={series.index}'
