@@ -39,7 +39,7 @@ def _get_minimal_sample_size_input():
         dbc.Input(
             id=ddc.add_active_to_component_id(MIN_SAMPLE_SIZE_INPUT_ID),
             type='number',
-            min=1, step=1, value=5,
+            min=1, step=1, value=1,
             debounce=True,
             **dash_persistence.get_dash_persistence_kwargs(True)
         ),

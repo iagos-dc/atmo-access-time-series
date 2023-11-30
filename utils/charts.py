@@ -68,7 +68,7 @@ def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2,
 
     x = np.asanyarray(x)
     y = np.asanyarray(y)
-    y = mask_isolated_values(y)
+    # y = mask_isolated_values(y)
 
     # print(f'plotly_scatter: len(x)={len(x)}')
 
