@@ -23,7 +23,7 @@ IAGOS_REGIONS = {
 if __name__ == '__main__':
     data_path = DATA_DIR / 'iagos_L3_postprocessed'
     md = []
-    for url in data_path.glob('*/*.nc'):
+    for url in data_path.glob('*_daily_*/*.nc'):
         rel_url = url.relative_to(data_path)
         with xr.open_dataset(url) as ds:
             if 'CO_mean' in ds:
