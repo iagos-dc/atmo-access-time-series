@@ -6,6 +6,7 @@ from .request_manager import (
     MergeDatasetsRequest,
     IntegrateDatasetsRequest,
     FilterDataRequest,
+    requests_deque,
 )
 
 from .filtering import (

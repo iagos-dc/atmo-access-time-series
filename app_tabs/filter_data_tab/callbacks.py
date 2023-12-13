@@ -367,7 +367,7 @@ def filter_data_callback(
         cross_filtering_time_coincidence_dt
     )
 
-    da_filtered_by_var = filter_data_req.compute()
+    da_filtered_by_var = filter_data_req.compute(store_request=True)
     if len(da_filtered_by_var) == 0:
         warnings.warn(
             'The applied data filter is too restrictive: all variables\' values were masked out. '

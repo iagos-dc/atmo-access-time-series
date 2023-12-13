@@ -9,6 +9,7 @@ from dash import html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 
+import app_logging  # noq
 
 # Local imports
 from app_tabs.common.layout import get_app_data_stores, APP_TABS_ID, DATA_ANALYSIS_TAB_VALUE, \

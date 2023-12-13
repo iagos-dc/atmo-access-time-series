@@ -86,7 +86,7 @@ def get_filtering_type_radio():
                     {'label': '7 days', 'value': '7D'},
                     {'label': '14 days', 'value': '14D'},
                     {'label': '30 days', 'value': '30D'},
-                    {'label': 'custom', 'value': 'custom'},
+                    # TODO: {'label': 'custom', 'value': 'custom'},
                 ],
                 value='24H',
                 disabled=True,

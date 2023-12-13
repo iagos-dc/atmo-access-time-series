@@ -1,11 +1,11 @@
 import functools
 import warnings
-import dash
 from dash import html, Output, no_update, ctx
 from dash.exceptions import DashException
 import dash_bootstrap_components as dbc
 from utils import dash_dynamic_components as ddc
 from log import dump_exception_to_log
+from dash import callback
 
 
 ALERT_POPUP_ID = 'alert_popup'
@@ -120,5 +120,5 @@ def handle_exception(callback_decorator, *default_outputs):
     return callback_decorator_with_exception_handler
 
 
-callback_with_exc_handling = handle_exception(dash.callback)
+callback_with_exc_handling = handle_exception(callback)
 dynamic_callback_with_exc_handling = handle_exception(ddc.dynamic_callback)

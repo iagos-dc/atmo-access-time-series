@@ -384,7 +384,7 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids):
 
     req = data_processing.IntegrateDatasetsRequest(read_dataset_requests)
     # TODO: do it asynchronously? will it work with dash/flask? look at options of @app.callback decorator (background=True, ???)
-    req_result = req.compute()
+    req_result = req.compute(store_request=True)
     max_variables = len(charts.colors())
     if len(req_result) > max_variables:
         raise AppException(f'The selected datasets contain more than {max_variables} variables. Please refine your selection of datasets.')

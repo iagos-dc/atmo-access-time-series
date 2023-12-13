@@ -1,6 +1,4 @@
-import pkg_resources
 import abc
-import itertools
 import functools
 import hashlib
 import json
@@ -8,6 +6,7 @@ import diskcache
 import time
 import icoscp.cpb.dobj
 import pandas as pd
+import flask
 
 import data_access.common
 from log import logger
@@ -17,8 +16,12 @@ from .merge_datasets import merge_datasets, integrate_datasets
 from .filtering import filter_dataset
 
 
-_REQUESTS_URL = str(data_access.common.CACHE_DIR / 'requests.tmp')
-_CACHE_URL = str(data_access.common.CACHE_DIR / 'cache.tmp')
+def get_request_metadata():
+    return {'time': pd.Timestamp.now(tz='UTC')}
+
+
+_REQUESTS_DEQUE_PATH = str(data_access.common.CACHE_DIR / 'requests.tmp')
+_CACHE_MAP_PATH = str(data_access.common.CACHE_DIR / 'cache.tmp')
 
 _RESULT_EXPIRE = 3600 * 12  # 12h
 _IN_PROGRESS_EXPIRE = 30  # 30 sec
@@ -26,8 +29,8 @@ _FAIL_EXPIRE = 30  # 30 sec
 
 
 # see: https://grantjenks.com/docs/diskcache/tutorial.html
-_request_map = diskcache.Deque(directory=_REQUESTS_URL)
-_cache_map = diskcache.Cache(directory=_CACHE_URL)
+requests_deque = diskcache.Deque(directory=_REQUESTS_DEQUE_PATH)
+_cache_map = diskcache.Cache(directory=_CACHE_MAP_PATH)
 
 
 def _get_hashable(obj):
@@ -90,19 +93,32 @@ def cache_setdefault(req):
                 i = hex(int(i, 16) + 1)[2:]
 
 
-def request_store(func):
-    @functools.wraps(func)
-    def _(req):
-        time_now = pd.Timestamp.now(tz='UTC')
-        _request_map.append((req, time_now))
-        return func(req)
-    return _
+def append_request_to_deque(req):
+    if flask.has_request_context():
+        request_and_its_metadata = get_request_metadata()
+        request_and_its_metadata['request'] = req
+        requests_deque.append(request_and_its_metadata)
+
+
+def request_store(store_request=True):
+    def _request_store(compute):
+        @functools.wraps(compute)
+        def wrapper_of_compute(req, store_request=store_request):
+            res = compute(req)
+            try:
+                if store_request:
+                    append_request_to_deque(req)
+            except Exception as e:
+                logger().exception(f'Failed to store the request {str(req)}', exc_info=e)
+            return res
+        return wrapper_of_compute
+    return _request_store
 
 
 def request_cache(custom_expire=-1):
-    def _request_cache(func):
-        @functools.wraps(func)
-        def _(req):
+    def _request_cache(compute):
+        @functools.wraps(compute)
+        def wrapper_of_compute(req):
             active_waiting = 0
             res = _ResultInProgress()
             while isinstance(res, _ResultInProgress):
@@ -110,7 +126,7 @@ def request_cache(custom_expire=-1):
                 if isinstance(res, _NoResultYet):
                     expire = _FAIL_EXPIRE
                     try:
-                        res = func(req)
+                        res = compute(req)
                         expire = custom_expire if custom_expire != -1 else _RESULT_EXPIRE
                         return res
                     except Exception as e:
@@ -129,7 +145,7 @@ def request_cache(custom_expire=-1):
                         logger().info(f'got result after active_waiting={active_waiting} for i={i}, req={req}')
                     return res
 
-        return _
+        return wrapper_of_compute
     return _request_cache
 
 
@@ -170,13 +186,20 @@ class Request(abc.ABC):
     def __eq__(self, other):
         return self.get_hashable() == other.get_hashable()
 
-    @request_store
+    @request_store(store_request=False)
     @request_cache()
-    def compute(self):
+    def compute(self, store_request=False):
+        # store_request kwarg is only decorative; important is the one in the wrapper inside request_store
         return self.execute()
 
     def __str__(self):
         return str(self.to_dict())
+
+    def pretty_str(self):
+        return str(self)
+
+    def compact_pretty_str(self):
+        return self.pretty_str()
 
 
 class GetICOSDatasetTitleRequest(Request):
@@ -220,6 +243,12 @@ class ReadDataRequest(Request):
         logger().info(f'execute {str(self)}')
         return data_access.read_dataset(self.ri, self.url, self.ds_metadata, selector=self.selector)
 
+    @request_store(store_request=True)
+    @request_cache()
+    def compute(self, store_request=True):
+        # store_request kwarg is only decorative; important is the one in the wrapper inside request_store
+        return self.execute()
+
     def get_hashable(self):
         return 'read_dataset', _get_hashable(self.ri), _get_hashable(self.url), _get_hashable(self.selector)
 
@@ -242,6 +271,14 @@ class ReadDataRequest(Request):
         except KeyError:
             raise ValueError(f'bad ReadDataRequest: d={str(d)}')
         return ReadDataRequest(ri, url, ds_metadata, selector=selector)
+
+    def pretty_str(self):
+        title = self.ds_metadata.get('title', '')
+        return f'Read {self.ri} dataset {title}'
+
+    def compact_pretty_str(self):
+        title = self.ds_metadata.get('title', '')
+        return f'{title} ({self.ri})'
 
 
 class IntegrateDatasetsRequest(Request):
@@ -284,6 +321,19 @@ class IntegrateDatasetsRequest(Request):
             for read_dataset_request_as_dict in read_dataset_requests_as_dict
         ))
 
+    def _read_dataset_requests_to_str(self):
+        read_dataset_requests_as_str = map(
+            lambda read_dataset_request: read_dataset_request.compact_pretty_str(),
+            self.read_dataset_requests
+        )
+        return ', '.join(read_dataset_requests_as_str)
+
+    def pretty_str(self):
+        return f'Integrate {len(self.read_dataset_requests)} dataset(s): {self._read_dataset_requests_to_str()}'
+
+    def compact_pretty_str(self):
+        return self._read_dataset_requests_to_str()
+
 
 class FilterDataRequest(Request):
     def __init__(
@@ -324,7 +374,6 @@ class FilterDataRequest(Request):
             _get_hashable(cross_filtering_time_coincidence_as_str),
         )
 
-
     def to_dict(self):
         if self.cross_filtering_time_coincidence_dt is not None:
             cross_filtering_time_coincidence_as_str = str(pd.Timedelta(self.cross_filtering_time_coincidence_dt))
@@ -357,6 +406,28 @@ class FilterDataRequest(Request):
             cross_filtering,
             cross_filtering_time_coincidence_dt
         )
+
+    def pretty_str(self):
+        def _pretty_value(v):
+            if isinstance(v, (float, int)):
+                return f'{v:.4g}'
+            else:
+                return v
+
+        _str = f'Filter integrated datasets ({self.integrate_datasets_request.compact_pretty_str()})'
+
+        filtering_criteria = [
+            f'{v}=[{_pretty_value(rng[0])}, {_pretty_value(rng[1])}]'
+            for v, rng in self.rng_by_varlabel.items()
+            if tuple(rng) != (None, None)
+        ]
+        if filtering_criteria:
+            filtering_criteria_as_str = ', '.join(filtering_criteria)
+            _str += f' with criteria: {filtering_criteria_as_str}'
+            if self.cross_filtering:
+                dt = pd.Timedelta(self.cross_filtering_time_coincidence_dt)
+                _str += f'; using the cross filter with time coincidence={dt}'
+        return _str
 
 
 class MergeDatasetsRequest(Request):
