@@ -9,14 +9,24 @@ from dash import html, dcc, Dash, callback, Input, Output, State, Patch
 import dash
 import dash_bootstrap_components as dbc
 
+from pyproj import Transformer
 
 from app_tabs.common.data import stations
 from utils.charts import IAGOS_COLOR_HEX, rgb_to_rgba, CATEGORY_ORDER, \
     COLOR_CATEGORY_ORDER
 
 
-APPLY_UNCLUSTERING_SWITCH_ID = 'apply-unclustering-switch'
+_gcs_to_3857 = Transformer.from_crs(4326, 3857, always_xy=True)
+_3857_to_gcs = Transformer.from_crs(3857, 4326, always_xy=True)
+
 ZOOM_STORE_ID = 'zoom-store'
+
+APPLY_UNCLUSTERING_SWITCH_ID = 'apply-unclustering-switch'
+DIAM_COEFF_INPUT_ID = 'diam-coeff-input' # 3
+N_STEPS_INPUT_ID = 'n-steps-input' # 3
+FRACTION_OF_DIAM_IN_ONE_JUMP_INPUT_ID = 'fraction-of-diam-in-one-jump-input' # 1
+REPULSION_POWER_INPUT_ID = 'repulsion-power-input' # 2
+
 STATIONS_MAP_ID = 'stations-map'
 
 DEFAULT_MAP_ZOOM = 2
@@ -54,6 +64,18 @@ def haversine_np(lon1, lat1, lon2, lat2):
     c = 2 * np.arcsin(np.sqrt(a))
     km = 6367 * c
     return km
+
+
+def haversine_np2(x1, x2):
+    x1, x2 = map(np.radians, [x1, x2])
+    lat1, lat2 = x1[1], x2[1]
+    dlon, dlat = x2 - x1
+    a = np.sin(dlon/2.0)**2 * np.cos(lat2) * np.cos(lat1) + np.sin(dlat/2.0)**2
+
+    c = 2 * np.arcsin(np.sqrt(a))
+    km = 6367 * c
+    return km
+
 
 
 def get_stations_map():
@@ -132,8 +154,6 @@ def get_stations_map():
         }
     )
 
-    print(fig, flush=True)
-
     return stations_map
 
 
@@ -143,8 +163,9 @@ x_ = np.stack([lon, lat], axis=0)
 x0 = x_ + np.random.normal(scale=3e-5, size=x_.shape)  # displace by ca. 10m max
 
 
-def zoom_to_diam(zoom):
-    return max(1, zoom - 2) * 0.2 * 2**(2 - zoom)
+def zoom_to_diam(zoom, diam_coeff=3):
+    return diam_coeff * 0.2 * 2**(2 - zoom)
+    # return max(1, zoom - 2) * 0.2 * 2**(2 - zoom)
 
 
 def vectors_between_pairs_of_points(x):
@@ -178,27 +199,26 @@ def repulse(x0, diam, n_steps, jump=0.1, d=2):
     Output(STATIONS_MAP_ID, 'figure'),
     Output(ZOOM_STORE_ID, 'data'),
     Input(APPLY_UNCLUSTERING_SWITCH_ID, 'value'),
+    Input(DIAM_COEFF_INPUT_ID, 'value'),  # 3
+    Input(N_STEPS_INPUT_ID, 'value'),  # 3
+    Input(FRACTION_OF_DIAM_IN_ONE_JUMP_INPUT_ID, 'value'),  # 1
+    Input(REPULSION_POWER_INPUT_ID, 'value'),  # 2
     Input(STATIONS_MAP_ID, 'relayoutData'),
     State(ZOOM_STORE_ID, 'data')
 )
-def get_selected_stations_bbox_and_dropdown(
+def update_map(
         apply_unclustering,
+        diam_coeff,
+        n_steps,
+        fraction_of_diam_in_one_jump,
+        repulsion_power,
         map_relayoutData,
         previous_zoom,
 ):
-    print('!!!', apply_unclustering, previous_zoom)
-    if map_relayoutData:
-        print(f'map_relayoutData.keys={list(map_relayoutData)}', flush=True)
-    if map_relayoutData and 'mapbox.zoom' in map_relayoutData:
-        zoom = map_relayoutData["mapbox.zoom"]
-        print(f'map_relayoutData["mapbox.zoom"]={zoom}', flush=True)
-    else:
-        zoom = None
+    zoom = map_relayoutData.get('mapbox.zoom', previous_zoom) if isinstance(map_relayoutData, dict) else previous_zoom
 
     if apply_unclustering:
-        if zoom is None:
-            zoom = previous_zoom
-        x1 = repulse(x0, diam=zoom_to_diam(zoom), n_steps=3, jump=0.5, d=2)
+        x1 = repulse(x0, diam=zoom_to_diam(zoom, diam_coeff=diam_coeff), n_steps=n_steps, jump=fraction_of_diam_in_one_jump / 2, d=repulsion_power)
         stations['lon_displaced'] = pd.Series(x1[0], index=stations.index)
         stations['lat_displaced'] = pd.Series(x1[1], index=stations.index)
         lon_column = 'lon_displaced'
@@ -214,7 +234,7 @@ def get_selected_stations_bbox_and_dropdown(
         patched_fig['data'][i]['lon'] = df_for_c[lon_column].values
         patched_fig['data'][i]['lat'] = df_for_c[lat_column].values
 
-    return patched_fig, zoom if True else dash.no_update
+    return patched_fig, zoom
 
 
 app = Dash(
@@ -229,6 +249,65 @@ app = Dash(
 
 server = app.server
 
+
+apply_unclustering_switch = dbc.Switch(
+    id=APPLY_UNCLUSTERING_SWITCH_ID,
+    label='Apply unclustering',
+    style={'margin-top': '10px'},
+    value=True,
+)
+
+diam_coeff_input = dbc.Form(children=[
+    dbc.Row([
+        dbc.Label('Limit the total displacement to this multiple of the marker diameter', width=4),
+        dbc.Col(
+            dcc.Slider(
+                id=DIAM_COEFF_INPUT_ID,
+                min=0.5, max=10, value=3,
+                persistence=True, persistence_type='session',
+            ),
+            width=8
+        )
+    ]),
+    dbc.Row([
+        dbc.Label('Number of iterations in the repulsion algorithm', width=4),
+        dbc.Col(
+            dcc.Slider(
+                id=N_STEPS_INPUT_ID,
+                min=1, max=7, value=3, step=1,
+                persistence=True, persistence_type='session',
+            ),
+            width=8
+        )
+    ]),
+    dbc.Row([
+        dbc.Label('Limit displacement in one iteration to this fraction of the marker diameter', width=4),
+        dbc.Col(
+            dcc.Slider(
+                id=FRACTION_OF_DIAM_IN_ONE_JUMP_INPUT_ID,
+                min=0.1, max=2, value=1,
+                persistence=True, persistence_type='session',
+            ),
+            width=8
+        )
+    ]),
+    dbc.Row([
+        dbc.Label('Repulsion force is proportional to (1/distance)^d, d = ', width=4),
+        dbc.Col(
+            dcc.Slider(
+                id=REPULSION_POWER_INPUT_ID,
+                min=1, max=4, value=2, step=1,
+                persistence=True, persistence_type='session',
+            ),
+            width=8
+        )
+    ]),
+])
+
+#REPULSION_POWER_INPUT_ID = 'repulsion-power-input' # 2
+
+
+
 map_tab = dcc.Tab(
     label='2. Search datasets',
     id='SEARCH_DATASETS_TAB_VALUE',
@@ -237,13 +316,9 @@ map_tab = dcc.Tab(
         style={'margin': '20px'},
         children=[
             html.Div(id='search-datasets-left-panel-div', className='four columns', children=[
-                dbc.Switch(
-                    id=APPLY_UNCLUSTERING_SWITCH_ID,
-                    label='Apply unclustering',
-                    style={'margin-top': '10px'},
-                    value=True,
-                ),
-                # get_variables_checklist(),
+                apply_unclustering_switch,
+                html.Hr(),
+                diam_coeff_input
             ]),
             html.Div(id='search-datasets-right-panel-div', className='eight columns', children=get_stations_map()),
         ]
