@@ -26,6 +26,7 @@ DIAM_COEFF_INPUT_ID = 'diam-coeff-input' # 3
 N_STEPS_INPUT_ID = 'n-steps-input' # 3
 FRACTION_OF_DIAM_IN_ONE_JUMP_INPUT_ID = 'fraction-of-diam-in-one-jump-input' # 1
 REPULSION_POWER_INPUT_ID = 'repulsion-power-input' # 2
+ZOOM_OUTPUT_ID = 'zoom-output'
 
 STATIONS_MAP_ID = 'stations-map'
 
@@ -43,6 +44,7 @@ MAPBOX_STYLES = {
 DEFAULT_MAPBOX_STYLE = 'carto-positron'
 
 
+stations['lon_3857'], stations['lat_3857'] = _gcs_to_3857.transform(stations['longitude'], stations['latitude'])
 
 
 def haversine_np(lon1, lat1, lon2, lat2):
@@ -157,15 +159,25 @@ def get_stations_map():
     return stations_map
 
 
-lon = stations['longitude'].values
-lat = stations['latitude'].values
-x_ = np.stack([lon, lat], axis=0)
-x0 = x_ + np.random.normal(scale=3e-5, size=x_.shape)  # displace by ca. 10m max
+lon_3857 = stations['lon_3857'].values
+lat_3857 = stations['lat_3857'].values
+x_ = np.stack([lon_3857, lat_3857], axis=0)
+x0 = x_ + np.random.normal(scale=1, size=x_.shape)  # displace by ca. 10m max
 
 
-def zoom_to_diam(zoom, diam_coeff=3):
-    return diam_coeff * 0.2 * 2**(2 - zoom)
-    # return max(1, zoom - 2) * 0.2 * 2**(2 - zoom)
+def zoom_to_marker_radius_old(zoom):
+    if zoom < 2:
+        diam_coeff = 1
+    elif zoom > 6:
+        diam_coeff = 2
+    else:
+        diam_coeff = 1 + (zoom - 2) / 4
+    return diam_coeff * 2**(2 - zoom) * 4e4
+
+
+def zoom_to_marker_radius(zoom):
+    diam_coeff = min(4 / 3 * np.log(2 + zoom), 2.5)
+    return diam_coeff * 2**(2 - zoom) * 4e4
 
 
 def vectors_between_pairs_of_points(x):
@@ -174,7 +186,7 @@ def vectors_between_pairs_of_points(x):
     return _x - x_
 
 
-def H(x, a, d=2):
+def H_old(x, a, d=2):
     xx = vectors_between_pairs_of_points(x)
     d2 = np.square(xx).sum(axis=-3, keepdims=True)
     repulsion = xx / np.power(d2, (d + 1) / 2)
@@ -183,10 +195,21 @@ def H(x, a, d=2):
     return -a**(d + 1) * repulsion.sum(axis=-1)
 
 
-def repulse(x0, diam, n_steps, jump=0.1, d=2):
+def H(x, marker_radius, rng):
+    xx = vectors_between_pairs_of_points(x)
+    d2 = np.square(xx).sum(axis=-3, keepdims=True)
+    d = np.sqrt(d2)
+    # repulsion = np.maximum(a - d, 0) * xx / d
+    repulsion = np.maximum(marker_radius - d / rng, 0) * xx / d
+    np.fill_diagonal(repulsion[..., 0, :, :], 0)
+    np.fill_diagonal(repulsion[..., 1, :, :], 0)
+    return -repulsion.sum(axis=-1)
+
+
+def repulse_old(x0, diam, n_steps, jump=0.1, d=2):
     x1 = x0
     for i in range(n_steps):
-        h = H(x1, diam, d=d)
+        h = H_old(x1, diam)
         dh = np.sqrt(np.square(h).sum(axis=-2, keepdims=True))
         h = h / np.maximum(1 / jump, dh / diam)
         x1 = x1 + h
@@ -195,14 +218,22 @@ def repulse(x0, diam, n_steps, jump=0.1, d=2):
     return x1
 
 
+def repulse(x0, marker_radius, rng, n_steps):
+    x1 = x0
+    for i in range(n_steps):
+        x1 = x1 + H(x1, marker_radius, rng)
+    return x1
+
+
 @callback(
     Output(STATIONS_MAP_ID, 'figure'),
+    Output(ZOOM_OUTPUT_ID, 'children'),
     Output(ZOOM_STORE_ID, 'data'),
     Input(APPLY_UNCLUSTERING_SWITCH_ID, 'value'),
-    Input(DIAM_COEFF_INPUT_ID, 'value'),  # 3
-    Input(N_STEPS_INPUT_ID, 'value'),  # 3
+    Input(DIAM_COEFF_INPUT_ID, 'value'),
+    Input(N_STEPS_INPUT_ID, 'value'),  # 2
     Input(FRACTION_OF_DIAM_IN_ONE_JUMP_INPUT_ID, 'value'),  # 1
-    Input(REPULSION_POWER_INPUT_ID, 'value'),  # 2
+    Input(REPULSION_POWER_INPUT_ID, 'value'),  # 3
     Input(STATIONS_MAP_ID, 'relayoutData'),
     State(ZOOM_STORE_ID, 'data')
 )
@@ -218,9 +249,11 @@ def update_map(
     zoom = map_relayoutData.get('mapbox.zoom', previous_zoom) if isinstance(map_relayoutData, dict) else previous_zoom
 
     if apply_unclustering:
-        x1 = repulse(x0, diam=zoom_to_diam(zoom, diam_coeff=diam_coeff), n_steps=n_steps, jump=fraction_of_diam_in_one_jump / 2, d=repulsion_power)
-        stations['lon_displaced'] = pd.Series(x1[0], index=stations.index)
-        stations['lat_displaced'] = pd.Series(x1[1], index=stations.index)
+        #x1 = repulse(x0, diam=diam_coeff * zoom_to_diam(zoom), n_steps=n_steps, jump=fraction_of_diam_in_one_jump / 2, d=repulsion_power)
+        x1 = repulse(x0, marker_radius=zoom_to_marker_radius(zoom), rng=diam_coeff, n_steps=n_steps)
+        lon_displaced, lat_displaced = _3857_to_gcs.transform(x1[0], x1[1])
+        stations['lon_displaced'] = pd.Series(lon_displaced, index=stations.index)
+        stations['lat_displaced'] = pd.Series(lat_displaced, index=stations.index)
         lon_column = 'lon_displaced'
         lat_column = 'lat_displaced'
     else:
@@ -234,7 +267,7 @@ def update_map(
         patched_fig['data'][i]['lon'] = df_for_c[lon_column].values
         patched_fig['data'][i]['lat'] = df_for_c[lat_column].values
 
-    return patched_fig, zoom
+    return patched_fig, str(zoom), zoom
 
 
 app = Dash(
@@ -257,13 +290,14 @@ apply_unclustering_switch = dbc.Switch(
     value=True,
 )
 
-diam_coeff_input = dbc.Form(children=[
+input_params = dbc.Form(children=[
     dbc.Row([
-        dbc.Label('Limit the total displacement to this multiple of the marker diameter', width=4),
+        dbc.Label('Repulsion range as a multiple of the marker radius', width=4),
         dbc.Col(
             dcc.Slider(
                 id=DIAM_COEFF_INPUT_ID,
-                min=0.5, max=10, value=3,
+                disabled=False,
+                min=0.5, max=2, value=1.4, step=0.1,
                 persistence=True, persistence_type='session',
             ),
             width=8
@@ -274,7 +308,7 @@ diam_coeff_input = dbc.Form(children=[
         dbc.Col(
             dcc.Slider(
                 id=N_STEPS_INPUT_ID,
-                min=1, max=7, value=3, step=1,
+                min=1, max=5, value=2, step=1,
                 persistence=True, persistence_type='session',
             ),
             width=8
@@ -285,6 +319,7 @@ diam_coeff_input = dbc.Form(children=[
         dbc.Col(
             dcc.Slider(
                 id=FRACTION_OF_DIAM_IN_ONE_JUMP_INPUT_ID,
+                disabled=True,
                 min=0.1, max=2, value=1,
                 persistence=True, persistence_type='session',
             ),
@@ -296,8 +331,18 @@ diam_coeff_input = dbc.Form(children=[
         dbc.Col(
             dcc.Slider(
                 id=REPULSION_POWER_INPUT_ID,
-                min=1, max=4, value=2, step=1,
+                disabled=True,
+                min=1, max=4, value=3, step=1,
                 persistence=True, persistence_type='session',
+            ),
+            width=8
+        )
+    ]),
+    dbc.Row([
+        dbc.Label('Zoom:', width=4),
+        dbc.Col(
+            html.Div(
+                id=ZOOM_OUTPUT_ID,
             ),
             width=8
         )
@@ -318,7 +363,7 @@ map_tab = dcc.Tab(
             html.Div(id='search-datasets-left-panel-div', className='four columns', children=[
                 apply_unclustering_switch,
                 html.Hr(),
-                diam_coeff_input
+                input_params,
             ]),
             html.Div(id='search-datasets-right-panel-div', className='eight columns', children=get_stations_map()),
         ]
