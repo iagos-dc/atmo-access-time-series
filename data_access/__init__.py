@@ -2,6 +2,7 @@ from .common import CACHE_DIR
 
 from .data_access import (
     get_stations,
+    uncluster,
     get_vars,
     get_vars_long,
     get_datasets,

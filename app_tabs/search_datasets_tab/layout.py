@@ -15,6 +15,9 @@ from utils.dash_persistence import get_dash_persistence_kwargs
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
 
 STATIONS_MAP_ID = 'stations-map'
+MAP_ZOOM_STORE_ID = 'previous-map-zoom-store'
+DEFAULT_MAP_ZOOM = 2
+
 # 'selectedData' contains a dictionary
 # {
 #   'point' ->
@@ -45,10 +48,11 @@ DATE_RANGE_PICKER_ID = 'search-datasets-date-picker-range'
 MAP_BACKGROUND_RADIO_ID = 'map-background-radio'
 
 
+DEFAULT_STATIONS_SIZE = 7
 SELECTED_STATIONS_OPACITY = 1.
-SELECTED_STATIONS_SIZE = 10
+SELECTED_STATIONS_SIZE = 9
 UNSELECTED_STATIONS_OPACITY = 0.5
-UNSELECTED_STATIONS_SIZE = 4
+UNSELECTED_STATIONS_SIZE = 5
 
 MAPBOX_STYLES = {
     'open-street-map': 'open street map',
@@ -99,29 +103,41 @@ def get_stations_map():
     See: https://dash.plotly.com/dash-core-components/graph
     :return: dash.dcc.Graph object
     """
+    _stations = stations.copy()
+    _stations['marker_size'] = DEFAULT_STATIONS_SIZE
+    _stations['lon_displaced'], _stations['lat_displaced'] = data_access.uncluster(
+        _stations['lon_3857'],
+        _stations['lat_3857'],
+        DEFAULT_MAP_ZOOM
+    )
+
     fig = px.scatter_mapbox(
-        stations,
-        lat="latitude", lon="longitude", color='RI',
+        _stations,
+        lat="lon_displaced", lon="lon_displaced", color='RI',
         hover_name="long_name",
         hover_data={
             'RI': True,
             'longitude': ':.2f',
             'latitude': ':.2f',
-            'ground elevation': stations['ground_elevation'].round(0).fillna('N/A').to_list(),
+            'ground elevation': _stations['ground_elevation'].round(0).fillna('N/A').to_list(),
+            'lon_displaced': False,
+            'lat_displaced': False,
+            'lon_3857': False,
+            'lat_3857': False,
             'marker_size': False
         },
         custom_data=['idx'],
-        size=stations['marker_size'],
-        size_max=7,
+        size=_stations['marker_size'],
+        size_max=DEFAULT_STATIONS_SIZE,
         category_orders={'RI': CATEGORY_ORDER},
         color_discrete_sequence=COLOR_CATEGORY_ORDER,
-        zoom=2,
+        zoom=DEFAULT_MAP_ZOOM,
         # width=1200, height=700,
         center={'lon': 10, 'lat': 55},
         title='Stations map',
     )
 
-    regions = stations[stations['is_region']]
+    regions = _stations[_stations['is_region']]
     regions_lon = []
     regions_lat = []
     for lon_min, lon_max, lat_min, lat_max in zip(regions['longitude_min'], regions['longitude_max'], regions['latitude_min'], regions['latitude_max']):
@@ -312,6 +328,7 @@ def get_search_datasets_tab():
                     )
                 ]),
                 html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
+                    dcc.Store(id=MAP_ZOOM_STORE_ID, storage_type='session', data=DEFAULT_MAP_ZOOM),
                     get_stations_map(),
                     html.Div(
                         id='selected-stations-div',

@@ -13,8 +13,9 @@ from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
-    SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE, \
-    MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES, DATE_RANGE_PICKER_ID
+    SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, \
+    DEFAULT_STATIONS_SIZE, SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE, \
+    MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES, DATE_RANGE_PICKER_ID, MAP_ZOOM_STORE_ID
 from utils.charts import CATEGORY_ORDER
 from log import logger, log_exception, log_exectime
 from data_processing.utils import points_inside_polygons
@@ -176,6 +177,7 @@ def _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_opti
 @callback_with_exc_handling(
     Output(SELECTED_STATIONS_STORE_ID, 'data'),
     Output(STATIONS_MAP_ID, 'figure'),
+    Output(MAP_ZOOM_STORE_ID, 'data'),
     Output(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
     Output(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
     Output(LON_MIN_ID, 'value'),
@@ -185,11 +187,13 @@ def _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_opti
     Input(SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, 'n_clicks'),
     Input(STATIONS_MAP_ID, 'selectedData'),
     Input(STATIONS_MAP_ID, 'clickData'),
+    Input(STATIONS_MAP_ID, 'relayoutData'),
     Input(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
     Input(LON_MIN_ID, 'value'),
     Input(LON_MAX_ID, 'value'),
     Input(LAT_MIN_ID, 'value'),
     Input(LAT_MAX_ID, 'value'),
+    State(MAP_ZOOM_STORE_ID, 'data'),
     State(SELECTED_STATIONS_STORE_ID, 'data'),
     State(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
 )
@@ -198,24 +202,32 @@ def get_selected_stations_bbox_and_dropdown(
         reset_stations_button,
         selected_data,
         click_data,
+        map_relayoutData,
         stations_dropdown,
         lon_min, lon_max, lat_min, lat_max,
+        previous_zoom,
         selected_stations_idx,
         stations_dropdown_options
 ):
-    ctx = list(dash.ctx.triggered_prop_ids.values())
+    ctx_keys = list(dash.ctx.triggered_prop_ids)
+    ctx_values = list(dash.ctx.triggered_prop_ids.values())
 
-    if SELECTED_STATIONS_DROPDOWN_ID in ctx and stations_dropdown is not None:
+    # apply station unclustering
+    zoom = map_relayoutData.get('mapbox.zoom', previous_zoom) if isinstance(map_relayoutData, dict) else previous_zoom
+    lon_displaced, lat_displaced = data_access.uncluster(stations['lon_3857'], stations['lat_3857'], zoom)
+
+    if SELECTED_STATIONS_DROPDOWN_ID in ctx_values and stations_dropdown is not None:
         selected_stations_idx = sorted(stations_dropdown)
 
-    if SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID in ctx:
+    if SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID in ctx_values:
         selected_stations_idx = None
         lon_min, lon_max, lat_min, lat_max = (None,) * 4
         new_lon_min, new_lon_max, new_lat_min, new_lat_max = (None, ) * 4
     else:
         new_lon_min, new_lon_max, new_lat_min, new_lat_max = (dash.no_update, ) * 4
 
-    if STATIONS_MAP_ID in ctx and selected_data and 'points' in selected_data and len(selected_data['points']) > 0:
+    if (f'{STATIONS_MAP_ID}.selectedData' in ctx_keys or f'{STATIONS_MAP_ID}.clickData' in ctx_keys)\
+            and selected_data and 'points' in selected_data and len(selected_data['points']) > 0:
         if 'range' in selected_data or 'lassoPoints' in selected_data:
             currently_selected_stations_on_map_idx = [p['customdata'][0] for p in selected_data['points']]
             # it does not contain points from categories which were deselected on the legend
@@ -250,7 +262,7 @@ def get_selected_stations_bbox_and_dropdown(
             currently_selected_stations_on_map_idx = [p['customdata'][0] for p in click_data['points']]
             selected_stations_idx = sorted(set(selected_stations_idx if selected_stations_idx is not None else []).symmetric_difference(currently_selected_stations_on_map_idx))
 
-    if {LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID}.isdisjoint(ctx):
+    if {LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID}.isdisjoint(ctx_values):
         # the callback was not fired by user's input on bbox, so we possibly enlarge the bbox to fit all selected stations
         if selected_stations_idx is not None and len(selected_stations_idx) > 0:
             stations_lon_min, stations_lon_max, stations_lat_min, stations_lat_max = _get_bounding_box(selected_stations_idx)
@@ -287,13 +299,23 @@ def get_selected_stations_bbox_and_dropdown(
         size.loc[selected_stations_idx] = SELECTED_STATIONS_SIZE
     else:
         opacity.loc[:] = SELECTED_STATIONS_OPACITY
-        size.loc[:] = 7
+        size.loc[:] = DEFAULT_STATIONS_SIZE
 
-    df = pd.DataFrame({'RI': stations['RI'], 'opacity': opacity, 'size': size})
+    df = pd.DataFrame({
+        'RI': stations['RI'],
+        'lon_displaced': lon_displaced,
+        'lat_displaced': lat_displaced,
+        'opacity': opacity,
+        'size': size
+    })
     for i, c in enumerate(CATEGORY_ORDER):
         df_for_c = df[df['RI'] == c]
         opacity_for_c = df_for_c['opacity']
         size_for_c = df_for_c['size']
+        lon_displaced_for_c = df_for_c['lon_displaced']
+        lat_displaced_for_c = df_for_c['lat_displaced']
+        patched_fig['data'][i]['lon'] = lon_displaced_for_c
+        patched_fig['data'][i]['lat'] = lat_displaced_for_c
         patched_fig['data'][i]['marker']['opacity'] = opacity_for_c.values
         patched_fig['data'][i]['marker']['size'] = size_for_c.values
         patched_fig['data'][i]['selectedpoints'] = None
@@ -301,4 +323,8 @@ def get_selected_stations_bbox_and_dropdown(
     selected_stations_df = stations.loc[selected_stations_idx] if selected_stations_idx is not None else stations.loc[[]]
     selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options)
 
-    return selected_stations_idx, patched_fig, selected_stations_dropdown_options, selected_stations_dropdown_value, new_lon_min, new_lon_max, new_lat_min, new_lat_max
+    return (
+        selected_stations_idx, patched_fig, zoom,
+        selected_stations_dropdown_options, selected_stations_dropdown_value,
+        new_lon_min, new_lon_max, new_lat_min, new_lat_max,
+    )

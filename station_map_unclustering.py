@@ -86,6 +86,8 @@ def get_stations_map():
     See: https://dash.plotly.com/dash-core-components/graph
     :return: dash.dcc.Graph object
     """
+    stations['marker_size'] = 7
+
     fig = px.scatter_mapbox(
         stations,
         lat="latitude", lon="longitude", color='RI',
