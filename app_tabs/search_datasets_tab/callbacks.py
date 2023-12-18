@@ -303,12 +303,14 @@ def get_selected_stations_bbox_and_dropdown(
 
     df = pd.DataFrame({
         'RI': stations['RI'],
+        'longitude': stations['longitude'],
+        'latitude': stations['latitude'],
         'lon_displaced': lon_displaced,
         'lat_displaced': lat_displaced,
         'opacity': opacity,
         'size': size
     })
-    for i, c in enumerate(CATEGORY_ORDER):
+    for i, c in enumerate(CATEGORY_ORDER, start=1):
         df_for_c = df[df['RI'] == c]
         opacity_for_c = df_for_c['opacity']
         size_for_c = df_for_c['size']
@@ -319,6 +321,9 @@ def get_selected_stations_bbox_and_dropdown(
         patched_fig['data'][i]['marker']['opacity'] = opacity_for_c.values
         patched_fig['data'][i]['marker']['size'] = size_for_c.values
         patched_fig['data'][i]['selectedpoints'] = None
+
+    i = 0
+    patched_fig['data'][i]['lon'], patched_fig['data'][i]['lat'] = data_access.get_displacement_vectors(df)
 
     selected_stations_df = stations.loc[selected_stations_idx] if selected_stations_idx is not None else stations.loc[[]]
     selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options)

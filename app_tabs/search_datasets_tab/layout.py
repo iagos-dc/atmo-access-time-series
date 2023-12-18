@@ -113,7 +113,7 @@ def get_stations_map():
 
     fig = px.scatter_mapbox(
         _stations,
-        lat="lon_displaced", lon="lon_displaced", color='RI',
+        lon="lon_displaced", lat="lat_displaced", color='RI',
         hover_name="long_name",
         hover_data={
             'RI': True,
@@ -136,6 +136,20 @@ def get_stations_map():
         center={'lon': 10, 'lat': 55},
         title='Stations map',
     )
+
+    _vectors_lon, _vectors_lat = data_access.get_displacement_vectors(_stations)
+    vectors_go = go.Scattermapbox(
+        mode='lines',
+        lon=_vectors_lon, lat=_vectors_lat,
+        connectgaps=False,
+        showlegend=False,
+        hoverinfo='skip',
+        line={'color': 'rgba(0,0,0,1)', 'width': 2},
+        #line={'color': 'rgba(0,0,0,0.3)', 'width': 2},
+    )
+    fig.add_trace(vectors_go)
+    *_station_traces, _displacement_vectors = fig.data
+    fig.data = _displacement_vectors, *_station_traces
 
     regions = _stations[_stations['is_region']]
     regions_lon = []

@@ -14,6 +14,7 @@ from pyproj import Transformer
 from app_tabs.common.data import stations
 from utils.charts import IAGOS_COLOR_HEX, rgb_to_rgba, CATEGORY_ORDER, \
     COLOR_CATEGORY_ORDER
+import data_access
 
 
 _gcs_to_3857 = Transformer.from_crs(4326, 3857, always_xy=True)
@@ -32,6 +33,7 @@ STATIONS_MAP_ID = 'stations-map'
 
 DEFAULT_MAP_ZOOM = 2
 
+DEFAULT_STATIONS_SIZE = 7
 SELECTED_STATIONS_OPACITY = 1.
 SELECTED_STATIONS_SIZE = 10
 UNSELECTED_STATIONS_OPACITY = 0.5
@@ -86,22 +88,32 @@ def get_stations_map():
     See: https://dash.plotly.com/dash-core-components/graph
     :return: dash.dcc.Graph object
     """
-    stations['marker_size'] = 7
+    _stations = stations.copy()
+    _stations['marker_size'] = DEFAULT_STATIONS_SIZE
+    _stations['lon_displaced'], _stations['lat_displaced'] = data_access.uncluster(
+        _stations['lon_3857'],
+        _stations['lat_3857'],
+        DEFAULT_MAP_ZOOM
+    )
 
     fig = px.scatter_mapbox(
-        stations,
+        _stations,
         lat="latitude", lon="longitude", color='RI',
         hover_name="long_name",
         hover_data={
             'RI': True,
             'longitude': ':.2f',
             'latitude': ':.2f',
-            'ground elevation': stations['ground_elevation'].round(0).fillna('N/A').to_list(),
+            'ground elevation': _stations['ground_elevation'].round(0).fillna('N/A').to_list(),
+            'lon_displaced': False,
+            'lat_displaced': False,
+            'lon_3857': False,
+            'lat_3857': False,
             'marker_size': False
         },
         custom_data=['idx'],
-        size=stations['marker_size'],
-        size_max=7,
+        size=_stations['marker_size'],
+        size_max=DEFAULT_STATIONS_SIZE,
         category_orders={'RI': CATEGORY_ORDER},
         color_discrete_sequence=COLOR_CATEGORY_ORDER,
         zoom=DEFAULT_MAP_ZOOM,
@@ -110,7 +122,21 @@ def get_stations_map():
         title='Stations map',
     )
 
-    regions = stations[stations['is_region']]
+    _vectors_lon, _vectors_lat = data_access.get_displacement_vectors(_stations)
+    vectors_go = go.Scattermapbox(
+        mode='lines',
+        lon=_vectors_lon, lat=_vectors_lat,
+        connectgaps=False,
+        showlegend=False,
+        hoverinfo='skip',
+        line={'color': 'rgba(0,0,0,1)', 'width': 2},
+        #line={'color': 'rgba(0,0,0,0.3)', 'width': 2},
+    )
+    fig.add_trace(vectors_go)
+    *_station_traces, _displacement_vectors = fig.data
+    fig.data = _displacement_vectors, *_station_traces
+
+    regions = _stations[_stations['is_region']]
     regions_lon = []
     regions_lat = []
     for lon_min, lon_max, lat_min, lat_max in zip(regions['longitude_min'], regions['longitude_max'], regions['latitude_min'], regions['latitude_max']):
@@ -264,10 +290,14 @@ def update_map(
 
     patched_fig = Patch()
 
-    for i, c in enumerate(CATEGORY_ORDER):
+    for i, c in enumerate(CATEGORY_ORDER, start=1):
         df_for_c = stations[stations['RI'] == c]
         patched_fig['data'][i]['lon'] = df_for_c[lon_column].values
         patched_fig['data'][i]['lat'] = df_for_c[lat_column].values
+
+    if apply_unclustering:
+        i = 0
+        patched_fig['data'][i]['lon'], patched_fig['data'][i]['lat'] = data_access.get_displacement_vectors(stations)
 
     return patched_fig, str(zoom), zoom
 

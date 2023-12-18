@@ -213,6 +213,17 @@ def uncluster(lon_3857, lat_3857, zoom):
     return lon_displaced, lat_displaced
 
 
+def get_displacement_vectors(df):
+    n = len(df)
+    lon = np.full(3 * n, np.nan)
+    lat = np.full(3 * n, np.nan)
+    lon[::3] = df['longitude'].values
+    lon[1::3] = df['lon_displaced'].values
+    lat[::3] = df['latitude'].values
+    lat[1::3] = df['lat_displaced'].values
+    return lon, lat
+
+
 def get_stations():
     """
     For each ACTRIS, IAGOS and ICOS station (for the moment it is ICOS only).
