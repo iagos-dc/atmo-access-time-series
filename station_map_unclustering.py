@@ -11,6 +11,7 @@ import dash_bootstrap_components as dbc
 
 from pyproj import Transformer
 
+import utils.stations_map
 from app_tabs.common.data import stations
 from utils.charts import IAGOS_COLOR_HEX, rgb_to_rgba, CATEGORY_ORDER, \
     COLOR_CATEGORY_ORDER
@@ -90,7 +91,7 @@ def get_stations_map():
     """
     _stations = stations.copy()
     _stations['marker_size'] = DEFAULT_STATIONS_SIZE
-    _stations['lon_displaced'], _stations['lat_displaced'] = data_access.uncluster(
+    _stations['lon_3857_displaced'], _stations['lat_3857_displaced'], _stations['lon_displaced'], _stations['lat_displaced'] = utils.stations_map.uncluster(
         _stations['lon_3857'],
         _stations['lat_3857'],
         DEFAULT_MAP_ZOOM
@@ -122,7 +123,7 @@ def get_stations_map():
         title='Stations map',
     )
 
-    _vectors_lon, _vectors_lat = data_access.get_displacement_vectors(_stations)
+    _vectors_lon, _vectors_lat = utils.stations_map.get_displacement_vectors(_stations, DEFAULT_MAP_ZOOM)
     vectors_go = go.Scattermapbox(
         mode='lines',
         lon=_vectors_lon, lat=_vectors_lat,
@@ -297,7 +298,7 @@ def update_map(
 
     if apply_unclustering:
         i = 0
-        patched_fig['data'][i]['lon'], patched_fig['data'][i]['lat'] = data_access.get_displacement_vectors(stations)
+        patched_fig['data'][i]['lon'], patched_fig['data'][i]['lat'] = utils.stations_map.get_displacement_vectors(stations, zoom)
 
     return patched_fig, str(zoom), zoom
 

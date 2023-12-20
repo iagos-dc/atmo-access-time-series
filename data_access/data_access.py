@@ -3,19 +3,16 @@ This module provides a unified API for access to metadata and datasets from ACTR
 At the moment, the access to ICOS RI is implemented here.
 """
 
-import pkg_resources
 import numpy as np
 import pandas as pd
 import xarray as xr
-import pathlib
 import json
 import itertools
-from pyproj import Transformer
 
 from .common import CACHE_DIR, DATA_DIR
 from . import helper
 
-from log import logger, log_exectime
+from log import logger
 
 from . import query_actris
 from . import query_iagos
@@ -56,13 +53,6 @@ VARIABLES_MAPPING = {
 
 _var_codes_by_ECV = pd.Series(VARIABLES_MAPPING, name='code')
 _ECV_by_var_codes = pd.Series({v: k for k, v in VARIABLES_MAPPING.items()}, name='ECV')
-
-
-_DIAM_COEFF = 1.4
-_N_STEPS = 2
-
-_gcs_to_3857 = Transformer.from_crs(4326, 3857, always_xy=True)
-_3857_to_gcs = Transformer.from_crs(3857, 4326, always_xy=True)
 
 
 def _get_ri_query_module_by_ri(ris=None):
@@ -160,68 +150,7 @@ def _get_stations(ris=None):
 
     all_stations_df['is_region'] = all_stations_df['is_region'].fillna(False)
 
-    _lon_3857, _lat_3857 = _gcs_to_3857.transform(all_stations_df['longitude'], all_stations_df['latitude'])
-    _lon_3857 += np.random.normal(scale=1, size=_lon_3857.shape)
-    _lat_3857 += np.random.normal(scale=1, size=_lat_3857.shape)
-    all_stations_df['lon_3857'] = _lon_3857
-    all_stations_df['lat_3857'] = _lat_3857
-
     return all_stations_df
-
-
-def _zoom_to_marker_radius(zoom):
-    diam_coeff = min(4 / 3 * np.log(2 + zoom), 2.5)
-    return diam_coeff * 2 ** (2 - zoom) * 4e4
-
-
-def _vectors_between_pairs_of_points(x):
-    x_ = np.expand_dims(x, axis=-1)
-    _x = np.expand_dims(x, axis=-2)
-    return _x - x_
-
-
-def _H(x, marker_radius, rng):
-    xx = _vectors_between_pairs_of_points(x)
-    d2 = np.square(xx).sum(axis=-3, keepdims=True)
-    d = np.sqrt(d2)
-    repulsion = np.maximum(marker_radius - d / rng, 0) * xx / d
-    np.fill_diagonal(repulsion[..., 0, :, :], 0)
-    np.fill_diagonal(repulsion[..., 1, :, :], 0)
-    return -repulsion.sum(axis=-1)
-
-
-def _repulse(x0, marker_radius, rng, n_steps):
-    x1 = x0
-    for i in range(n_steps):
-        x1 = x1 + _H(x1, marker_radius, rng)
-    return x1
-
-
-def uncluster(lon_3857, lat_3857, zoom):
-    x0 = np.stack([lon_3857, lat_3857], axis=0)
-    x1 = _repulse(x0, marker_radius=_zoom_to_marker_radius(zoom), rng=_DIAM_COEFF, n_steps=_N_STEPS)
-    lon_displaced, lat_displaced = _3857_to_gcs.transform(x1[0], x1[1])
-    if isinstance(lon_3857, pd.Series):
-        index = lon_3857.index
-    elif isinstance(lat_3857, pd.Series):
-        index = lat_3857.index
-    else:
-        index = None
-    if index is not None:
-        lon_displaced = pd.Series(lon_displaced, index=index)
-        lat_displaced = pd.Series(lat_displaced, index=index)
-    return lon_displaced, lat_displaced
-
-
-def get_displacement_vectors(df):
-    n = len(df)
-    lon = np.full(3 * n, np.nan)
-    lat = np.full(3 * n, np.nan)
-    lon[::3] = df['longitude'].values
-    lon[1::3] = df['lon_displaced'].values
-    lat[::3] = df['latitude'].values
-    lat[1::3] = df['lat_displaced'].values
-    return lon, lat
 
 
 def get_stations():
@@ -230,8 +159,7 @@ def get_stations():
     :return: pandas Dataframe with stations data; it has the following columns:
     'uri', 'short_name', 'long_name', 'country', 'latitude', 'longitude', 'ground_elevation', 'RI', 'short_name_RI',
     'theme', 'idx',
-    'longitude_min', 'longitude_max', 'latitude_min', 'latitude_max', 'is_region', 'lon_3857', 'lat_3857'.
-    The last two columns are the Mercator coordinates and serve for the stations unclustering algorithm.
+    'longitude_min', 'longitude_max', 'latitude_min', 'latitude_max', 'is_region'
     A sample record is:
         'uri': 'http://meta.icos-cp.eu/resources/stations/AS_BIR',
         'short_name': 'BIR',
@@ -249,8 +177,6 @@ def get_stations():
         'latitude_min': NaN,
         'latitude_max': NaN,
         'is_region': False,
-        'lon_3857': 918597.5036487236,
-        'lat_3857': 8049397.769844955
     """
     global _stations
     if _stations is None:

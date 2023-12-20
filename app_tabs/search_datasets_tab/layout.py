@@ -2,21 +2,17 @@ import datetime
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from plotly import express as px, graph_objects as go
 
 import data_access
-from app_tabs.common.data import stations
+import utils.stations_map
 from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE
-from utils.charts import IAGOS_COLOR_HEX, rgb_to_rgba, CATEGORY_ORDER, \
-    COLOR_CATEGORY_ORDER
 from utils.dash_persistence import get_dash_persistence_kwargs
-
 
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
 
 STATIONS_MAP_ID = 'stations-map'
-MAP_ZOOM_STORE_ID = 'previous-map-zoom-store'
 DEFAULT_MAP_ZOOM = 2
+MAP_ZOOM_STORE_ID = 'previous-map-zoom-store'
 
 # 'selectedData' contains a dictionary
 # {
@@ -46,13 +42,6 @@ SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID = 'search-datasets-reset-stations-butto
 DATE_RANGE_PICKER_ID = 'search-datasets-date-picker-range'
 
 MAP_BACKGROUND_RADIO_ID = 'map-background-radio'
-
-
-DEFAULT_STATIONS_SIZE = 7
-SELECTED_STATIONS_OPACITY = 1.
-SELECTED_STATIONS_SIZE = 9
-UNSELECTED_STATIONS_OPACITY = 0.5
-UNSELECTED_STATIONS_SIZE = 5
 
 MAPBOX_STYLES = {
     'open-street-map': 'open street map',
@@ -96,90 +85,15 @@ def get_variables_checklist():
     return variables_checklist
 
 
-# TODO: if want to move to utils.charts, need to take care about external variables: stations and STATIONS_MAP_ID
-def get_stations_map():
-    """
-    Provide a Dash component containing a map with stations
-    See: https://dash.plotly.com/dash-core-components/graph
-    :return: dash.dcc.Graph object
-    """
-    _stations = stations.copy()
-    _stations['marker_size'] = DEFAULT_STATIONS_SIZE
-    _stations['lon_displaced'], _stations['lat_displaced'] = data_access.uncluster(
-        _stations['lon_3857'],
-        _stations['lat_3857'],
-        DEFAULT_MAP_ZOOM
-    )
-
-    fig = px.scatter_mapbox(
-        _stations,
-        lon="lon_displaced", lat="lat_displaced", color='RI',
-        hover_name="long_name",
-        hover_data={
-            'RI': True,
-            'longitude': ':.2f',
-            'latitude': ':.2f',
-            'ground elevation': _stations['ground_elevation'].round(0).fillna('N/A').to_list(),
-            'lon_displaced': False,
-            'lat_displaced': False,
-            'lon_3857': False,
-            'lat_3857': False,
-            'marker_size': False
-        },
-        custom_data=['idx'],
-        size=_stations['marker_size'],
-        size_max=DEFAULT_STATIONS_SIZE,
-        category_orders={'RI': CATEGORY_ORDER},
-        color_discrete_sequence=COLOR_CATEGORY_ORDER,
-        zoom=DEFAULT_MAP_ZOOM,
-        # width=1200, height=700,
-        center={'lon': 10, 'lat': 55},
-        title='Stations map',
-    )
-
-    _vectors_lon, _vectors_lat = data_access.get_displacement_vectors(_stations)
-    vectors_go = go.Scattermapbox(
-        mode='lines',
-        lon=_vectors_lon, lat=_vectors_lat,
-        connectgaps=False,
-        showlegend=False,
-        hoverinfo='skip',
-        line={'color': 'rgba(0,0,0,1)', 'width': 2},
-        #line={'color': 'rgba(0,0,0,0.3)', 'width': 2},
-    )
-    fig.add_trace(vectors_go)
-    *_station_traces, _displacement_vectors = fig.data
-    fig.data = _displacement_vectors, *_station_traces
-
-    regions = _stations[_stations['is_region']]
-    regions_lon = []
-    regions_lat = []
-    for lon_min, lon_max, lat_min, lat_max in zip(regions['longitude_min'], regions['longitude_max'], regions['latitude_min'], regions['latitude_max']):
-        if len(regions_lon) > 0:
-            regions_lon.append(None)
-            regions_lat.append(None)
-        regions_lon.extend([lon_min, lon_min, lon_max, lon_max, lon_min])
-        regions_lat.extend([lat_min, lat_max, lat_max, lat_min, lat_min])
-
-    fig.add_trace(go.Scattermapbox(
-        mode="lines",
-        fill="toself",
-        fillcolor=rgb_to_rgba(IAGOS_COLOR_HEX, 0.05),  # IAGOS_COLOR_HEX as rgba with opacity=0.05
-        lon=regions_lon,
-        lat=regions_lat,
-        marker={'color': IAGOS_COLOR_HEX},
-        name='IAGOS',
-        legendgroup='IAGOS',
-    ))
-
-    fig.update_traces(
-        selected={'marker_opacity': SELECTED_STATIONS_OPACITY},
-        unselected={'marker_opacity': UNSELECTED_STATIONS_OPACITY},
-        marker_sizemode='area',
-    )
-
+def get_stations_dash_component():
+    fig = utils.stations_map.get_stations_map(DEFAULT_MAP_ZOOM)
     fig.update_layout(
-        mapbox_style=DEFAULT_MAPBOX_STYLE,
+        mapbox=dict(
+            style=DEFAULT_MAPBOX_STYLE,
+            zoom=DEFAULT_MAP_ZOOM,
+            center={'lon': 10, 'lat': 55},
+        ),
+        title='Stations map',
         margin={'autoexpand': True, 'r': 0, 't': 40, 'l': 0, 'b': 0},
         # width=1100, height=700,
         autosize=True,
@@ -343,7 +257,7 @@ def get_search_datasets_tab():
                 ]),
                 html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
                     dcc.Store(id=MAP_ZOOM_STORE_ID, storage_type='session', data=DEFAULT_MAP_ZOOM),
-                    get_stations_map(),
+                    get_stations_dash_component(),
                     html.Div(
                         id='selected-stations-div',
                         style={'margin-top': '20px'},

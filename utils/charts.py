@@ -32,7 +32,7 @@ def _wrap_text(s):
         return '<br>'.join(textwrap.wrap(s, MAX_WRAP))
 
 
-def rgb_to_rgba(rgb, opacity):
+def rgb_to_tuple(rgb):
     rgb_tuple = None
     if isinstance(rgb, tuple):
         rgb_tuple = rgb
@@ -44,8 +44,36 @@ def rgb_to_rgba(rgb, opacity):
 
     if rgb_tuple is None:
         raise ValueError(f'invalid format of rgb; must be a tuple of 3 ints, a string rgb(R, G, B) or hex; got {rgb}')
+    return rgb_tuple
+
+
+def rgb_to_rgba(rgb, opacity):
+    rgb_tuple = rgb_to_tuple(rgb)
     rgba_tuple = rgb_tuple + (opacity, )
     return f'rgba{rgba_tuple}'
+
+
+def change_rgb_brightness(rgb, brightness_coeff):
+    assert -1 <= brightness_coeff <= 1, f'brightness coeff must be between -1 and 1, got={brightness_coeff}'
+    rgb_tuple = rgb_to_tuple(rgb)
+    #rgb_max = max(rgb_tuple)
+    rgb_array = np.array(rgb_tuple)
+    if brightness_coeff >= 0:
+        rgb_array = rgb_array * (1 + brightness_coeff)# * 255 / rgb_max)
+        #rgb_array = rgb_array * (brightness_coeff * 255 / rgb_max)
+    else:
+        rgb_array = rgb_array * (1 + brightness_coeff)
+    new_rgb_tuple = tuple(np.clip(rgb_array.astype(int), 0, 255))
+    return f'rgb{new_rgb_tuple}'
+
+
+def change_rgb_brightness2(rgb, brightness_coeff):
+    rgb_tuple = rgb_to_tuple(rgb)
+    rgb_array = np.array(rgb_tuple)
+    rgb_array = rgb_array + brightness_coeff
+    new_rgb_tuple = tuple(np.clip(rgb_array.astype(int), 0, 255))
+    return f'rgb{new_rgb_tuple}'
+
 
 
 def plotly_scatter(x, y, *args, y_std=None, std_mode=None, std_fill_opacity=0.2, use_GL='auto', **kwargs):

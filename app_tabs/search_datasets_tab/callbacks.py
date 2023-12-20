@@ -8,15 +8,16 @@ from dash import Output, Input, State, Patch, callback
 
 import data_access
 import data_access.common
+import utils.stations_map
 from app_tabs.common.data import stations
 from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID, APP_TABS_ID, SELECT_DATASETS_TAB_VALUE
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     std_variables, SEARCH_DATASETS_BUTTON_ID, LON_MIN_ID, LON_MAX_ID, LAT_MIN_ID, LAT_MAX_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
-    SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, \
-    DEFAULT_STATIONS_SIZE, SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE, \
     MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES, DATE_RANGE_PICKER_ID, MAP_ZOOM_STORE_ID
-from utils.charts import CATEGORY_ORDER
+from utils.stations_map import DEFAULT_STATIONS_SIZE, SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, \
+    SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE
+from utils.charts import CATEGORY_ORDER, COLOR_BY_CATEGORY
 from log import logger, log_exception, log_exectime
 from data_processing.utils import points_inside_polygons
 from utils.helper import all_is_None
@@ -209,12 +210,13 @@ def get_selected_stations_bbox_and_dropdown(
         selected_stations_idx,
         stations_dropdown_options
 ):
+    # TODO: (refactor) move stations update to utils.stations_map module
     ctx_keys = list(dash.ctx.triggered_prop_ids)
     ctx_values = list(dash.ctx.triggered_prop_ids.values())
 
     # apply station unclustering
     zoom = map_relayoutData.get('mapbox.zoom', previous_zoom) if isinstance(map_relayoutData, dict) else previous_zoom
-    lon_displaced, lat_displaced = data_access.uncluster(stations['lon_3857'], stations['lat_3857'], zoom)
+    lon_3857_displaced, lat_3857_displaced, lon_displaced, lat_displaced = utils.stations_map.uncluster(stations['lon_3857'], stations['lat_3857'], zoom)
 
     if SELECTED_STATIONS_DROPDOWN_ID in ctx_values and stations_dropdown is not None:
         selected_stations_idx = sorted(stations_dropdown)
@@ -229,7 +231,11 @@ def get_selected_stations_bbox_and_dropdown(
     if (f'{STATIONS_MAP_ID}.selectedData' in ctx_keys or f'{STATIONS_MAP_ID}.clickData' in ctx_keys)\
             and selected_data and 'points' in selected_data and len(selected_data['points']) > 0:
         if 'range' in selected_data or 'lassoPoints' in selected_data:
-            currently_selected_stations_on_map_idx = [p['customdata'][0] for p in selected_data['points']]
+            currently_selected_stations_on_map_idx = [
+                p['customdata'][0]
+                for p in selected_data['points']
+                if p['curveNumber'] >= 2  # curveNumber=0: displacement vectors; curveNumber=1: original station position
+            ]
             # it does not contain points from categories which were deselected on the legend
             # however might contain points that we clicked on while keeping the key 'shift' pressed
             # some of the latter might have been actually un-clicked (deselected)
@@ -294,6 +300,7 @@ def get_selected_stations_bbox_and_dropdown(
     patched_fig = Patch()
     opacity = pd.Series(UNSELECTED_STATIONS_OPACITY, index=stations.index)
     size = pd.Series(UNSELECTED_STATIONS_SIZE, index=stations.index)
+
     if selected_stations_idx is not None:
         opacity.loc[selected_stations_idx] = SELECTED_STATIONS_OPACITY
         size.loc[selected_stations_idx] = SELECTED_STATIONS_SIZE
@@ -305,12 +312,16 @@ def get_selected_stations_bbox_and_dropdown(
         'RI': stations['RI'],
         'longitude': stations['longitude'],
         'latitude': stations['latitude'],
+        'lon_3857': stations['lon_3857'],
+        'lat_3857': stations['lat_3857'],
         'lon_displaced': lon_displaced,
         'lat_displaced': lat_displaced,
+        'lon_3857_displaced': lon_3857_displaced,
+        'lat_3857_displaced': lat_3857_displaced,
         'opacity': opacity,
         'size': size
     })
-    for i, c in enumerate(CATEGORY_ORDER, start=1):
+    for i, c in enumerate(CATEGORY_ORDER, start=2):
         df_for_c = df[df['RI'] == c]
         opacity_for_c = df_for_c['opacity']
         size_for_c = df_for_c['size']
@@ -322,8 +333,16 @@ def get_selected_stations_bbox_and_dropdown(
         patched_fig['data'][i]['marker']['size'] = size_for_c.values
         patched_fig['data'][i]['selectedpoints'] = None
 
+    _dlon, _dlat = utils.stations_map.get_displacement_vectors(df, zoom)
+    # update displacement vectors
     i = 0
-    patched_fig['data'][i]['lon'], patched_fig['data'][i]['lat'] = data_access.get_displacement_vectors(df)
+    patched_fig['data'][i]['lon'] = _dlon
+    patched_fig['data'][i]['lat'] = _dlat
+
+    # update original station positions
+    i = 1
+    patched_fig['data'][i]['lon'] = _dlon[::3]
+    patched_fig['data'][i]['lat'] = _dlat[::3]
 
     selected_stations_df = stations.loc[selected_stations_idx] if selected_stations_idx is not None else stations.loc[[]]
     selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options)

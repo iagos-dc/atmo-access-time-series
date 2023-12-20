@@ -9,8 +9,9 @@ from dash import html, dcc, Dash, callback, Input, Output, State, Patch
 import dash
 import dash_bootstrap_components as dbc
 
+import utils.stations_map
 from utils.charts import IAGOS_COLOR_HEX, rgb_to_rgba, CATEGORY_ORDER, \
-    COLOR_CATEGORY_ORDER
+    COLOR_CATEGORY_ORDER, ICOS_COLOR_HEX, ACTRIS_COLOR_HEX
 import data_access
 
 
@@ -51,7 +52,9 @@ def get_stations_map():
     """
     _stations = stations.copy()
     _stations['marker_size'] = DEFAULT_STATIONS_SIZE
-    _stations['lon_displaced'], _stations['lat_displaced'] = data_access.uncluster(
+    _stations['lon_displaced'], _stations['lat_displaced'] = utils.stations_map.uncluster(
+        _stations['lon_3857_displaced'],
+        _stations['lat_3857_displaced'],
         _stations['lon_3857'],
         _stations['lat_3857'],
         DEFAULT_MAP_ZOOM
@@ -73,6 +76,10 @@ def get_stations_map():
             'marker_size': False
         },
         custom_data=['idx'],
+        #text=_stations['marker_size'].astype(str).values,  # it seems text labels still do not work!!! see:
+        # https://github.com/mapbox/mapbox-gl-js/issues/4808
+        # https://github.com/plotly/plotly.js/pull/6652
+        # https://github.com/plotly/plotly.js/issues/4110
         size=_stations['marker_size'],
         size_max=DEFAULT_STATIONS_SIZE,
         category_orders={'RI': CATEGORY_ORDER},
@@ -83,7 +90,7 @@ def get_stations_map():
         title='Stations map',
     )
 
-    _vectors_lon, _vectors_lat = data_access.get_displacement_vectors(_stations)
+    _vectors_lon, _vectors_lat = utils.stations_map.get_displacement_vectors(_stations, DEFAULT_MAP_ZOOM)
     vectors_go = go.Scattermapbox(
         mode='lines',
         lon=_vectors_lon, lat=_vectors_lat,
@@ -167,7 +174,7 @@ def update_map(
 ):
     zoom = map_relayoutData.get('mapbox.zoom', previous_zoom) if isinstance(map_relayoutData, dict) else previous_zoom
     if apply_unclustering:
-        lon_displaced, lat_displaced = data_access.uncluster(stations['lon_3857'], stations['lat_3857'], zoom)
+        _, _, lon_displaced, lat_displaced = utils.stations_map.uncluster(stations['lon_3857'], stations['lat_3857'], zoom)
     else:
         lon_displaced, lat_displaced = stations['longitude'].values, stations['latitude'].values
 
@@ -197,7 +204,7 @@ def update_map(
         #patched_fig['data'][i]['selectedpoints'] = None
 
     i = 0
-    patched_fig['data'][i]['lon'], patched_fig['data'][i]['lat'] = data_access.get_displacement_vectors(df)
+    patched_fig['data'][i]['lon'], patched_fig['data'][i]['lat'] = utils.stations_map.get_displacement_vectors(df, zoom)
 
     return patched_fig, str(zoom), zoom
 
