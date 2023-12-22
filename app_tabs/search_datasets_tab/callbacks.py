@@ -234,7 +234,8 @@ def get_selected_stations_bbox_and_dropdown(
             currently_selected_stations_on_map_idx = [
                 p['customdata'][0]
                 for p in selected_data['points']
-                if p['curveNumber'] >= 2  # curveNumber=0: displacement vectors; curveNumber=1: original station position
+                if 'customdata' in p  # take account only traces corresponding to stations / regions
+                                      # and NOT to displacement vectors or original stations' positions
             ]
             # it does not contain points from categories which were deselected on the legend
             # however might contain points that we clicked on while keeping the key 'shift' pressed
@@ -297,52 +298,19 @@ def get_selected_stations_bbox_and_dropdown(
             bbox_cond = bbox_cond & (lat <= lat_max)
         selected_stations_idx = sorted(bbox_cond[bbox_cond].index)
 
-    patched_fig = Patch()
-    opacity = pd.Series(UNSELECTED_STATIONS_OPACITY, index=stations.index)
     size = pd.Series(UNSELECTED_STATIONS_SIZE, index=stations.index)
+    opacity = pd.Series(UNSELECTED_STATIONS_OPACITY, index=stations.index)
 
-    if selected_stations_idx is not None:
+    # this change is OK since we are going to delete bounding box feature
+    # if selected_stations_idx is not None:
+    if selected_stations_idx:
         opacity.loc[selected_stations_idx] = SELECTED_STATIONS_OPACITY
         size.loc[selected_stations_idx] = SELECTED_STATIONS_SIZE
     else:
         opacity.loc[:] = SELECTED_STATIONS_OPACITY
         size.loc[:] = DEFAULT_STATIONS_SIZE
 
-    df = pd.DataFrame({
-        'RI': stations['RI'],
-        'longitude': stations['longitude'],
-        'latitude': stations['latitude'],
-        'lon_3857': stations['lon_3857'],
-        'lat_3857': stations['lat_3857'],
-        'lon_displaced': lon_displaced,
-        'lat_displaced': lat_displaced,
-        'lon_3857_displaced': lon_3857_displaced,
-        'lat_3857_displaced': lat_3857_displaced,
-        'opacity': opacity,
-        'size': size
-    })
-    for i, c in enumerate(CATEGORY_ORDER, start=2):
-        df_for_c = df[df['RI'] == c]
-        opacity_for_c = df_for_c['opacity']
-        size_for_c = df_for_c['size']
-        lon_displaced_for_c = df_for_c['lon_displaced']
-        lat_displaced_for_c = df_for_c['lat_displaced']
-        patched_fig['data'][i]['lon'] = lon_displaced_for_c
-        patched_fig['data'][i]['lat'] = lat_displaced_for_c
-        patched_fig['data'][i]['marker']['opacity'] = opacity_for_c.values
-        patched_fig['data'][i]['marker']['size'] = size_for_c.values
-        patched_fig['data'][i]['selectedpoints'] = None
-
-    _dlon, _dlat = utils.stations_map.get_displacement_vectors(df, zoom)
-    # update displacement vectors
-    i = 0
-    patched_fig['data'][i]['lon'] = _dlon
-    patched_fig['data'][i]['lat'] = _dlat
-
-    # update original station positions
-    i = 1
-    patched_fig['data'][i]['lon'] = _dlon[::3]
-    patched_fig['data'][i]['lat'] = _dlat[::3]
+    patched_fig = utils.stations_map.get_stations_map_patch(zoom, size, opacity)
 
     selected_stations_df = stations.loc[selected_stations_idx] if selected_stations_idx is not None else stations.loc[[]]
     selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options)
