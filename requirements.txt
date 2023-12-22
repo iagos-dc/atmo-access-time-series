@@ -1,5 +1,6 @@
 dash==2.9.2
 dash-bootstrap-components==1.4.0
+plotly==5.18.0
 gunicorn>=20.0.4
 netcdf4>=1.5.8
 pandas>=1.4.2
