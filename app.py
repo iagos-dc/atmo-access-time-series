@@ -79,7 +79,10 @@ def get_dashboard_layout(app):
 
     layout = html.Div(
         id='app-container-div',
-        style={'margin': '30px', 'padding-bottom': '50px'},
+        style={
+            'margin': '10px',
+            'padding-bottom': '50px'
+        },
         children=stores + [
             html.Div(
                 id='heading-div',
@@ -110,7 +113,10 @@ app = Dash(
 
 server = app.server
 
-app.layout = get_dashboard_layout(app)
+app.layout = dbc.Container(
+    get_dashboard_layout(app),
+    fluid=True
+)
 app.title = 'ATMO-ACCESS time-series analysis'
 
 # Begin of callback definitions and their helper routines.

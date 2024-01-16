@@ -113,7 +113,12 @@ def get_stations_dash_component():
         }
     )
 
-    return stations_map
+    return dbc.Card(
+        dbc.CardBody([
+            dcc.Store(id=MAP_ZOOM_STORE_ID, data=DEFAULT_MAP_ZOOM),
+            stations_map
+        ])
+    )
 
 
 def get_bbox_selection_div():
@@ -193,85 +198,111 @@ def get_search_datasets_tab():
         children=html.Div(
             style={'margin': '20px'},
             children=[
-                html.Div(id='search-datasets-left-panel-div', className='four columns', children=[
-                    html.Div(id='variables-selection-div', className='nine columns', children=[
-                        html.P('Select variable(s):', style={'font-weight': 'bold'}),
-                        dbc.Switch(
-                            id=VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID,
-                            label='Select all / none',
-                            style={'margin-top': '10px'},
-                            value=True,
+                html.Div(id='search-datasets-left-panel-div', className='three columns', children=dbc.Card(dbc.CardBody([
+                    html.P('Select variable(s):', style={'font-weight': 'bold'}),
+                    dbc.Switch(
+                        id=VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID,
+                        label='Select all / none',
+                        style={'margin-top': '10px'},
+                        value=True,
+                    ),
+                    get_variables_checklist(),
+                    #style={'margin-top': '20px'},
+                    # html.Div(children=[
+                    #     html.P(
+                    #         'Date range:',
+                    #         style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}
+                    #     ),
+                    #     dcc.DatePickerRange(
+                    #         id=DATE_RANGE_PICKER_ID,
+                    #         min_date_allowed=datetime.date(1900, 1, 1),
+                    #         max_date_allowed=datetime.date(2100, 12, 31),
+                    #         initial_visible_month=datetime.date.today(),
+                    #         display_format='YYYY-MM-DD',
+                    #         clearable=True,
+                    #         **get_dash_persistence_kwargs(persistence_id=True),
+                    #     ),
+                    # ]),
+                    # get_bbox_selection_div(),
+                ]))),
+                html.Div(id='search-datasets-right-panel-div', className='nine columns', children=[
+                    dbc.Row(
+                        dbc.Col(
+                            children=[
+                                html.Div(
+                                    dbc.Button(
+                                        id=SEARCH_DATASETS_BUTTON_ID,
+                                        n_clicks=0,
+                                        color='success',
+                                        #color='primary',
+                                        type='submit',
+                                        style={'font-weight': 'bold', 'font-size': '100%'},
+                                        children=html.Div([
+                                            'Apply ',
+                                            html.I(className='fa fa-arrow-circle-right fa-2x')
+                                        ]),
+                                        className='me-1',
+                                    ),
+                                ),
+                            ],
+                            width='auto',
                         ),
-                        get_variables_checklist(),
-                    ]),
-
-                    html.Div(id='search-datasets-button-div', className='three columns',
-                             children=dbc.Button(id=SEARCH_DATASETS_BUTTON_ID, n_clicks=0,
-                                                 color='primary',
-                                                 type='submit',
-                                                 style={'font-weight': 'bold'},
-                                                 children='Search datasets')),
-
-                    html.Div(
-                        id='search-datasets-left-panel-cont-div', className='twelve columns',
-                        style={'margin-top': '20px'},
-                        children=[
-                            html.Div(children=[
-                                html.P(
-                                    'Date range:',
-                                    style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}
+                        justify='end',
+                        style={'margin-bottom': '10px'},
+                    ),
+                    dbc.Row(
+                        dbc.Col(
+                            get_stations_dash_component(),
+                        ),
+                    ),
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                dbc.Button(
+                                    id=SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID,
+                                    color='primary',
+                                    type='submit',
+                                    style={'font-weight': 'bold', 'margin-bottom': '10px'},
+                                    children='Clear station selection',
                                 ),
-                                dcc.DatePickerRange(
-                                    id=DATE_RANGE_PICKER_ID,
-                                    min_date_allowed=datetime.date(1900, 1, 1),
-                                    max_date_allowed=datetime.date(2100, 12, 31),
-                                    initial_visible_month=datetime.date.today(),
-                                    display_format='YYYY-MM-DD',
-                                    clearable=True,
-                                    **get_dash_persistence_kwargs(persistence_id=True),
-                                    #end_date=datetime.date(2017, 8, 25),
-                                ),
-                            ]),
-                            get_bbox_selection_div(),
-                            dbc.Button(
-                                id=SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID,
-                                color='primary',
-                                type='submit',
-                                style={'font-weight': 'bold', 'margin-bottom': '10px'},
-                                children='Clear station selection',
+                                width='auto',
                             ),
-                            dbc.InputGroup([
-                                dbc.InputGroupText('Map background: ', style={'margin-right': '10px'}),
-                                dbc.RadioItems(
-                                    id=MAP_BACKGROUND_RADIO_ID,
-                                    options=[
-                                        {'label': label, 'value': value}
-                                        for value, label in MAPBOX_STYLES.items()
-                                    ],
-                                    value=DEFAULT_MAPBOX_STYLE,
-                                    inline=True,
-                                    **get_dash_persistence_kwargs(persistence_id=True)
-                                )
-                            ])
-                        ]
-                    )
-                ]),
-                html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
-                    dcc.Store(id=MAP_ZOOM_STORE_ID, storage_type='session', data=DEFAULT_MAP_ZOOM),
-                    get_stations_dash_component(),
-                    html.Div(
-                        id='selected-stations-div',
-                        style={'margin-top': '20px'},
-                        children=[
-                             html.P('Selected stations (you can refine your selection)',
-                                    style={'font-weight': 'bold'}),
-                             dcc.Dropdown(
-                                 id=SELECTED_STATIONS_DROPDOWN_ID,
-                                 multi=True,
-                                 clearable=False,
-                                 #**get_dash_persistence_kwargs(persistence_id=True)
-                             ),
-                        ]
+                            dbc.Col(
+                                dbc.InputGroup([
+                                    dbc.InputGroupText('Map background: ', style={'margin-right': '10px'}),
+                                    dbc.RadioItems(
+                                        id=MAP_BACKGROUND_RADIO_ID,
+                                        options=[
+                                            {'label': label, 'value': value}
+                                            for value, label in MAPBOX_STYLES.items()
+                                        ],
+                                        value=DEFAULT_MAPBOX_STYLE,
+                                        inline=True,
+                                        **get_dash_persistence_kwargs(persistence_id=True)
+                                    )
+                                ]),
+                                width='auto',
+                            )
+                        ],
+                        justify='between',
+                        align='center',
+                        style={'margin-top': '15px'},
+                    ),
+                    dbc.Row(
+                        dbc.Col(
+                            #id='selected-stations-div',
+                            children=[
+                                 html.P('Selected stations (you can refine your selection here)',
+                                        style={'font-weight': 'bold'}),
+                                 dcc.Dropdown(
+                                     id=SELECTED_STATIONS_DROPDOWN_ID,
+                                     multi=True,
+                                     clearable=False,
+                                     #**get_dash_persistence_kwargs(persistence_id=True)
+                                 ),
+                            ],
+                        ),
+                        style={'margin-top': '15px'},
                     ),
                 ]),
             ]
