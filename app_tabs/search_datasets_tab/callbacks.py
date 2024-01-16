@@ -63,7 +63,7 @@ def change_map_background(map_background):
 
 @callback_with_exc_handling(
     Output(DATASETS_STORE_ID, 'data'),
-    Output(APP_TABS_ID, 'value', allow_duplicate=True),
+    Output(APP_TABS_ID, 'active_tab', allow_duplicate=True),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(VARIABLES_CHECKLIST_ID, 'value'),
     State(SELECTED_STATIONS_STORE_ID, 'data'),

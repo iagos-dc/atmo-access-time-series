@@ -93,10 +93,11 @@ def _get_description_table(actris_logo, iagos_logo, icos_logo):
 
 
 def get_information_tab(actris_logo, iagos_logo, icos_logo):
-    return dcc.Tab(
+    return dbc.Tab(
         label='1. Information',
         id=INFORMATION_TAB_VALUE,
-        value=INFORMATION_TAB_VALUE,
+        tab_id=INFORMATION_TAB_VALUE,
+        #value=INFORMATION_TAB_VALUE,
         children=[
             html.Div(children=[
                 html.H6('This service allows you to search, analyse and visualise data from three Atmosphere European Research Infrastructures.'),

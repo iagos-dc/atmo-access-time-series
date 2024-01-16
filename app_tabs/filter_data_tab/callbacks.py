@@ -205,7 +205,7 @@ def update_histograms_callback(
 @callback_with_exc_handling(
     Output(FILTER_TAB_CONTAINER_ROW_ID, 'children'),
     Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
-    Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
+    Input(APP_TABS_ID, 'active_tab'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
     prevent_initial_call=True,
 )
 @log_exception
@@ -322,7 +322,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
 # TODO: lots of duplications with utils.crossfiltering.update_histograms_callback
 @callback_with_exc_handling(
     Output(FILTER_DATA_REQUEST_ID, 'data'),
-    Output(APP_TABS_ID, 'value', allow_duplicate=True),
+    Output(APP_TABS_ID, 'active_tab', allow_duplicate=True),
     Input(FILTER_DATA_BUTTON_ID, 'n_clicks'),
     State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     State(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),

@@ -127,10 +127,11 @@ def get_filtering_type_radio():
 
 
 def get_filter_data_tab():
-    return dcc.Tab(
+    return dbc.Tab(
         label='4. Filter data',
         id=FILTER_DATA_TAB_VALUE,
-        value=FILTER_DATA_TAB_VALUE,
+        tab_id=FILTER_DATA_TAB_VALUE,
+        # value=FILTER_DATA_TAB_VALUE,
         disabled=True,
         children=html.Div(
             style={'margin': '20px'},

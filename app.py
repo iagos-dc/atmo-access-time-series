@@ -58,9 +58,9 @@ def get_dashboard_layout(app):
         ]
     )
 
-    app_tabs = dcc.Tabs(
+    app_tabs = dbc.Tabs(
         id=APP_TABS_ID,
-        value=INFORMATION_TAB_VALUE,
+        active_tab=INFORMATION_TAB_VALUE,
         children=[
             get_information_tab(
                 actris_logo=app.get_asset_url(ACTRIS_LOGO_FILENAME),
@@ -72,6 +72,8 @@ def get_dashboard_layout(app):
             get_filter_data_tab(),
             get_data_analysis_tab(),
         ],
+        style={'font-weight': 'bold'},
+        #style={'font-size': '200%'},
         **get_dash_persistence_kwargs(persistence_id=True)
     )
 

@@ -103,10 +103,11 @@ def get_select_datasets_tab():
     quicklook_popup = html.Div(id=QUICKLOOK_POPUP_ID)
 
 
-    return dcc.Tab(
+    return dbc.Tab(
         label='3. Select datasets',
         id=SELECT_DATASETS_TAB_VALUE,
-        value=SELECT_DATASETS_TAB_VALUE,
+        tab_id=SELECT_DATASETS_TAB_VALUE,
+        #value=SELECT_DATASETS_TAB_VALUE,
         disabled=True,
         children=[
             html.Div(

@@ -59,10 +59,11 @@ def get_data_analysis_tab():
             width=8),
     ])
 
-    data_analysis_tab = dcc.Tab(
+    data_analysis_tab = dbc.Tab(
         label='5. Data analysis',
         id=DATA_ANALYSIS_TAB_VALUE,
-        value=DATA_ANALYSIS_TAB_VALUE,
+        tab_id=DATA_ANALYSIS_TAB_VALUE,
+        #value=DATA_ANALYSIS_TAB_VALUE,
         disabled=True,
         children=[
             html.Div(

@@ -104,7 +104,7 @@ def update_selection_on_gantt_graph(
     Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
-    Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
+    Input(APP_TABS_ID, 'active_tab'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
     State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
@@ -354,7 +354,7 @@ def select_datasets_button_disabled(selected_row_ids):
 
 @callback_with_exc_handling(
     Output(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
-    Output(APP_TABS_ID, 'value', allow_duplicate=True),
+    Output(APP_TABS_ID, 'active_tab', allow_duplicate=True),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),

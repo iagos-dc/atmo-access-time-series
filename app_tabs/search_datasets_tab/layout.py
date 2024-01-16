@@ -185,10 +185,11 @@ def get_bbox_selection_div():
 
 
 def get_search_datasets_tab():
-    return dcc.Tab(
+    return dbc.Tab(
         label='2. Search datasets',
         id=SEARCH_DATASETS_TAB_VALUE,
-        value=SEARCH_DATASETS_TAB_VALUE,
+        tab_id=SEARCH_DATASETS_TAB_VALUE,
+        #value=SEARCH_DATASETS_TAB_VALUE,
         children=html.Div(
             style={'margin': '20px'},
             children=[
