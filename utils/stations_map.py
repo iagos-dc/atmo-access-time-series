@@ -282,8 +282,8 @@ def get_stations_map(zoom):
     color = IAGOS_REGION_COLOR_HEX
     regions_trace_kwargs = dict(
         name='IAGOS region marker<br>(click to select)',
-        legendgroup='IAGOS-regions',
-        legendgrouptitle_text='Regional samples',
+        legendgroup='IAGOS-region-marker',
+        legend='legend2'
     )
     station_trace, displacement_vector_trace, station_original_position_trace = \
         get_station_and_displacement_vector_and_ori_position_traces(
@@ -327,7 +327,8 @@ def get_stations_map(zoom):
         line={'color': IAGOS_REGION_COLOR_HEX, 'width': 1},
         showlegend=True,
         name='IAGOS region boundary',
-        legendgroup='IAGOS-regions',
+        legendgroup='IAGOS-region-boundary',
+        legend='legend2'
         #legendgrouptitle_text='Regional samples at 200 hPa',
     ))
 
@@ -347,7 +348,13 @@ def get_stations_map(zoom):
             #'orientation': 'v',
             #'xref': 'container',
             #'yref': 'container',
-            #'y': 1,
+            'y': 1,
+        },
+        legend2={
+            'title': 'Regional samples',
+            'tracegroupgap': 0,
+            'traceorder': 'grouped',
+            'y': 0.75,
         },
     )
 
