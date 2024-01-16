@@ -3,6 +3,8 @@ import logging
 import functools
 import time
 import cProfile, pstats, io
+import json
+import inspect
 
 import dash
 
@@ -86,17 +88,19 @@ def print_callback(log_callback_context=True):
         def log_callback_wrapper(*args, **kwargs):
             #args_as_json = [json.dumps(arg) for arg in args]
             #kwargs_as_json = {kw: json.dumps(arg) for kw, arg in kwargs.items()}
+            func_arg_names = inspect.getfullargspec(func).args
+            dict_of_args = dict(zip(func_arg_names, args))
             d = {
                 'module': func.__module__,
                 'name': func.__qualname__,
-                'args': args,
+                'args': dict_of_args,
                 'kwargs': kwargs,
             }
             if log_callback_context:
                 from dash import ctx
                 d['ctx'] = (ctx.triggered_id, ctx.triggered_prop_ids)
 
-            print(d)
+            print(json.dumps(d, indent=2))
 
             return func(*args, **kwargs)
         return log_callback_wrapper
