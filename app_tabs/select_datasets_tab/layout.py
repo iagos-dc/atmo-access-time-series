@@ -1,7 +1,7 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
 
-from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG
+from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG, get_next_button
 
 
 GANTT_VIEW_RADIO_ID = 'gantt-view-radio'
@@ -50,21 +50,13 @@ def get_select_datasets_tab():
         inline=True
     )
 
-    select_datasets_button = dbc.Button(
-        id=SELECT_DATASETS_BUTTON_ID,
-        n_clicks=0,
-        color='primary', type='submit',
-        style={'font-weight': 'bold'},
-        children='Select datasets'
-    )
-
     reset_gantt_selection_button = dbc.Button(
         id=RESET_DATASETS_SELECTION_BUTTON_ID,
         n_clicks=0,
-        color='primary',
+        color='danger',
         type='submit',
         style={'font-weight': 'bold'},
-        children='Clear selection on the Gantt diagram',
+        children='Clear',
     )
 
     gantt_graph = dcc.Graph(
@@ -102,33 +94,64 @@ def get_select_datasets_tab():
 
     quicklook_popup = html.Div(id=QUICKLOOK_POPUP_ID)
 
+    gantt_diagram_card = dbc.Card([
+        dbc.CardHeader(
+            [
+                html.B('Datasets time coverage'),
+                html.P('Select groups of datasets to fill in the table on the right'),
+            ],
+            # style={'display': 'flex'}
+        ),
+        dbc.CardBody([
+            dbc.Row([
+                dbc.Col(reset_gantt_selection_button, width='auto'),
+                dbc.Col(gantt_view_radio, width='auto'),
+            ], justify='between', style={'margin-bottom': '10px'}),
+            dbc.Row(dbc.Col(html.Div(gantt_graph))),
+        ])
+    ])
+
+    datasets_table_card = dbc.Card([
+        dbc.CardHeader(
+            'Select your datasets here',
+            style={'font-weight': 'bold'},
+        ),
+        dbc.CardBody([
+            dbc.Row(dbc.Col(all_none_switch)),
+            dbc.Row(dbc.Col(table)),
+        ])
+    ])
 
     return dbc.Tab(
         label='3. Select datasets',
         id=SELECT_DATASETS_TAB_VALUE,
         tab_id=SELECT_DATASETS_TAB_VALUE,
-        #value=SELECT_DATASETS_TAB_VALUE,
         disabled=True,
+
         children=[
             html.Div(
-                style={'margin': '20px'},
+                style={'margin-top': '5px', 'margin-left': '20px', 'margin-right': '20px'},
                 children=[
-                    html.Div(id='select-datasets-left-panel-div', className='five columns', children=[
-                        html.Div(id='select-datasets-1st-subpanel-div', className='twelve columns', children=select_datasets_button, style={'text-align': 'right', 'margin-bottom': '20px'}),
-                        html.Div(id='select-datasets-2nd-subpanel-div', className='twelve columns', style={'margin-bottom': '10px'}, children=[
-                            html.Div(id='select-datasets-2nd-left-subpanel-div', className='six columns', children=gantt_view_radio),
-                            html.Div(id='select-datasets-2nd-right-subpanel-div', className='six columns', children=reset_gantt_selection_button, style={'text-align': 'right'}),
-                        ]),
-                        html.Div(id='select-datasets-3rd-subpanel-div2', className='twelve columns', children=gantt_graph),
-                    ]),
-                    html.Div(id='select-datasets-right-panel-div', className='seven columns', children=[
-                        all_none_switch,
-                        table,
-                    ]),
-    #                html.Div(id='select-datasets-main-panel-div', className='twelve columns', children=[
-    #                ]),
+                    dbc.Row(
+                        dbc.Col(
+                            children=html.Div(get_next_button(SELECT_DATASETS_BUTTON_ID)),
+                            width='auto',
+                        ),
+                        justify='end',
+                        style={'margin-bottom': '10px'},
+                    ),
+                    dbc.Row([
+                        dbc.Col(
+                            width=5,
+                            children=gantt_diagram_card
+                        ),
+                        dbc.Col(
+                            width=7,
+                            children=datasets_table_card
+                        )
+                    ])
                 ]
             ),
-            quicklook_popup,
+            quicklook_popup
         ]
     )

@@ -236,7 +236,7 @@ def _get_timeline_by_station(datasets_df):
         custom_data=['indices'],
         category_orders={'RI': CATEGORY_ORDER},
         color_discrete_sequence=COLOR_CATEGORY_ORDER,
-        height=height
+        height=height,
     )
 
     gantt.update_layout(
@@ -255,6 +255,10 @@ def _get_timeline_by_station(datasets_df):
             'tickvals': df['platform_id_RI'],
             'ticktext': df['station_fullname'].map(_wrap_text),
         },
+        xaxis={
+            'title': 'time',
+        },
+        title='',
     )
     return gantt
 
@@ -293,7 +297,11 @@ def _get_timeline_by_station_and_vars(datasets_df):
             'tickmode': 'array',
             'tickvals': platform_id_RI_var_codes_filtered,
             'ticktext': df['station_fullname'].map(_wrap_text),
-        }
+        },
+        xaxis={
+            'title': 'time',
+        },
+        title='',
     )
     # print(f'gantt={json.loads(gantt.to_json())}')
     return gantt

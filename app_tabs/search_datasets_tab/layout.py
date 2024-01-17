@@ -197,7 +197,6 @@ def get_search_datasets_tab():
         label='2. Search datasets',
         id=SEARCH_DATASETS_TAB_VALUE,
         tab_id=SEARCH_DATASETS_TAB_VALUE,
-        #value=SEARCH_DATASETS_TAB_VALUE,
         children=html.Div(
             style={'margin-top': '5px', 'margin-left': '20px', 'margin-right': '20px'},
             children=[
