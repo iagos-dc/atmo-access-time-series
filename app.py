@@ -40,7 +40,7 @@ def get_dashboard_layout(app):
 
     # logo and application title
     title_and_logo_bar = html.Div(
-        style={'display': 'flex', 'justify-content': 'space-between', 'margin-bottom': '20px'},
+        style={'display': 'flex', 'justify-content': 'space-between', 'margin-bottom': '10px'},
         children=[
             html.Div(children=[
                 html.H2('Time-series analysis', style={'font-weight': 'bold'}),
@@ -49,7 +49,11 @@ def get_dashboard_layout(app):
                 html.A(
                     html.Img(
                         src=app.get_asset_url(ATMO_ACCESS_LOGO_FILENAME),
-                        style={'float': 'right', 'height': '70px', 'margin-top': '10px'}
+                        style={
+                            'float': 'right',
+                            'height': '70px',
+                            'margin-top': '10px'
+                        }
                     ),
                     href="https://www.atmo-access.eu/",
                     target='_blank',

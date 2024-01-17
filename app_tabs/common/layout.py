@@ -1,4 +1,4 @@
-from dash import dcc
+from dash import dcc, html
 import dash_bootstrap_components as dbc
 
 
@@ -124,4 +124,30 @@ def get_tooltip(tooltip_text, target, **kwargs):
         id=_tooltip_target_to_str(target),
         target=target,
         **tooltip_kwargs
+    )
+
+
+def get_next_button(button_id):
+    return dbc.Button(
+        id=button_id,
+        n_clicks=0,
+        color='success',
+        type='submit',
+        children=html.Div(
+            [
+                html.Div(
+                    'Next ',
+                    style={'float': 'left', 'font-weight': 'bold', 'font-size': '135%'},
+                ),
+                html.I(
+                    className='fa fa-arrow-circle-right fa-2x',
+                    style={'float': 'right', 'margin-left': '10px'}
+                )
+            ],
+            style={
+                'display': 'flex',
+            }
+        ),
+        #className='me-1',
+        size='lg'
     )
