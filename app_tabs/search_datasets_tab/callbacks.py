@@ -8,11 +8,13 @@ import data_access
 import data_access.common
 import utils.stations_map
 from app_tabs.common.data import stations
-from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID, APP_TABS_ID, SELECT_DATASETS_TAB_VALUE
+from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID, APP_TABS_ID, \
+    SELECT_DATASETS_TAB_VALUE, std_variables
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
-    std_variables, SEARCH_DATASETS_BUTTON_ID, \
+    SEARCH_DATASETS_BUTTON_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
     MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES, MAP_ZOOM_STORE_ID
+from app_tabs.select_datasets_tab.layout import VARIABLES_LEGEND_DROPDOWN_ID
 from utils.stations_map import DEFAULT_STATIONS_SIZE, SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, \
     SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE
 from log import logger, log_exception, log_exectime
@@ -59,17 +61,16 @@ def change_map_background(map_background):
 
 @callback_with_exc_handling(
     Output(DATASETS_STORE_ID, 'data'),
+    Output(VARIABLES_LEGEND_DROPDOWN_ID, 'value'),
     Output(APP_TABS_ID, 'active_tab', allow_duplicate=True),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(VARIABLES_CHECKLIST_ID, 'value'),
     State(SELECTED_STATIONS_STORE_ID, 'data'),
-    #State(DATE_RANGE_PICKER_ID, 'start_date'),
-    #State(DATE_RANGE_PICKER_ID, 'end_date'),
     prevent_initial_call=True
 )
 @log_exception
 #@log_exectime
-def search_datasets(n_clicks, selected_variables, selected_stations_idx): #, start_date, end_date):
+def search_datasets(n_clicks, selected_variables, selected_stations_idx):
     if not (selected_stations_idx and selected_variables):
         raise dash.exceptions.PreventUpdate
 
@@ -94,16 +95,6 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx): #, sta
         datasets_df['RI'].isin(selected_stations['RI'])     # short_name of the station might not be unique among RI's
     ]
 
-    # filter on date range
-    # date_range_filter = True
-    # if start_date is not None:
-    #     date_range_filter &= datasets_df_filtered['time_period_end'] > start_date
-    # if end_date is not None:
-    #     date_range_filter &= datasets_df_filtered['time_period_start'] < end_date
-    # # temporary patch, until error handling will be done
-    # if False and date_range_filter is not True:
-    #     datasets_df_filtered = datasets_df_filtered[date_range_filter]
-
     datasets_df_filtered = datasets_df_filtered.reset_index(drop=True)
     datasets_df_filtered['id'] = datasets_df_filtered.index
 
@@ -113,7 +104,13 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx): #, sta
         new_tab = dash.no_update
         warnings.warn('No datasets found. Change search criteria.', category=AppWarning)
 
-    return datasets_df_filtered.to_json(orient='split', date_format='iso'), new_tab
+    variables_legend_value = selected_variables
+
+    return (
+        datasets_df_filtered.to_json(orient='split', date_format='iso'),
+        variables_legend_value,
+        new_tab
+    )
 
 
 def _get_selected_points(selected_stations):

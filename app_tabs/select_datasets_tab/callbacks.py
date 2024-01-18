@@ -14,8 +14,8 @@ import data_processing.utils
 from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID, \
     GANTT_SELECTED_DATASETS_IDX_STORE_ID, GANTT_SELECTED_BARS_STORE_ID, FILTER_DATA_TAB_VALUE, SELECT_DATASETS_TAB_VALUE
-from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
-    DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
+from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, \
+    DATASETS_TABLE_ID, DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
     RESET_DATASETS_SELECTION_BUTTON_ID, SELECTED_GANTT_OPACITY, UNSELECTED_GANTT_OPACITY, BAR_UNSELECTED, \
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
 from log import logger, log_exception, log_exectime
@@ -36,8 +36,8 @@ custom_callback_with_exc_handling = handle_exception(callback, dash.no_update, d
 
 
 @custom_callback_with_exc_handling(
-    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
-    Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
+    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
+    Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
     Output(GANTT_GRAPH_ID, 'figure', allow_duplicate=True),
     Output(GANTT_GRAPH_ID, 'clickData'),
     Input(RESET_DATASETS_SELECTION_BUTTON_ID, 'n_clicks'),
@@ -100,8 +100,8 @@ def update_selection_on_gantt_graph(
 
 @callback_with_exc_handling(
     Output(GANTT_GRAPH_ID, 'figure'),
-    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
-    Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
+    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
+    Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
     Input(APP_TABS_ID, 'active_tab'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
@@ -177,7 +177,7 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_dat
         margin=dict(l=0, r=0, t=0, b=0),
     )
 
-    return fig, selected_datasets_output, gantt_selected_bars,
+    return fig, selected_datasets_output, gantt_selected_bars
 
 
 @callback_with_exc_handling(

@@ -46,7 +46,7 @@ def get_nbars_slider(i):
 
 def get_time_granularity_radio():
     return dbc.InputGroup([
-        dbc.InputGroupText('View by: '),
+        dbc.InputGroupText('View by: ', style={'margin-right': '10px'}),
         dbc.RadioItems(
             options=[
                 {"label": "year", "value": 'year'},

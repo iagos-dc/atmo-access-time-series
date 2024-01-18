@@ -1,9 +1,8 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
-import data_access
 import utils.stations_map
-from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE, get_next_button
+from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE, get_next_button, std_variables
 from utils.dash_persistence import get_dash_persistence_kwargs
 
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
@@ -40,21 +39,6 @@ MAPBOX_STYLES = {
     'carto-positron': 'carto positron',
 }
 DEFAULT_MAPBOX_STYLE = 'carto-positron'
-
-
-def _get_std_variables(variables):
-    std_vars = variables[['std_ECV_name', 'code']].drop_duplicates()
-    # TODO: temporary
-    try:
-        std_vars = std_vars[std_vars['std_ECV_name'] != 'Aerosol Optical Properties']
-    except ValueError:
-        pass
-    std_vars['label'] = std_vars['code'] + ' - ' + std_vars['std_ECV_name']
-    return std_vars.rename(columns={'std_ECV_name': 'value'}).drop(columns='code')
-
-
-variables = data_access.get_vars()
-std_variables = _get_std_variables(variables)
 
 
 # TODO: variable list should be loaded periodically via a callback
@@ -152,24 +136,34 @@ def get_search_datasets_tab():
                             ),
                         ),
                         html.Div(
-                            dbc.InputGroup([
-                                dbc.InputGroupText('Map background: ', style={'margin-right': '10px'}),
-                                dbc.RadioItems(
-                                    id=MAP_BACKGROUND_RADIO_ID,
-                                    options=[
-                                        {'label': label, 'value': value}
-                                        for value, label in MAPBOX_STYLES.items()
-                                    ],
-                                    value=DEFAULT_MAPBOX_STYLE,
-                                    inline=True,
-                                    **get_dash_persistence_kwargs(persistence_id=True)
-                                )
-                            ]),
+                            dbc.InputGroup(
+                                [
+                                    dbc.InputGroupText('Map background: ', style={'margin-right': '10px'}),
+                                    dbc.RadioItems(
+                                        id=MAP_BACKGROUND_RADIO_ID,
+                                        options=[
+                                            {'label': label, 'value': value}
+                                            for value, label in MAPBOX_STYLES.items()
+                                        ],
+                                        value=DEFAULT_MAPBOX_STYLE,
+                                        inline=True,
+                                        **get_dash_persistence_kwargs(persistence_id=True)
+                                    )
+                                ],
+                                size='lg',
+                                style={
+                                    'display': 'flex',
+                                    'align-items': 'center',
+                                    'border': '1px solid lightgrey',
+                                    'border-radius': '5px'
+                                }
+                            ),
                         ),
                     ],
                     style={
                         'display': 'flex',
                         'justify-content': 'space-between',
+                        'align-items': 'center',
                         'margin-top': '15px'
                     },
                 ),
@@ -188,7 +182,7 @@ def get_search_datasets_tab():
                          ),
                     ],
                 ),
-                style={'margin-top': '15px'},
+                style={'margin-top': '10px'},
             ),
         ]),
     ])
