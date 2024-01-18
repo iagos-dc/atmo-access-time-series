@@ -110,7 +110,7 @@ app = Dash(
     __name__,
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
-        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css',
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
     ],
     #prevent_initial_callbacks='initial_duplicate',
 )

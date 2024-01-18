@@ -55,8 +55,7 @@ def get_variables_checklist():
         options=variables_options,
         value=variables_values,
         labelStyle={'display': 'flex'},  # display in column rather than in a row; not sure if it is the right way to do
-        persistence=True,
-        persistence_type='session',
+        **get_dash_persistence_kwargs(True)
     )
     return variables_checklist
 
@@ -129,10 +128,12 @@ def get_search_datasets_tab():
                         html.Div(
                             dbc.Button(
                                 id=SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID,
-                                color='danger',
+                                outline=True,
+                                color='secondary',
                                 type='submit',
                                 style={'font-weight': 'bold', 'margin-bottom': '10px'},
-                                children='Clear',
+                                size='lg',
+                                children='Clear selection',
                             ),
                         ),
                         html.Div(
@@ -188,7 +189,7 @@ def get_search_datasets_tab():
     ])
 
     return dbc.Tab(
-        label='2. Search datasets',
+        label='1. Search datasets',
         id=SEARCH_DATASETS_TAB_VALUE,
         tab_id=SEARCH_DATASETS_TAB_VALUE,
         children=html.Div(

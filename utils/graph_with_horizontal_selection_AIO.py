@@ -352,6 +352,10 @@ def interval_controls_container(
                 dbc.Col(
                     dbc.Button(
                         children='Reset filter',
+                        outline=True,
+                        color='secondary',
+                        type='submit',
+                        style={'font-weight': 'bold'},
                         id=id_transform(reset_selection_button_id(aio_id, aio_class))
                     ),
                     width='auto',

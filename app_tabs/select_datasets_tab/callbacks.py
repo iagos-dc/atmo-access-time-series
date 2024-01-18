@@ -181,7 +181,6 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_dat
 
 
 @callback_with_exc_handling(
-    Output(DATASETS_TABLE_ID, 'columns'),
     Output(DATASETS_TABLE_ID, 'data'),
     Output(DATASETS_TABLE_ID, 'selected_rows'),
     Output(DATASETS_TABLE_ID, 'selected_row_ids'),
@@ -201,16 +200,12 @@ def datasets_as_table(
     table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
                      #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
                      ]
-    table_col_names = ['', 'Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
-                       #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
-                       ]
-    table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
-    # on rendering HTML snipplets in DataTable cells:
-    # https://github.com/plotly/dash-table/pull/916
-    table_columns[0]['presentation'] = 'markdown'
+    # # on rendering HTML snipplets in DataTable cells:
+    # # https://github.com/plotly/dash-table/pull/916
+    # table_columns[0]['presentation'] = 'markdown'
 
     if datasets_json is None:
-        return table_columns, [], [], []
+        return [], [], []
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     if len(datasets_df) > 0:
@@ -226,7 +221,7 @@ def datasets_as_table(
 
     # on rendering HTML snipplets in DataTable cells:
     # https://github.com/plotly/dash-table/pull/916
-    datasets_df['eye'] = '<i class="fa fa-eye"></i>'
+    datasets_df['eye'] = '<i class="fa-solid fa-chart-line" style="display: flex; justify-content: center"></i>'
 
     table_data = datasets_df[['id'] + table_col_ids].to_dict(orient='records')
 
@@ -250,7 +245,7 @@ def datasets_as_table(
         selected_row_ids = idx.index.to_list()
         selected_rows = idx['n'].to_list()
 
-    return table_columns, table_data, selected_rows, selected_row_ids
+    return table_data, selected_rows, selected_row_ids
 
 
 @callback_with_exc_handling(

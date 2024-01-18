@@ -60,7 +60,7 @@ def get_data_analysis_tab():
     ])
 
     data_analysis_tab = dbc.Tab(
-        label='5. Data analysis',
+        label='4. Data analysis',
         id=DATA_ANALYSIS_TAB_VALUE,
         tab_id=DATA_ANALYSIS_TAB_VALUE,
         #value=DATA_ANALYSIS_TAB_VALUE,

@@ -60,8 +60,17 @@ def change_map_background(map_background):
 
 
 @callback_with_exc_handling(
-    Output(DATASETS_STORE_ID, 'data'),
     Output(VARIABLES_LEGEND_DROPDOWN_ID, 'value'),
+    Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
+    State(VARIABLES_CHECKLIST_ID, 'value')
+)
+@log_exectime
+def set_variables_legend_dropdown(n_click, selected_variables):
+    return selected_variables
+
+
+@callback_with_exc_handling(
+    Output(DATASETS_STORE_ID, 'data'),
     Output(APP_TABS_ID, 'active_tab', allow_duplicate=True),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(VARIABLES_CHECKLIST_ID, 'value'),
@@ -104,11 +113,8 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx):
         new_tab = dash.no_update
         warnings.warn('No datasets found. Change search criteria.', category=AppWarning)
 
-    variables_legend_value = selected_variables
-
     return (
         datasets_df_filtered.to_json(orient='split', date_format='iso'),
-        variables_legend_value,
         new_tab
     )
 

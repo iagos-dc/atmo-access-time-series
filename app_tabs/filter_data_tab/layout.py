@@ -1,11 +1,12 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
-from app_tabs.common.layout import get_tooltip, FILTER_DATA_TAB_VALUE
+from app_tabs.common.layout import get_tooltip, FILTER_DATA_TAB_VALUE, get_next_button
 
 FILTER_TAB_CONTAINER_ROW_ID = 'filter-tab-container-row'
     # 'children' contains a layout of the filter tab
 FILTER_TYPE_RADIO_ID = 'filter_type_radio'
+FILTER_TIME_CONINCIDENCE_INPUTGROUP_ID = 'filter_time_coincidence_inputgroup'
 FILTER_TIME_CONINCIDENCE_SELECT_ID = 'filter_time_coincidence_select'
 
 FILTER_DATA_BUTTON_ID = 'filter-data-button'
@@ -90,11 +91,13 @@ def get_filtering_type_radio():
                 ],
                 value='24H',
                 disabled=True,
-                style={'background-color': '#dddddd'},
+                # style={'background-color': '#dddddd'},
                 id=FILTER_TIME_CONINCIDENCE_SELECT_ID,
             ),
         ],
-        id='filter_time_coincidence_select-time_filter-time-tooltip_target',
+        id=FILTER_TIME_CONINCIDENCE_INPUTGROUP_ID,
+        #style={'display': 'none'},
+        size='lg',
     )
 
     simple_vs_cross_filter_tooltip = get_tooltip(
@@ -108,54 +111,43 @@ def get_filtering_type_radio():
     )
 
     cols = [
-        dbc.Col(
-            [
-                simple_vs_cross_filter_radio,
-                simple_vs_cross_filter_tooltip
-            ],
-            width='auto'
-        ),
-        dbc.Col(
-            [
-                time_coincidence_select,
-                time_coincidence_tooltip
-            ],
-            width='auto'
-        ),
+        simple_vs_cross_filter_radio,
+        simple_vs_cross_filter_tooltip,
+        time_coincidence_select,
+        time_coincidence_tooltip
     ]
     return cols
 
 
 def get_filter_data_tab():
     return dbc.Tab(
-        label='4. Filter data',
+        label='3. Filter data',
         id=FILTER_DATA_TAB_VALUE,
         tab_id=FILTER_DATA_TAB_VALUE,
         # value=FILTER_DATA_TAB_VALUE,
         disabled=True,
         children=html.Div(
-            style={'margin': '20px'},
-            children=dbc.Container(
-                [
-                    dbc.Row(
-                        get_filtering_type_radio() +
-                        [
-                            dbc.Col(
-                                dbc.Button(
-                                    id=FILTER_DATA_BUTTON_ID, n_clicks=0,
-                                    color='primary',
-                                    type='submit',
-                                    style={'font-weight': 'bold'},
-                                    children='Apply filter to data'
-                                ),
-                                width='auto',
+            style={'margin-top': '5px', 'margin-left': '20px', 'margin-right': '20px'},
+            children=[
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            html.Div(
+                                get_filtering_type_radio(),
+                                style={'display': 'flex'},
                             ),
-                        ],
-                        justify='start',
-                    ),
-                    dbc.Row(id=FILTER_TAB_CONTAINER_ROW_ID),
-                ],
-                fluid=True,
-            )
+                            width=10
+                        ),
+                        dbc.Col(
+                            children=html.Div(get_next_button(FILTER_DATA_BUTTON_ID),
+                                              style={'display': 'flex', 'justify-content': 'end'}),
+                            width=2,
+                        ),
+                    ],
+                    justify='between',
+                    style={'margin-bottom': '10px'},
+                ),
+                dbc.Row(id=FILTER_TAB_CONTAINER_ROW_ID),
+            ],
         )
     )

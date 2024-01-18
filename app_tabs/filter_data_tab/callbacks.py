@@ -9,7 +9,7 @@ from dash.exceptions import PreventUpdate
 import data_processing
 from data_processing import metadata
 from app_tabs.common.layout import FILTER_DATA_TAB_VALUE, APP_TABS_ID, DATA_ANALYSIS_TAB_VALUE
-from .layout import FILTER_TIME_CONINCIDENCE_SELECT_ID, FILTER_TYPE_RADIO_ID, \
+from .layout import FILTER_TIME_CONINCIDENCE_INPUTGROUP_ID, FILTER_TIME_CONINCIDENCE_SELECT_ID, FILTER_TYPE_RADIO_ID, \
     FILTER_TAB_CONTAINER_ROW_ID, FILTER_DATA_BUTTON_ID, \
     get_time_granularity_radio, get_log_axis_switches, get_nbars_slider
 from app_tabs.common.callbacks import get_value_by_aio_id, set_value_by_aio_id
@@ -54,7 +54,7 @@ def _get_min_max_time(da_by_var):
 @callback_with_exc_handling(
     Output(figure_data_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
     Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'disabled'),
-    Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'style'),
+    Output(FILTER_TIME_CONINCIDENCE_INPUTGROUP_ID, 'style'),
     Input(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
     Input(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'id'),
     Input({'subcomponent': 'time_granularity_radio', 'aio_id': ALL}, 'value'),
@@ -88,7 +88,7 @@ def update_histograms_callback(
         cross_filtering_time_coincidence_dt = pd.Timedelta(cross_filtering_time_coincidence).to_timedelta64()
     else:
         cross_filtering_time_coincidence_dt = None
-    filter_time_coincidence_select_style = None if cross_filtering else {'background-color': '#dddddd'}
+    filter_time_coincidence_select_style = None if cross_filtering else {'display': 'none'}
 
     req = data_processing.IntegrateDatasetsRequest.from_dict(integrate_datasets_request)
     ds = req.compute()

@@ -69,9 +69,11 @@ def get_select_datasets_tab():
     reset_gantt_selection_button = dbc.Button(
         id=RESET_DATASETS_SELECTION_BUTTON_ID,
         n_clicks=0,
-        color='danger',
+        outline=True,
+        color='secondary',
         type='submit',
         style={'font-weight': 'bold'},
+        size='lg',
         children='Clear',
     )
 
@@ -88,8 +90,20 @@ def get_select_datasets_tab():
         value=False,
     )
 
+    table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
+                     #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                     ]
+    table_col_names = ['Plot', 'Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
+                       #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                       ]
+    table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
+    # on rendering HTML snipplets in DataTable cells:
+    # https://github.com/plotly/dash-table/pull/916
+    table_columns[0]['presentation'] = 'markdown'
+
     table = dash_table.DataTable(
         id=DATASETS_TABLE_ID,
+        columns=table_columns,
         css=[dict(selector="p", rule="margin: 0px;")],
         # see: https://dash.plotly.com/datatable/interactivity
         row_selectable="multi",
@@ -106,6 +120,13 @@ def get_select_datasets_tab():
             'lineHeight': '15px'
         },
         style_cell={'textAlign': 'left'},
+        style_cell_conditional=[
+            {
+                'if': {'column_id': 'eye'},
+                'textAlign': 'center',
+            }
+        ],
+        style_header={'fontWeight': 'bold'},
         markdown_options={'html': True},
     )
 
@@ -115,7 +136,7 @@ def get_select_datasets_tab():
         [
             dbc.CardHeader(
                 html.Div([
-                    html.B('Datasets time coverage:'), ' ', 'Select groups of datasets to fill in the table on the right'
+                    html.B('a) Datasets time coverage:'), ' ', 'Click on stations to see the datasets in the table on the right'
                 ]),
             ),
             dbc.CardBody(
@@ -143,7 +164,7 @@ def get_select_datasets_tab():
 
     datasets_table_card = dbc.Card([
         dbc.CardHeader(
-            'Select your datasets here',
+            'b) Select your datasets here',
             style={'font-weight': 'bold'},
         ),
         dbc.CardBody([
@@ -153,7 +174,7 @@ def get_select_datasets_tab():
     ])
 
     return dbc.Tab(
-        label='3. Select datasets',
+        label='2. Select datasets',
         id=SELECT_DATASETS_TAB_VALUE,
         tab_id=SELECT_DATASETS_TAB_VALUE,
         disabled=True,
@@ -173,7 +194,6 @@ def get_select_datasets_tab():
                                         multi=True,
                                         clearable=False,
                                         disabled=True,
-                                        **get_dash_persistence_kwargs(True),
                                     ),
                                 ],
                                 width=10
