@@ -40,7 +40,7 @@ def get_dashboard_layout(app):
 
     # logo and application title
     title_and_logo_bar = html.Div(
-        style={'display': 'flex', 'justify-content': 'space-between', 'margin-bottom': '20px'},
+        style={'display': 'flex', 'justify-content': 'space-between', 'margin-bottom': '10px'},
         children=[
             html.Div(children=[
                 html.H2('Time-series analysis', style={'font-weight': 'bold'}),
@@ -49,7 +49,11 @@ def get_dashboard_layout(app):
                 html.A(
                     html.Img(
                         src=app.get_asset_url(ATMO_ACCESS_LOGO_FILENAME),
-                        style={'float': 'right', 'height': '70px', 'margin-top': '10px'}
+                        style={
+                            'float': 'right',
+                            'height': '70px',
+                            'margin-top': '10px'
+                        }
                     ),
                     href="https://www.atmo-access.eu/",
                     target='_blank',
@@ -58,9 +62,9 @@ def get_dashboard_layout(app):
         ]
     )
 
-    app_tabs = dcc.Tabs(
+    app_tabs = dbc.Tabs(
         id=APP_TABS_ID,
-        value=INFORMATION_TAB_VALUE,
+        active_tab=INFORMATION_TAB_VALUE,
         children=[
             get_information_tab(
                 actris_logo=app.get_asset_url(ACTRIS_LOGO_FILENAME),
@@ -72,12 +76,17 @@ def get_dashboard_layout(app):
             get_filter_data_tab(),
             get_data_analysis_tab(),
         ],
+        style={'font-weight': 'bold'},
+        #style={'font-size': '200%'},
         **get_dash_persistence_kwargs(persistence_id=True)
     )
 
     layout = html.Div(
         id='app-container-div',
-        style={'margin': '30px', 'padding-bottom': '50px'},
+        style={
+            'margin': '10px',
+            'padding-bottom': '50px'
+        },
         children=stores + [
             html.Div(
                 id='heading-div',
@@ -101,14 +110,17 @@ app = Dash(
     __name__,
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
-        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css',
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
     ],
     #prevent_initial_callbacks='initial_duplicate',
 )
 
 server = app.server
 
-app.layout = get_dashboard_layout(app)
+app.layout = dbc.Container(
+    get_dashboard_layout(app),
+    fluid=True
+)
 app.title = 'ATMO-ACCESS time-series analysis'
 
 # Begin of callback definitions and their helper routines.

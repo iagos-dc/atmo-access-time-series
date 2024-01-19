@@ -14,8 +14,8 @@ import data_processing.utils
 from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID, \
     GANTT_SELECTED_DATASETS_IDX_STORE_ID, GANTT_SELECTED_BARS_STORE_ID, FILTER_DATA_TAB_VALUE, SELECT_DATASETS_TAB_VALUE
-from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, DATASETS_TABLE_ID, \
-    DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
+from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, \
+    DATASETS_TABLE_ID, DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
     RESET_DATASETS_SELECTION_BUTTON_ID, SELECTED_GANTT_OPACITY, UNSELECTED_GANTT_OPACITY, BAR_UNSELECTED, \
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
 from log import logger, log_exception, log_exectime
@@ -36,8 +36,8 @@ custom_callback_with_exc_handling = handle_exception(callback, dash.no_update, d
 
 
 @custom_callback_with_exc_handling(
-    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
-    Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
+    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
+    Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
     Output(GANTT_GRAPH_ID, 'figure', allow_duplicate=True),
     Output(GANTT_GRAPH_ID, 'clickData'),
     Input(RESET_DATASETS_SELECTION_BUTTON_ID, 'n_clicks'),
@@ -100,11 +100,11 @@ def update_selection_on_gantt_graph(
 
 @callback_with_exc_handling(
     Output(GANTT_GRAPH_ID, 'figure'),
-    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data', allow_duplicate=True),
-    Output(GANTT_SELECTED_BARS_STORE_ID, 'data', allow_duplicate=True),
+    Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
+    Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
     Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
-    Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
+    Input(APP_TABS_ID, 'active_tab'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
     State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
@@ -177,11 +177,10 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_dat
         margin=dict(l=0, r=0, t=0, b=0),
     )
 
-    return fig, selected_datasets_output, gantt_selected_bars,
+    return fig, selected_datasets_output, gantt_selected_bars
 
 
 @callback_with_exc_handling(
-    Output(DATASETS_TABLE_ID, 'columns'),
     Output(DATASETS_TABLE_ID, 'data'),
     Output(DATASETS_TABLE_ID, 'selected_rows'),
     Output(DATASETS_TABLE_ID, 'selected_row_ids'),
@@ -201,16 +200,12 @@ def datasets_as_table(
     table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
                      #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
                      ]
-    table_col_names = ['', 'Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
-                       #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
-                       ]
-    table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
-    # on rendering HTML snipplets in DataTable cells:
-    # https://github.com/plotly/dash-table/pull/916
-    table_columns[0]['presentation'] = 'markdown'
+    # # on rendering HTML snipplets in DataTable cells:
+    # # https://github.com/plotly/dash-table/pull/916
+    # table_columns[0]['presentation'] = 'markdown'
 
     if datasets_json is None:
-        return table_columns, [], [], []
+        return [], [], []
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     if len(datasets_df) > 0:
@@ -226,7 +221,7 @@ def datasets_as_table(
 
     # on rendering HTML snipplets in DataTable cells:
     # https://github.com/plotly/dash-table/pull/916
-    datasets_df['eye'] = '<i class="fa fa-eye"></i>'
+    datasets_df['eye'] = '<i class="fa-solid fa-chart-line" style="display: flex; justify-content: center"></i>'
 
     table_data = datasets_df[['id'] + table_col_ids].to_dict(orient='records')
 
@@ -250,7 +245,7 @@ def datasets_as_table(
         selected_row_ids = idx.index.to_list()
         selected_rows = idx['n'].to_list()
 
-    return table_columns, table_data, selected_rows, selected_row_ids
+    return table_data, selected_rows, selected_row_ids
 
 
 @callback_with_exc_handling(
@@ -354,7 +349,7 @@ def select_datasets_button_disabled(selected_row_ids):
 
 @callback_with_exc_handling(
     Output(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
-    Output(APP_TABS_ID, 'value', allow_duplicate=True),
+    Output(APP_TABS_ID, 'active_tab', allow_duplicate=True),
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),

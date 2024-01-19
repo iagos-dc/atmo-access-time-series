@@ -1,7 +1,10 @@
-from dash import html, dcc
+from dash import html
 import dash_bootstrap_components as dbc
 
-from app_tabs.common.layout import INFORMATION_TAB_VALUE
+from app_tabs.common.layout import INFORMATION_TAB_VALUE, get_next_button
+
+
+PASS_INFO_BUTTON_ID = 'pass-info-button'
 
 
 def _get_description_table(actris_logo, iagos_logo, icos_logo):
@@ -93,16 +96,20 @@ def _get_description_table(actris_logo, iagos_logo, icos_logo):
 
 
 def get_information_tab(actris_logo, iagos_logo, icos_logo):
-    return dcc.Tab(
-        label='1. Information',
+    return dbc.Tab(
+        label='0. Information',
         id=INFORMATION_TAB_VALUE,
-        value=INFORMATION_TAB_VALUE,
+        tab_id=INFORMATION_TAB_VALUE,
         children=[
-            html.Div(children=[
-                html.H6('This service allows you to search, analyse and visualise data from three Atmosphere European Research Infrastructures.'),
-                html.H6('It has been implemented in the framework of the European Project ATMO-ACCESS to demonstrate interoperability within the Research Infrastructures'),
-                html.H6('Only Essential Climate Variables are available. You can find more information about the provided datasets in the table below.'),
-            ]),
+            html.Div(
+                children=[
+                    html.Div(get_next_button(PASS_INFO_BUTTON_ID), style={'display': 'flex', 'justify-content': 'end'}),
+                    html.H6('This service allows you to search, analyse and visualise data from three Atmosphere European Research Infrastructures.'),
+                    html.H6('It has been implemented in the framework of the European Project ATMO-ACCESS to demonstrate interoperability within the Research Infrastructures'),
+                    html.H6('Only Essential Climate Variables are available. You can find more information about the provided datasets in the table below.'),
+                ],
+                style={'margin-top': '5px', 'margin-left': '20px', 'margin-right': '20px'},
+            ),
             _get_description_table(actris_logo, iagos_logo, icos_logo)
         ]
     )

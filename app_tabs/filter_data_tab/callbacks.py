@@ -3,14 +3,14 @@ import numpy as np
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import callback, Output, ALL, Input, State, ctx
+from dash import callback, Output, ALL, Input, State, ctx, html
 from dash.exceptions import PreventUpdate
 
 import data_processing
 from data_processing import metadata
 from app_tabs.common.layout import FILTER_DATA_TAB_VALUE, APP_TABS_ID, DATA_ANALYSIS_TAB_VALUE
-from .layout import FILTER_TIME_CONINCIDENCE_SELECT_ID, FILTER_TYPE_RADIO_ID, \
-    FILTER_TAB_CONTAINER_ROW_ID, FILTER_DATA_BUTTON_ID, \
+from .layout import FILTER_TIME_CONINCIDENCE_INPUTGROUP_ID, FILTER_TIME_CONINCIDENCE_SELECT_ID, FILTER_TYPE_RADIO_ID, \
+    TIME_FILTER_CONTAINER_ID, VARIABLE_FILTERS_CONTAINER_ID, FILTER_DATA_BUTTON_ID, \
     get_time_granularity_radio, get_log_axis_switches, get_nbars_slider
 from app_tabs.common.callbacks import get_value_by_aio_id, set_value_by_aio_id
 from app_tabs.common.layout import INTEGRATE_DATASETS_REQUEST_ID, FILTER_DATA_REQUEST_ID, get_tooltip
@@ -54,7 +54,8 @@ def _get_min_max_time(da_by_var):
 @callback_with_exc_handling(
     Output(figure_data_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
     Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'disabled'),
-    Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'style'),
+    Output(FILTER_TIME_CONINCIDENCE_INPUTGROUP_ID, 'style'),
+    #Output(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'style'),
     Input(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),
     Input(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'id'),
     Input({'subcomponent': 'time_granularity_radio', 'aio_id': ALL}, 'value'),
@@ -88,7 +89,8 @@ def update_histograms_callback(
         cross_filtering_time_coincidence_dt = pd.Timedelta(cross_filtering_time_coincidence).to_timedelta64()
     else:
         cross_filtering_time_coincidence_dt = None
-    filter_time_coincidence_select_style = None if cross_filtering else {'background-color': '#dddddd'}
+    #filter_time_coincidence_select_style = None if cross_filtering else {'background-color': '#dddddd'} #{'display': 'none'}
+    filter_time_coincidence_select_style = None if cross_filtering else {'display': 'none'}
 
     req = data_processing.IntegrateDatasetsRequest.from_dict(integrate_datasets_request)
     ds = req.compute()
@@ -162,7 +164,7 @@ def update_histograms_callback(
                     time_granularity[0],
                     color_mapping=color_mapping
                 )
-                fig = fig.update_layout(title='Data availability (in %)')
+                fig = fig.update_layout(title='Data availability')
 
                 new_fig = {
                     'fig': fig,
@@ -190,7 +192,7 @@ def update_histograms_callback(
             time_granularity[0],
             color_mapping=color_mapping
         )
-        fig = fig.update_layout(title='Data availability (in %)')
+        fig = fig.update_layout(title='Data availability')
 
         new_fig = {
             'fig': fig,
@@ -202,10 +204,69 @@ def update_histograms_callback(
         raise RuntimeError(f'unknown trigger: {ctx.triggered_id}')
 
 
+def _get_filter_container(v, v_filter):
+    aio_id = f'{v}_filter-' + ('scalar' if v != 'time' else 'time')
+    range_controller_tooltip = get_tooltip(
+        f'Set up a filter on {v} by providing min and/or max thresholds',
+        interval_input_group_id(aio_id, DATA_FILTER_AIO_CLASS)
+    )
+
+    graph_tooltip = get_tooltip(
+        f'Drag-and-drop to set up a filter on {v}',
+        graph_id(aio_id, DATA_FILTER_AIO_CLASS)
+    )
+
+    data_stores = v_filter.get_data_stores()
+    range_controller = v_filter.get_range_controller()
+    graph = v_filter.get_graph()
+    accordion_item_children = html.Div( #dbc.Container(
+        [
+            data_stores,
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [range_controller, range_controller_tooltip],
+                        width=4,
+                        align='start',
+                    ),
+                    dbc.Col(
+                        [
+                            #graph,
+                            dbc.Card(dbc.CardBody(graph)),
+                            graph_tooltip
+                        ],
+                        width=8,
+                        align='start',
+                    ),
+                ],
+                align='start',
+            ),
+        ],
+        #fluid=True,
+    )
+    return accordion_item_children
+
+
+def _get_accordion(list_of_v_title_component):
+    accordion_items = []
+    for v, title, component in list_of_v_title_component:
+        accordion_items.append(
+            dbc.AccordionItem(component, title=title, item_id=f'filter-{v}')
+        )
+
+    return dbc.Accordion(
+        accordion_items,
+        always_open=True,
+        active_item=[f'filter-{v}' for v, _, _ in list_of_v_title_component],
+        # style={'text-transform': None},
+    )
+
+
 @callback_with_exc_handling(
-    Output(FILTER_TAB_CONTAINER_ROW_ID, 'children'),
+    Output(TIME_FILTER_CONTAINER_ID, 'children'),
+    Output(VARIABLE_FILTERS_CONTAINER_ID, 'children'),
     Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
-    Input(APP_TABS_ID, 'value'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
+    Input(APP_TABS_ID, 'active_tab'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
     prevent_initial_call=True,
 )
 @log_exception
@@ -227,7 +288,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
     t_min, t_max = _get_min_max_time(ds)
 
     avail_data_by_var_heatmap = charts.get_avail_data_by_var_heatmap(ds, 'year', color_mapping=color_mapping)
-    avail_data_by_var_heatmap = avail_data_by_var_heatmap.update_layout(title='Data availability (in %)')
+    avail_data_by_var_heatmap = avail_data_by_var_heatmap.update_layout(title='Data availability')
 
     time_filter = GraphWithHorizontalSelectionAIO(
         aio_id='time_filter',
@@ -241,7 +302,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
         extra_dash_components=get_time_granularity_radio(),
     )
 
-    filter_and_title_by_v = {'time': (time_filter, 'Data availability (in %)')}
+    filter_and_title_by_v = {}
     for v, da in ds.items():
         x_min = da.min().item()
         x_max = da.max().item()
@@ -267,62 +328,34 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
         city_or_station_name = md[metadata.CITY_OR_STATION_NAME]
         if city_or_station_name is not None:
             title = f'{title}, {city_or_station_name}'
-        filter_and_title_by_v[v] = var_filter, f'{v} : {title}'
+        filter_and_title_by_v[v] = var_filter, f'Filter {v} : {title}'
 
-    accordion_items = []
+    time_filter_accordion = _get_accordion([
+        (
+            'time',
+            'Filter on time',
+            _get_filter_container('time', time_filter)
+        )
+    ])
+
+    variable_filters_accordion_items_children = []
     for v, (v_filter, title) in filter_and_title_by_v.items():
-        aio_id = f'{v}_filter-' + ('scalar' if v != 'time' else 'time')
-        range_controller_tooltip = get_tooltip(
-            f'Set up a filter on {v} by providing min and/or max thresholds',
-            interval_input_group_id(aio_id, DATA_FILTER_AIO_CLASS)
+        variable_filters_accordion_items_children.append(
+            (
+                v,
+                title,
+                _get_filter_container(v, v_filter)
+            )
         )
+    variable_filters_accordion = _get_accordion(variable_filters_accordion_items_children)
 
-        graph_tooltip = get_tooltip(
-            f'Drag-and-drop to set up a filter on {v}',
-            graph_id(aio_id, DATA_FILTER_AIO_CLASS)
-        )
-
-        data_stores = v_filter.get_data_stores()
-        range_controller = v_filter.get_range_controller()
-        graph = v_filter.get_graph()
-        accordion_item_children = dbc.Container(
-           [
-               data_stores,
-               dbc.Row(
-                   [
-                       dbc.Col(
-                           [range_controller, range_controller_tooltip],
-                           width=4,
-                           align='start',
-                       ),
-                       dbc.Col(
-                           [graph, graph_tooltip],
-                           width=8,
-                           align='start',
-                       ),
-                   ],
-                   align='start',
-               ),
-           ],
-           fluid=True,
-        )
-        accordion_items.append(
-            dbc.AccordionItem(accordion_item_children, title=title, item_id=f'filter-{v}')
-        )
-
-    # TODO: maybe the accordion should go to layout ???
-    return dbc.Accordion(
-        accordion_items,
-        always_open=True,
-        active_item=[f'filter-{v}' for v in filter_and_title_by_v.keys()],
-        # style={'text-transform': None},
-    )
+    return time_filter_accordion, variable_filters_accordion
 
 
 # TODO: lots of duplications with utils.crossfiltering.update_histograms_callback
 @callback_with_exc_handling(
     Output(FILTER_DATA_REQUEST_ID, 'data'),
-    Output(APP_TABS_ID, 'value', allow_duplicate=True),
+    Output(APP_TABS_ID, 'active_tab', allow_duplicate=True),
     Input(FILTER_DATA_BUTTON_ID, 'n_clicks'),
     State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     State(selected_range_store_id(ALL, DATA_FILTER_AIO_CLASS), 'data'),

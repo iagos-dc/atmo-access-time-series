@@ -22,6 +22,8 @@ CATEGORY_ORDER = ['ACTRIS', 'IAGOS', 'ICOS']
 COLOR_BY_CATEGORY = {'ACTRIS': ACTRIS_COLOR_HEX, 'IAGOS': IAGOS_COLOR_HEX, 'ICOS': ICOS_COLOR_HEX}
 COLOR_CATEGORY_ORDER = [COLOR_BY_CATEGORY[c] for c in CATEGORY_ORDER]
 
+IAGOS_REGION_COLOR_HEX = '#ffa500'
+
 MAX_WRAP = 20
 
 
@@ -234,7 +236,7 @@ def _get_timeline_by_station(datasets_df):
         custom_data=['indices'],
         category_orders={'RI': CATEGORY_ORDER},
         color_discrete_sequence=COLOR_CATEGORY_ORDER,
-        height=height
+        height=height,
     )
 
     gantt.update_layout(
@@ -253,6 +255,10 @@ def _get_timeline_by_station(datasets_df):
             'tickvals': df['platform_id_RI'],
             'ticktext': df['station_fullname'].map(_wrap_text),
         },
+        xaxis={
+            'title': 'time',
+        },
+        title='',
     )
     return gantt
 
@@ -291,7 +297,11 @@ def _get_timeline_by_station_and_vars(datasets_df):
             'tickmode': 'array',
             'tickvals': platform_id_RI_var_codes_filtered,
             'ticktext': df['station_fullname'].map(_wrap_text),
-        }
+        },
+        xaxis={
+            'title': 'time',
+        },
+        title='',
     )
     # print(f'gantt={json.loads(gantt.to_json())}')
     return gantt

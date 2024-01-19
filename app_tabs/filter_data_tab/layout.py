@@ -1,11 +1,14 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
-from app_tabs.common.layout import get_tooltip, FILTER_DATA_TAB_VALUE
+from app_tabs.common.layout import get_tooltip, FILTER_DATA_TAB_VALUE, get_next_button
 
-FILTER_TAB_CONTAINER_ROW_ID = 'filter-tab-container-row'
+TIME_FILTER_CONTAINER_ID = 'filter-tab-container-row'
+    # 'children' contains a layout of the filter tab
+VARIABLE_FILTERS_CONTAINER_ID = 'filter-tab-variable-filters-container'
     # 'children' contains a layout of the filter tab
 FILTER_TYPE_RADIO_ID = 'filter_type_radio'
+FILTER_TIME_CONINCIDENCE_INPUTGROUP_ID = 'filter_time_coincidence_inputgroup'
 FILTER_TIME_CONINCIDENCE_SELECT_ID = 'filter_time_coincidence_select'
 
 FILTER_DATA_BUTTON_ID = 'filter-data-button'
@@ -46,7 +49,7 @@ def get_nbars_slider(i):
 
 def get_time_granularity_radio():
     return dbc.InputGroup([
-        dbc.InputGroupText('View by: '),
+        dbc.InputGroupText('View by: ', style={'margin-right': '10px'}),
         dbc.RadioItems(
             options=[
                 {"label": "year", "value": 'year'},
@@ -63,8 +66,8 @@ def get_time_granularity_radio():
 def get_filtering_type_radio():
     simple_vs_cross_filter_radio = dbc.RadioItems(
         options=[
-            {'label': 'Simple filter', 'value': 'simple filter'},
-            {'label': 'Cross filter', 'value': 'cross filter'},
+            {'label': 'simple filter', 'value': 'simple filter'},
+            {'label': 'cross filter', 'value': 'cross filter'},
         ],
         value='simple filter',
         inline=True,
@@ -73,7 +76,7 @@ def get_filtering_type_radio():
 
     time_coincidence_select = dbc.InputGroup(
         [
-            dbc.InputGroupText('Observations coincidence time'),
+            dbc.InputGroupText('with observations coincidence time'),
             dbc.Select(
                 options=[
                     {'label': '1 hour', 'value': '1H'},
@@ -90,11 +93,13 @@ def get_filtering_type_radio():
                 ],
                 value='24H',
                 disabled=True,
-                style={'background-color': '#dddddd'},
+                #style={'background-color': '#dddddd'},
                 id=FILTER_TIME_CONINCIDENCE_SELECT_ID,
             ),
         ],
-        id='filter_time_coincidence_select-time_filter-time-tooltip_target',
+        style={'display': 'none'},
+        id=FILTER_TIME_CONINCIDENCE_INPUTGROUP_ID,
+        size='lg',
     )
 
     simple_vs_cross_filter_tooltip = get_tooltip(
@@ -108,53 +113,45 @@ def get_filtering_type_radio():
     )
 
     cols = [
-        dbc.Col(
-            [
-                simple_vs_cross_filter_radio,
-                simple_vs_cross_filter_tooltip
-            ],
-            width='auto'
-        ),
-        dbc.Col(
-            [
-                time_coincidence_select,
-                time_coincidence_tooltip
-            ],
-            width='auto'
-        ),
+        simple_vs_cross_filter_radio,
+        simple_vs_cross_filter_tooltip,
+        time_coincidence_select,
+        time_coincidence_tooltip
     ]
     return cols
 
 
 def get_filter_data_tab():
-    return dcc.Tab(
-        label='4. Filter data',
+    filtering_type_radio = get_filtering_type_radio()
+
+    return dbc.Tab(
+        label='3. Filter data',
         id=FILTER_DATA_TAB_VALUE,
-        value=FILTER_DATA_TAB_VALUE,
+        tab_id=FILTER_DATA_TAB_VALUE,
         disabled=True,
         children=html.Div(
-            style={'margin': '20px'},
-            children=dbc.Container(
-                [
-                    dbc.Row(
-                        get_filtering_type_radio() +
-                        [
-                            dbc.Col(
-                                dbc.Button(
-                                    id=FILTER_DATA_BUTTON_ID, n_clicks=0,
-                                    color='primary',
-                                    type='submit',
-                                    style={'font-weight': 'bold'},
-                                    children='Apply filter to data'
-                                ),
-                                width='auto',
-                            ),
-                        ],
-                        justify='start',
+            style={'margin-top': '5px', 'margin-left': '20px', 'margin-right': '20px'},
+            children=[
+                dbc.Row(
+                    dbc.Col(
+                        children=html.Div(get_next_button(FILTER_DATA_BUTTON_ID)),
+                        width='auto',
                     ),
-                    dbc.Row(id=FILTER_TAB_CONTAINER_ROW_ID),
-                ],
-                fluid=True,
-            )
+                    justify='end',
+                    style={'margin-bottom': '10px'},
+                ),
+                dbc.Row(id=TIME_FILTER_CONTAINER_ID),
+                dbc.Row(
+                    [
+                        dbc.Col('Filter on variables using', width='auto', style={'font-weight': 'bold'}),
+                        dbc.Col(filtering_type_radio[:2], width='auto'),
+                        dbc.Col(filtering_type_radio[2:], width='auto'),
+                    ],
+                    align='center',
+                    justify='start',
+                    style={'margin-top': '40px', 'margin-bottom': '10px'},
+                ),
+                dbc.Row(id=VARIABLE_FILTERS_CONTAINER_ID),
+            ],
         )
     )

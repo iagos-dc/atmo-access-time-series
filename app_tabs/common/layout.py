@@ -1,5 +1,7 @@
-from dash import dcc
+from dash import dcc, html
 import dash_bootstrap_components as dbc
+
+import data_access
 
 
 # Below there are id's of Dash JS components.
@@ -87,8 +89,6 @@ NON_INTERACTIVE_GRAPH_CONFIG = {
 }  # for more see: help(dcc.Graph)
 
 
-
-
 def get_app_data_stores():
     # these are special Dash components used for transferring data from one callback to other callback(s)
     # without displaying the data
@@ -125,3 +125,40 @@ def get_tooltip(tooltip_text, target, **kwargs):
         target=target,
         **tooltip_kwargs
     )
+
+
+def get_next_button(button_id):
+    return dbc.Button(
+        id=button_id,
+        n_clicks=0,
+        color='success',
+        type='submit',
+        children=html.Div(
+            [
+                html.Div('Next', style={'font-weight': 'bold', 'font-size': '135%'}),
+                html.I(className='fa fa-arrow-circle-right fa-2x')
+            ],
+            style={
+                'display': 'flex',
+                'gap': '10px',
+                'align-items': 'center'
+            }
+        ),
+        #className='me-1',
+        size='lg'
+    )
+
+
+def _get_std_variables(variables):
+    std_vars = variables[['std_ECV_name', 'code']].drop_duplicates()
+    # TODO: temporary
+    try:
+        std_vars = std_vars[std_vars['std_ECV_name'] != 'Aerosol Optical Properties']
+    except ValueError:
+        pass
+    std_vars['label'] = std_vars['code'] + ' - ' + std_vars['std_ECV_name']
+    return std_vars.rename(columns={'std_ECV_name': 'value'}).drop(columns='code')
+
+
+variables = data_access.get_vars()
+std_variables = _get_std_variables(variables)

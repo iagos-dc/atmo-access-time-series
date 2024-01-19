@@ -1,11 +1,8 @@
-import datetime
-
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
-import data_access
 import utils.stations_map
-from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE
+from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE, get_next_button, std_variables
 from utils.dash_persistence import get_dash_persistence_kwargs
 
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
@@ -22,10 +19,6 @@ MAP_ZOOM_STORE_ID = 'previous-map-zoom-store'
 #       {'mapbox' -> [[lon_min, lat_max], [lon_max, lat_min]]}
 # }
 
-LAT_MAX_ID = 'lat-max'
-LAT_MIN_ID = 'lat-min'
-LON_MAX_ID = 'lon-max'
-LON_MIN_ID = 'lon-min'
 # 'value' contains a number (or None)
 
 VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID = 'variables-checklist-all-none-switch'
@@ -39,8 +32,6 @@ SEARCH_DATASETS_BUTTON_ID = 'search-datasets-button'
 
 SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID = 'search-datasets-reset-stations-button'
 
-DATE_RANGE_PICKER_ID = 'search-datasets-date-picker-range'
-
 MAP_BACKGROUND_RADIO_ID = 'map-background-radio'
 
 MAPBOX_STYLES = {
@@ -48,21 +39,6 @@ MAPBOX_STYLES = {
     'carto-positron': 'carto positron',
 }
 DEFAULT_MAPBOX_STYLE = 'carto-positron'
-
-
-def _get_std_variables(variables):
-    std_vars = variables[['std_ECV_name', 'code']].drop_duplicates()
-    # TODO: temporary
-    try:
-        std_vars = std_vars[std_vars['std_ECV_name'] != 'Aerosol Optical Properties']
-    except ValueError:
-        pass
-    std_vars['label'] = std_vars['code'] + ' - ' + std_vars['std_ECV_name']
-    return std_vars.rename(columns={'std_ECV_name': 'value'}).drop(columns='code')
-
-
-variables = data_access.get_vars()
-std_variables = _get_std_variables(variables)
 
 
 # TODO: variable list should be loaded periodically via a callback
@@ -79,8 +55,7 @@ def get_variables_checklist():
         options=variables_options,
         value=variables_values,
         labelStyle={'display': 'flex'},  # display in column rather than in a row; not sure if it is the right way to do
-        persistence=True,
-        persistence_type='session',
+        **get_dash_persistence_kwargs(True)
     )
     return variables_checklist
 
@@ -113,166 +88,131 @@ def get_stations_dash_component():
         }
     )
 
-    return stations_map
-
-
-def get_bbox_selection_div():
-    """
-    Provide a composed Dash component with input/ouput text fields which allow to provide coordinates of a bounding box
-    See: https://dash.plotly.com/dash-core-components/input
-    :return: dash.html.Div object
-    """
-    bbox_selection_div = html.Div(id='bbox-selection-div', style={'margin-top': '15px'}, children=[
-        html.Div(className='row', children=[
-            html.Div(
-                className='three columns, offset-by-six columns',
-                children=dcc.Input(
-                    id=LAT_MAX_ID,
-                    style={'width': '120%'},
-                    placeholder='lat max',
-                    type='number',
-                    debounce=True,
-                    min=-90, max=90,
-                    **get_dash_persistence_kwargs(persistence_id=True)
-                ),  # , step=0.01),
-            ),
-        ]),
-        html.Div(className='row', children=[
-            html.Div(className='three columns',
-                     children=html.P(children='Bounding box:', style={'width': '100%', 'font-weight': 'bold'})),
-            html.Div(
-                className='three columns',
-                children=dcc.Input(
-                    style={'width': '120%'},
-                    id=LON_MIN_ID,
-                    placeholder='lon min',
-                    type='number',
-                    debounce=True,
-                    min=-180, max=180,
-                    **get_dash_persistence_kwargs(persistence_id=True)
-                ),  # , step=0.01),
-            ),
-            html.Div(
-                className='offset-by-three columns, three columns',
-                children=dcc.Input(
-                    style={'width': '120%'},
-                    id=LON_MAX_ID,
-                    placeholder='lon max',
-                    type='number',
-                    debounce=True,
-                    min=-180, max=180,
-                    **get_dash_persistence_kwargs(persistence_id=True)
-                ),  # , step=0.01),
-            ),
-        ]),
-        html.Div(
-            className='row',
-            children=html.Div(
-                className='offset-by-six columns, three columns',
-                children=dcc.Input(
-                    style={'width': '120%'},
-                    id=LAT_MIN_ID,
-                    placeholder='lat min',
-                    type='number',
-                    debounce=True,
-                    min=-90, max=90,
-                    **get_dash_persistence_kwargs(persistence_id=True)
-                ),  # , step=0.01),
-            ),
-        ),
-    ])
-    return bbox_selection_div
+    return [
+        dcc.Store(id=MAP_ZOOM_STORE_ID, data=DEFAULT_MAP_ZOOM),
+        stations_map
+    ]
 
 
 def get_search_datasets_tab():
-    return dcc.Tab(
-        label='2. Search datasets',
-        id=SEARCH_DATASETS_TAB_VALUE,
-        value=SEARCH_DATASETS_TAB_VALUE,
-        children=html.Div(
-            style={'margin': '20px'},
-            children=[
-                html.Div(id='search-datasets-left-panel-div', className='four columns', children=[
-                    html.Div(id='variables-selection-div', className='nine columns', children=[
-                        html.P('Select variable(s):', style={'font-weight': 'bold'}),
-                        dbc.Switch(
-                            id=VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID,
-                            label='Select all / none',
-                            style={'margin-top': '10px'},
-                            value=True,
-                        ),
-                        get_variables_checklist(),
-                    ]),
+    variable_selection_card = dbc.Card([
+        dbc.CardHeader(
+            'Select variables',
+            style={'font-weight': 'bold'},
+        ),
+        dbc.CardBody([
+            dbc.Switch(
+                id=VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID,
+                label='Select all / none',
+                #style={'margin-top': '10px'},
+                value=True,
+            ),
+            get_variables_checklist(),
+        ])
+    ])
 
-                    html.Div(id='search-datasets-button-div', className='three columns',
-                             children=dbc.Button(id=SEARCH_DATASETS_BUTTON_ID, n_clicks=0,
-                                                 color='primary',
-                                                 type='submit',
-                                                 style={'font-weight': 'bold'},
-                                                 children='Search datasets')),
-
-                    html.Div(
-                        id='search-datasets-left-panel-cont-div', className='twelve columns',
-                        style={'margin-top': '20px'},
-                        children=[
-                            html.Div(children=[
-                                html.P(
-                                    'Date range:',
-                                    style={'display': 'inline', 'font-weight': 'bold', 'margin-right': '20px'}
-                                ),
-                                dcc.DatePickerRange(
-                                    id=DATE_RANGE_PICKER_ID,
-                                    min_date_allowed=datetime.date(1900, 1, 1),
-                                    max_date_allowed=datetime.date(2100, 12, 31),
-                                    initial_visible_month=datetime.date.today(),
-                                    display_format='YYYY-MM-DD',
-                                    clearable=True,
-                                    **get_dash_persistence_kwargs(persistence_id=True),
-                                    #end_date=datetime.date(2017, 8, 25),
-                                ),
-                            ]),
-                            get_bbox_selection_div(),
+    station_selection_card = dbc.Card([
+        dbc.CardHeader(
+            'Select stations',
+            style={'font-weight': 'bold'},
+        ),
+        dbc.CardBody([
+            dbc.Row(
+                dbc.Col(
+                    get_stations_dash_component(),
+                ),
+            ),
+            dbc.Row(
+                html.Div(
+                    [
+                        html.Div(
                             dbc.Button(
                                 id=SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID,
-                                color='primary',
+                                outline=True,
+                                color='secondary',
                                 type='submit',
                                 style={'font-weight': 'bold', 'margin-bottom': '10px'},
-                                children='Clear station selection',
+                                size='lg',
+                                children='Clear selection',
                             ),
-                            dbc.InputGroup([
-                                dbc.InputGroupText('Map background: ', style={'margin-right': '10px'}),
-                                dbc.RadioItems(
-                                    id=MAP_BACKGROUND_RADIO_ID,
-                                    options=[
-                                        {'label': label, 'value': value}
-                                        for value, label in MAPBOX_STYLES.items()
-                                    ],
-                                    value=DEFAULT_MAPBOX_STYLE,
-                                    inline=True,
-                                    **get_dash_persistence_kwargs(persistence_id=True)
-                                )
-                            ])
-                        ]
-                    )
-                ]),
-                html.Div(id='search-datasets-right-panel-div', className='eight columns', children=[
-                    dcc.Store(id=MAP_ZOOM_STORE_ID, storage_type='session', data=DEFAULT_MAP_ZOOM),
-                    get_stations_dash_component(),
-                    html.Div(
-                        id='selected-stations-div',
-                        style={'margin-top': '20px'},
-                        children=[
-                             html.P('Selected stations (you can refine your selection)',
-                                    style={'font-weight': 'bold'}),
-                             dcc.Dropdown(
-                                 id=SELECTED_STATIONS_DROPDOWN_ID,
-                                 multi=True,
-                                 clearable=False,
-                                 #**get_dash_persistence_kwargs(persistence_id=True)
-                             ),
-                        ]
+                        ),
+                        html.Div(
+                            dbc.InputGroup(
+                                [
+                                    dbc.InputGroupText('Map background: ', style={'margin-right': '10px'}),
+                                    dbc.RadioItems(
+                                        id=MAP_BACKGROUND_RADIO_ID,
+                                        options=[
+                                            {'label': label, 'value': value}
+                                            for value, label in MAPBOX_STYLES.items()
+                                        ],
+                                        value=DEFAULT_MAPBOX_STYLE,
+                                        inline=True,
+                                        **get_dash_persistence_kwargs(persistence_id=True)
+                                    )
+                                ],
+                                size='lg',
+                                style={
+                                    'display': 'flex',
+                                    'align-items': 'center',
+                                    'border': '1px solid lightgrey',
+                                    'border-radius': '5px'
+                                }
+                            ),
+                        ),
+                    ],
+                    style={
+                        'display': 'flex',
+                        'justify-content': 'space-between',
+                        'align-items': 'center',
+                        'margin-top': '15px'
+                    },
+                ),
+            ),
+            dbc.Row(
+                dbc.Col(
+                    #id='selected-stations-div',
+                    children=[
+                         html.P('Selected stations (you can refine your selection here)',
+                                style={'font-weight': 'bold'}),
+                         dcc.Dropdown(
+                             id=SELECTED_STATIONS_DROPDOWN_ID,
+                             multi=True,
+                             clearable=False,
+                             #**get_dash_persistence_kwargs(persistence_id=True)
+                         ),
+                    ],
+                ),
+                style={'margin-top': '10px'},
+            ),
+        ]),
+    ])
+
+    return dbc.Tab(
+        label='1. Search datasets',
+        id=SEARCH_DATASETS_TAB_VALUE,
+        tab_id=SEARCH_DATASETS_TAB_VALUE,
+        children=html.Div(
+            style={'margin-top': '5px', 'margin-left': '20px', 'margin-right': '20px'},
+            children=[
+                dbc.Row(
+                    dbc.Col(
+                        children=html.Div(get_next_button(SEARCH_DATASETS_BUTTON_ID)),
+                        width='auto',
                     ),
-                ]),
+                    justify='end',
+                    style={'margin-bottom': '10px'},
+                ),
+                dbc.Row([
+                    dbc.Col(
+                        width=3,
+                        children=variable_selection_card
+                    ),
+                    dbc.Col(
+                        width=9,
+                        children=station_selection_card
+                    )
+                ])
             ]
         )
     )

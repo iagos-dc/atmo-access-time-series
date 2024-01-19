@@ -1,8 +1,12 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
 
-from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG
+from utils.dash_persistence import get_dash_persistence_kwargs
+from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG, get_next_button, std_variables
 
+VARIABLES_LEGEND_DROPDOWN_ID = 'variables-legend-dropdown'
+# 'options' contains a list of dictionaries {'label' -> variable label, 'value' -> variable description}
+# 'value' contains a list of variable labels in the dropdown
 
 GANTT_VIEW_RADIO_ID = 'gantt-view-radio'
 # 'value' contains 'compact' or 'detailed'
@@ -40,36 +44,43 @@ OPACITY_BY_BAR_SELECTION_STATUS = {
 
 
 def get_select_datasets_tab():
-    gantt_view_radio = dbc.RadioItems(
-        id=GANTT_VIEW_RADIO_ID,
-        options=[
-            {'label': 'compact view', 'value': 'compact'},
-            {'label': 'detailed view', 'value': 'detailed'},
+    gantt_view_radio = dbc.InputGroup(
+        [
+            dbc.InputGroupText('View: ', style={'margin-right': '10px'}),
+            dbc.RadioItems(
+                id=GANTT_VIEW_RADIO_ID,
+                options=[
+                    {'label': 'compact', 'value': 'compact'},
+                    {'label': 'detailed', 'value': 'detailed'},
+                ],
+                value='compact',
+                inline=True
+            ),
         ],
-        value='compact',
-        inline=True
-    )
-
-    select_datasets_button = dbc.Button(
-        id=SELECT_DATASETS_BUTTON_ID,
-        n_clicks=0,
-        color='primary', type='submit',
-        style={'font-weight': 'bold'},
-        children='Select datasets'
+        size='lg',
+        style={
+            'display': 'flex',
+            'align-items': 'center',
+            'border': '1px solid lightgrey',
+            'border-radius': '5px'
+        }
     )
 
     reset_gantt_selection_button = dbc.Button(
         id=RESET_DATASETS_SELECTION_BUTTON_ID,
         n_clicks=0,
-        color='primary',
+        outline=True,
+        color='secondary',
         type='submit',
         style={'font-weight': 'bold'},
-        children='Clear selection on the Gantt diagram',
+        size='lg',
+        children='Clear',
     )
 
     gantt_graph = dcc.Graph(
         id=GANTT_GRAPH_ID,
         config=NON_INTERACTIVE_GRAPH_CONFIG,
+        # style={'height': '100%'},
     )
 
     all_none_switch = dbc.Switch(
@@ -79,8 +90,20 @@ def get_select_datasets_tab():
         value=False,
     )
 
+    table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
+                     #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                     ]
+    table_col_names = ['Plot', 'Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
+                       #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                       ]
+    table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
+    # on rendering HTML snipplets in DataTable cells:
+    # https://github.com/plotly/dash-table/pull/916
+    table_columns[0]['presentation'] = 'markdown'
+
     table = dash_table.DataTable(
         id=DATASETS_TABLE_ID,
+        columns=table_columns,
         css=[dict(selector="p", rule="margin: 0px;")],
         # see: https://dash.plotly.com/datatable/interactivity
         row_selectable="multi",
@@ -97,37 +120,105 @@ def get_select_datasets_tab():
             'lineHeight': '15px'
         },
         style_cell={'textAlign': 'left'},
+        style_cell_conditional=[
+            {
+                'if': {'column_id': 'eye'},
+                'textAlign': 'center',
+            }
+        ],
+        style_header={'fontWeight': 'bold'},
         markdown_options={'html': True},
     )
 
     quicklook_popup = html.Div(id=QUICKLOOK_POPUP_ID)
 
+    gantt_diagram_card = dbc.Card(
+        [
+            dbc.CardHeader(
+                html.Div([
+                    html.B('a) Datasets time coverage:'), ' ', 'Click on stations to see the datasets in the table on the right'
+                ]),
+            ),
+            dbc.CardBody(
+                [
+                    dbc.Row(dbc.Col(gantt_graph)),
+                ],
+                style={'overflowY': 'scroll'}
+            ),
+            dbc.CardFooter(
+                html.Div(
+                    [
+                        html.Div(reset_gantt_selection_button),
+                        html.Div(gantt_view_radio),
+                    ],
+                    style={
+                        'display': 'flex',
+                        'justify-content': 'space-between',
+                        'align-items': 'center',
+                    },
+                ),
+            )
+        ],
+        style={'height': '70vh'}  # 70% of viewport height
+    )
 
-    return dcc.Tab(
-        label='3. Select datasets',
+    datasets_table_card = dbc.Card([
+        dbc.CardHeader(
+            'b) Select your datasets here',
+            style={'font-weight': 'bold'},
+        ),
+        dbc.CardBody([
+            dbc.Row(dbc.Col(all_none_switch)),
+            dbc.Row(dbc.Col(table)),
+        ])
+    ])
+
+    return dbc.Tab(
+        label='2. Select datasets',
         id=SELECT_DATASETS_TAB_VALUE,
-        value=SELECT_DATASETS_TAB_VALUE,
+        tab_id=SELECT_DATASETS_TAB_VALUE,
         disabled=True,
+
         children=[
             html.Div(
-                style={'margin': '20px'},
+                style={'margin-top': '5px', 'margin-left': '20px', 'margin-right': '20px'},
                 children=[
-                    html.Div(id='select-datasets-left-panel-div', className='five columns', children=[
-                        html.Div(id='select-datasets-1st-subpanel-div', className='twelve columns', children=select_datasets_button, style={'text-align': 'right', 'margin-bottom': '20px'}),
-                        html.Div(id='select-datasets-2nd-subpanel-div', className='twelve columns', style={'margin-bottom': '10px'}, children=[
-                            html.Div(id='select-datasets-2nd-left-subpanel-div', className='six columns', children=gantt_view_radio),
-                            html.Div(id='select-datasets-2nd-right-subpanel-div', className='six columns', children=reset_gantt_selection_button, style={'text-align': 'right'}),
-                        ]),
-                        html.Div(id='select-datasets-3rd-subpanel-div2', className='twelve columns', children=gantt_graph),
-                    ]),
-                    html.Div(id='select-datasets-right-panel-div', className='seven columns', children=[
-                        all_none_switch,
-                        table,
-                    ]),
-    #                html.Div(id='select-datasets-main-panel-div', className='twelve columns', children=[
-    #                ]),
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                [
+                                    html.B('Variables legend:'),
+                                    dcc.Dropdown(
+                                        id=VARIABLES_LEGEND_DROPDOWN_ID,
+                                        options=std_variables.to_dict(orient='records'),
+                                        multi=True,
+                                        clearable=False,
+                                        disabled=True,
+                                    ),
+                                ],
+                                width=10
+                            ),
+                            dbc.Col(
+                                children=html.Div(get_next_button(SELECT_DATASETS_BUTTON_ID), style={'display': 'flex', 'justify-content': 'end'}),
+                                width=2,
+                            ),
+                        ],
+                        justify='between',
+                        style={'margin-bottom': '10px'},
+                    ),
+                    dbc.Row([
+                        dbc.Col(
+                            width=5,
+                            #style={'height': '100%'},
+                            children=gantt_diagram_card
+                        ),
+                        dbc.Col(
+                            width=7,
+                            children=datasets_table_card
+                        )
+                    ])
                 ]
             ),
-            quicklook_popup,
+            quicklook_popup
         ]
     )
