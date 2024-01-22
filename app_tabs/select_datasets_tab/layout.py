@@ -3,6 +3,7 @@ from dash import dcc, html, dash_table
 
 from utils.dash_persistence import get_dash_persistence_kwargs
 from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG, get_next_button, std_variables
+from utils import colors
 
 VARIABLES_LEGEND_DROPDOWN_ID = 'variables-legend-dropdown'
 # 'options' contains a list of dictionaries {'label' -> variable label, 'value' -> variable description}
@@ -90,16 +91,18 @@ def get_select_datasets_tab():
         value=False,
     )
 
-    table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
-                     #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
-                     ]
-    table_col_names = ['Plot', 'Title', 'Variables', 'RI', 'Station', 'Station code', 'Start', 'End',
-                       #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
-                       ]
+    table_col_ids = [
+        'eye', 'title', 'var_codes_filtered', 'long_name', 'platform_id', 'RI', 'time_period_start', 'time_period_end'
+    ]
+    table_col_names = [
+        'Plot', 'Title', 'Variables', 'Station', 'Station code', 'RI', 'Start', 'End',
+    ]
     table_columns = [{'name': name, 'id': i} for name, i in zip(table_col_names, table_col_ids)]
     # on rendering HTML snipplets in DataTable cells:
     # https://github.com/plotly/dash-table/pull/916
-    table_columns[0]['presentation'] = 'markdown'
+    table_columns[0]['presentation'] = 'markdown'  # column 'eye'
+    table_columns[2]['presentation'] = 'markdown'  # column 'var_codes_filtered'
+    table_columns[5]['presentation'] = 'markdown'  # column 'RI'
 
     table = dash_table.DataTable(
         id=DATASETS_TABLE_ID,
@@ -120,12 +123,6 @@ def get_select_datasets_tab():
             'lineHeight': '15px'
         },
         style_cell={'textAlign': 'left'},
-        style_cell_conditional=[
-            {
-                'if': {'column_id': 'eye'},
-                'textAlign': 'center',
-            }
-        ],
         style_header={'fontWeight': 'bold'},
         markdown_options={'html': True},
     )
@@ -173,6 +170,20 @@ def get_select_datasets_tab():
         ])
     ])
 
+    variables_legend_options = std_variables.to_dict(orient='records')
+    _color_by_std_ECV_name_dict = colors.get_color_by_std_ECV_name_dict()
+    for variables_legend_option in variables_legend_options:
+        _std_ecv_name = variables_legend_option['value']
+        _color = _color_by_std_ECV_name_dict[_std_ecv_name]
+        variables_legend_option['label'] = html.P(
+            [
+                html.I(className='fa-solid fa-square', style={'color': _color}),
+                ' ',
+                variables_legend_option['label']
+            ],
+            style={'font-size': '120%'}
+        )
+
     return dbc.Tab(
         label='2. Select datasets',
         id=SELECT_DATASETS_TAB_VALUE,
@@ -190,7 +201,7 @@ def get_select_datasets_tab():
                                     html.B('Variables legend:'),
                                     dcc.Dropdown(
                                         id=VARIABLES_LEGEND_DROPDOWN_ID,
-                                        options=std_variables.to_dict(orient='records'),
+                                        options=variables_legend_options,
                                         multi=True,
                                         clearable=False,
                                         disabled=True,
