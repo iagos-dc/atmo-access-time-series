@@ -13,13 +13,15 @@ import data_processing
 import data_processing.utils
 from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID, \
-    GANTT_SELECTED_DATASETS_IDX_STORE_ID, GANTT_SELECTED_BARS_STORE_ID, FILTER_DATA_TAB_VALUE, SELECT_DATASETS_TAB_VALUE
+    GANTT_SELECTED_DATASETS_IDX_STORE_ID, GANTT_SELECTED_BARS_STORE_ID, FILTER_DATA_TAB_VALUE, \
+    SELECT_DATASETS_TAB_VALUE
 from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, \
     DATASETS_TABLE_ID, DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
     RESET_DATASETS_SELECTION_BUTTON_ID, SELECTED_GANTT_OPACITY, UNSELECTED_GANTT_OPACITY, BAR_UNSELECTED, \
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
 from log import logger, log_exception, log_exectime
 from utils import charts
+from utils import colors
 from utils.exception_handler import callback_with_exc_handling, handle_exception, AppException, AppWarning
 
 
@@ -221,7 +223,27 @@ def datasets_as_table(
 
     # on rendering HTML snipplets in DataTable cells:
     # https://github.com/plotly/dash-table/pull/916
-    datasets_df['eye'] = '<i class="fa-solid fa-chart-line" style="display: flex; justify-content: center"></i>'
+    datasets_df['eye'] = '<p style="justify-content: center"><i class="fa-solid fa-chart-line"></i></p>'  # with <p style=... > we override datatable.css
+
+    # apply colored circles to RI column
+    color_for_RI = datasets_df['RI'].map(charts.COLOR_BY_CATEGORY)
+    circles_for_RI = '<i class="fa-solid fa-circle" style="color: ' + color_for_RI + '"></i>'
+    datasets_df['RI'] = circles_for_RI + '&nbsp;' + datasets_df['RI']
+
+    # apply colored squares to var_codes_filtered
+    _color_by_variable_code = colors.get_color_by_variable_code_dict()
+
+    def _icon_for_variable_code(code):
+        color = _color_by_variable_code[code]
+        return '<i class="fa-solid fa-square" style="color: ' + color + '"></i>'
+
+    def _variable_codes_to_html(codes):
+        codes = codes.split(', ')
+        icons = [_icon_for_variable_code(code) for code in codes]
+        icons_and_codes = [f'{icon}&nbsp;{code}' for icon, code in zip(icons, codes)]
+        return '&nbsp;&nbsp;'.join(icons_and_codes)
+
+    datasets_df['var_codes_filtered'] = datasets_df['var_codes_filtered'].map(_variable_codes_to_html)
 
     table_data = datasets_df[['id'] + table_col_ids].to_dict(orient='records')
 

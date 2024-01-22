@@ -173,14 +173,16 @@ def get_search_datasets_tab():
                 dbc.Col(
                     #id='selected-stations-div',
                     children=[
-                         html.P('Selected stations (you can refine your selection here)',
-                                style={'font-weight': 'bold'}),
-                         dcc.Dropdown(
-                             id=SELECTED_STATIONS_DROPDOWN_ID,
-                             multi=True,
-                             clearable=False,
-                             #**get_dash_persistence_kwargs(persistence_id=True)
-                         ),
+                        html.P(
+                            'Selected stations (you can refine your selection here)',
+                            style={'font-weight': 'bold'}
+                        ),
+                        dcc.Dropdown(
+                            id=SELECTED_STATIONS_DROPDOWN_ID,
+                            multi=True,
+                            clearable=False,
+                            #**get_dash_persistence_kwargs(persistence_id=True)
+                        ),
                     ],
                 ),
                 style={'margin-top': '10px'},

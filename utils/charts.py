@@ -11,6 +11,7 @@ from log.log import logger, log_exectime
 from data_processing.utils import get_subsampling_mask
 from utils import helper
 from utils.exception_handler import EmptyFigureException
+from utils.colors import get_color_by_variable_code_dict
 
 
 # Color codes
@@ -280,6 +281,8 @@ def _get_timeline_by_station_and_vars(datasets_df):
         hover_name='station_fullname',
         hover_data={'station_fullname': True, 'platform_id_RI': True, 'var_codes_filtered': True, 'datasets': True},
         custom_data=['indices'],
+        category_orders={'var_codes_filtered': list(get_color_by_variable_code_dict())},
+        color_discrete_sequence=list(get_color_by_variable_code_dict().values()),
         height=height,
     )
     gantt.update_layout(

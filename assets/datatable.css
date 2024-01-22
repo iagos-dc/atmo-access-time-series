@@ -1,0 +1,6 @@
+.cell-markdown > p {
+    display: flex;
+    justify-content: left;
+    height: 100%;
+    overflow-y: hidden;
+}

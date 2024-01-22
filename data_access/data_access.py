@@ -8,6 +8,7 @@ import pandas as pd
 import xarray as xr
 import json
 import itertools
+import functools
 
 from .common import CACHE_DIR, DATA_DIR
 from . import helper
@@ -215,6 +216,7 @@ def get_vars_long():
     return _variables
 
 
+@functools.lru_cache()
 def get_vars():
     """
     Provide a listing of RI's variables.
@@ -225,6 +227,18 @@ def get_vars():
     """
     variables_df = get_vars_long().drop(columns=['variable_name'])
     return variables_df.drop_duplicates(subset=['std_ECV_name', 'ECV_name'], keep='first', ignore_index=True)
+
+
+@functools.lru_cache()
+def get_std_ECV_name_by_code():
+    """
+    Provides a dictionary variable code -> std ECV name
+    :return: dict
+    """
+    std_ECV_name_by_code_series = get_vars()[['code', 'std_ECV_name']].drop_duplicates().set_index('code')['std_ECV_name']
+    if not std_ECV_name_by_code_series.index.is_unique:
+        logger().warning(f'std_ECV_name is not unique for a given variable code: {std_ECV_name_by_code_series}')
+    return std_ECV_name_by_code_series.to_dict()
 
 
 #@log_exectime
