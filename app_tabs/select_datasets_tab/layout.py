@@ -203,15 +203,14 @@ def get_select_datasets_tab():
                                         id=VARIABLES_LEGEND_DROPDOWN_ID,
                                         options=variables_legend_options,
                                         multi=True,
-                                        clearable=False,
-                                        disabled=True,
+                                        clearable=True,
                                     ),
                                 ],
-                                width=10
+                                width=11
                             ),
                             dbc.Col(
                                 children=html.Div(get_next_button(SELECT_DATASETS_BUTTON_ID), style={'display': 'flex', 'justify-content': 'end'}),
-                                width=2,
+                                width=1,
                             ),
                         ],
                         justify='between',

@@ -211,6 +211,9 @@ def datasets_as_table(
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
     if len(datasets_df) > 0:
+        datasets_df['title'] = datasets_df['title'].str.translate(str.maketrans({',': ', '}))
+            # expand ',' to ', ' in the title in order to facilitate line-breaking for long titles
+            # (ACTRIS tends to have long titles with several comma-separated phrases)
         datasets_df['time_period_start'] = datasets_df['time_period_start'].dt.strftime('%Y-%m-%d')
         datasets_df['time_period_end'] = datasets_df['time_period_end'].dt.strftime('%Y-%m-%d')
 
@@ -241,7 +244,7 @@ def datasets_as_table(
         codes = codes.split(', ')
         icons = [_icon_for_variable_code(code) for code in codes]
         icons_and_codes = [f'{icon}&nbsp;{code}' for icon, code in zip(icons, codes)]
-        return '&nbsp;&nbsp;'.join(icons_and_codes)
+        return '&ensp;'.join(icons_and_codes)
 
     datasets_df['var_codes_filtered'] = datasets_df['var_codes_filtered'].map(_variable_codes_to_html)
 

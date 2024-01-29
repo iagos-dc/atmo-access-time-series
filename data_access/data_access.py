@@ -213,6 +213,20 @@ def get_vars_long():
         df['std_ECV_name'] = df['ECV_name'].apply(lambda l: l[0])
         df = df.join(_var_codes_by_ECV, on='std_ECV_name')
         _variables = df.explode('ECV_name', ignore_index=True).drop_duplicates(keep='first', ignore_index=True)
+
+    # sort _variables dataframe by 'code', 'std_ECV_name', 'ECV_name'
+    # however, do not distinguish between lower and upper-case letters
+    sortby_ori = ['code', 'std_ECV_name', 'ECV_name']
+    sortby_upper = [f'_{col}_uppercase' for col in sortby_ori]
+    for col_ori, col_upper in zip(sortby_ori, sortby_upper):
+        _variables[col_upper] = _variables[col_ori].str.upper()
+    _variables = _variables.sort_values(by=sortby_upper)
+    _variables = _variables.drop(columns=sortby_upper)
+
+    # _ = _variables.to_dict(orient='records')
+    # _ = json.dumps(_, indent=2)
+    # print(_)
+
     return _variables
 
 
