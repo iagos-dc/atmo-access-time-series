@@ -213,6 +213,20 @@ def get_vars_long():
         df['std_ECV_name'] = df['ECV_name'].apply(lambda l: l[0])
         df = df.join(_var_codes_by_ECV, on='std_ECV_name')
         _variables = df.explode('ECV_name', ignore_index=True).drop_duplicates(keep='first', ignore_index=True)
+
+    # sort _variables dataframe by 'code', 'std_ECV_name', 'ECV_name'
+    # however, do not distinguish between lower and upper-case letters
+    sortby_ori = ['code', 'std_ECV_name', 'ECV_name']
+    sortby_upper = [f'_{col}_uppercase' for col in sortby_ori]
+    for col_ori, col_upper in zip(sortby_ori, sortby_upper):
+        _variables[col_upper] = _variables[col_ori].str.upper()
+    _variables = _variables.sort_values(by=sortby_upper)
+    _variables = _variables.drop(columns=sortby_upper)
+
+    # _ = _variables.to_dict(orient='records')
+    # _ = json.dumps(_, indent=2)
+    # print(_)
+
     return _variables
 
 
@@ -310,120 +324,7 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
         for vs in datasets_df['ecv_variables'].to_list()
     ]
 
-    std_ECV_names_by_ECV_name = helper.many2many_to_dictOfList(
-        zip(vars_long['ECV_name'].to_list(), vars_long['std_ECV_name'].to_list()), keep_set=True
-    )
-    std_ECV_names_by_variable_name = helper.many2many_to_dictOfList(
-        zip(vars_long['variable_name'].to_list(), vars_long['std_ECV_name'].to_list()), keep_set=True
-    )
-    std_ECV_names_by_name = helper.many2manyLists_to_dictOfList(
-        itertools.chain(std_ECV_names_by_ECV_name.items(), std_ECV_names_by_variable_name.items()), keep_set=True
-    )
-    datasets_df['ecv_variables_filtered'] = [
-        sorted(
-            v for v in vs if std_ECV_names_by_name[v].intersection(variables)
-        )
-        for vs in datasets_df['ecv_variables'].to_list()
-    ]
-    datasets_df['std_ecv_variables_filtered'] = [
-        sorted(
-            helper.image_of_dictOfLists(vs, std_ECV_names_by_name).intersection(variables)
-        )
-        for vs in datasets_df['ecv_variables'].to_list()
-    ]
-    req_var_codes = helper.image_of_dict(variables, VARIABLES_MAPPING)
-    datasets_df['var_codes_filtered'] = [
-        ', '.join(sorted(vc for vc in var_codes if vc in req_var_codes))
-        for var_codes in datasets_df['var_codes'].to_list()
-    ]
-    # datasets_df['url'] = datasets_df['urls'].apply(lambda x: x[-1]['url'])  # now we take the last proposed url; TODO: see what should be a proper rule (first non-empty url?)
-    datasets_df['time_period_start'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[0]))
-    datasets_df['time_period_end'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[1]))
-    datasets_df['platform_id_RI'] = datasets_df['platform_id'] + ' (' + datasets_df['RI'] + ')'
-
-    # return datasets_df.drop(columns=['urls', 'time_period'])
-    return datasets_df.drop(columns=['time_period']).rename(columns={'urls': 'url'})
-
-
-#@log_exectime
-#@log_profiler_info()
-def get_datasets_old(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
-    """
-    Provide metadata of datasets selected according to the provided criteria.
-    :param variables: list of str or None; list of variable standard ECV names (as in the column 'std_ECV_name' of the dataframe returned by get_vars function)
-    :param lon_min: float or None
-    :param lon_max: float or None
-    :param lat_min: float or None
-    :param lat_max: float or None
-    :return: pandas.DataFrame with columns: 'title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes',
-     'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes_filtered',
-     'time_period_start', 'time_period_end', 'platform_id_RI';
-    e.g. for the call get_datasets(['Pressure (surface)', 'Temperature (near surface)'] one gets a dataframe with an example row like:
-         'title': 'ICOS_ATC_L2_L2-2021.1_GAT_2.5_CTS_MTO.zip',
-         'url': [{'url': 'https://meta.icos-cp.eu/objects/0HxLXMXolAVqfcuqpysYz8jK', 'type': 'landing_page'}],
-         'ecv_variables': ['Pressure (surface)', 'Surface Wind Speed and direction', 'Temperature (near surface)', 'Water Vapour (surface)'],
-         'platform_id': 'GAT',
-         'RI': 'ICOS',
-         'var_codes': ['AP', 'AT', 'RH', 'WSD'],
-         'ecv_variables_filtered': ['Pressure (surface)', 'Temperature (near surface)'],
-         'std_ecv_variables_filtered': ['Pressure (surface)', 'Temperature (near surface)'],
-         'var_codes_filtered': 'AP, AT',
-         'time_period_start': Timestamp('2016-05-10 00:00:00+0000', tz='UTC'),
-         'time_period_end': Timestamp('2021-01-31 23:00:00+0000', tz='UTC'),
-         'platform_id_RI': 'GAT (ICOS)'
-    """
-    if variables is None:
-        variables = []
-    if None in [lon_min, lon_max, lat_min, lat_max]:
-        bbox = []
-    else:
-        bbox = [lon_min, lat_min, lon_max, lat_max]
-
-    datasets_dfs = []
-    for ri, get_ri_datasets in _GET_DATASETS_BY_RI.items():
-        # get_ri_datasets = log_exectime(get_ri_datasets)
-        try:
-            df = get_ri_datasets(variables, bbox)
-        except Exception as e:
-            logger().exception(f'getting datasets for {ri.upper()} failed', exc_info=e)
-            continue
-        if df is not None:
-            datasets_dfs.append(df)
-
-    if not datasets_dfs:
-        return None
-    datasets_df = pd.concat(datasets_dfs, ignore_index=True)
-
-    vars_long = get_vars_long()
-    def var_names_to_var_codes(var_names):
-        # TODO: performance issues
-        var_names = np.unique(var_names)
-        codes1 = vars_long[['ECV_name', 'code']].join(pd.DataFrame(index=var_names), on='ECV_name', how='inner')
-        codes1 = codes1['code'].unique()
-        codes2 = vars_long[['variable_name', 'code']].join(pd.DataFrame(index=var_names), on='variable_name', how='inner')
-        codes2 = codes2['code'].unique()
-        codes = np.concatenate([codes1, codes2])
-        return np.sort(np.unique(codes)).tolist()
-    def var_names_to_std_ecv_by_var_name(var_names):
-        # TODO: performance issues
-        var_names = np.unique(var_names)
-        std_ECV_names1 = vars_long[['ECV_name', 'std_ECV_name']].join(pd.DataFrame(index=var_names), on='ECV_name', how='inner')
-        std_ECV_names1 = std_ECV_names1.rename(columns={'ECV_name': 'name'}).drop_duplicates(ignore_index=True)
-        std_ECV_names2 = vars_long[['variable_name', 'std_ECV_name']].join(pd.DataFrame(index=var_names), on='variable_name', how='inner')
-        std_ECV_names2 = std_ECV_names2.rename(columns={'variable_name': 'name'}).drop_duplicates(ignore_index=True)
-        std_ECV_names = pd.concat([std_ECV_names1, std_ECV_names2], ignore_index=True).drop_duplicates(ignore_index=True)
-        return std_ECV_names
-    datasets_df['var_codes'] = datasets_df['ecv_variables'].apply(lambda var_names: var_names_to_var_codes(var_names))
-    datasets_df['ecv_variables_filtered'] = datasets_df['ecv_variables'].apply(lambda var_names:
-                                                                               var_names_to_std_ecv_by_var_name(var_names)\
-                                                                               .join(pd.DataFrame(index=variables), on='std_ECV_name', how='inner')['name']\
-                                                                               .sort_values()\
-                                                                               .tolist())
-    datasets_df['std_ecv_variables_filtered'] = datasets_df['ecv_variables'].apply(lambda var_names:
-                                                                                   [v for v in var_names_to_std_ecv_by_var_name(var_names)['std_ECV_name'].sort_values().tolist() if v in variables])
-    req_var_codes = set(VARIABLES_MAPPING[v] for v in variables if v in VARIABLES_MAPPING)
-    datasets_df['var_codes_filtered'] = datasets_df['var_codes']\
-        .apply(lambda var_codes: ', '.join(sorted(vc for vc in var_codes if vc in req_var_codes)))
+    datasets_df = filter_datasets_on_vars(datasets_df, variables)
 
     # datasets_df['url'] = datasets_df['urls'].apply(lambda x: x[-1]['url'])  # now we take the last proposed url; TODO: see what should be a proper rule (first non-empty url?)
     datasets_df['time_period_start'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[0]))
@@ -496,15 +397,45 @@ def filter_datasets_on_stations(datasets_df, stations_short_name):
     return datasets_df[datasets_df['platform_id'].isin(stations_short_name)]
 
 
-def filter_datasets_on_vars(datasets_df, var_codes):
+def filter_datasets_on_vars(datasets_df, std_ecv_names):
     """
-    Filter datasets which have at least one variables in common with var_codes.
+    Filter datasets which have at least one variables in common with std_ecv_names.
     :param datasets_df: pandas.DataFrame with datasets metadata (in the format returned by get_datasets function)
-    :param var_codes: list of str; variables codes
+    :param std_ecv_names: list of str; standard ECV variables names to filter on
     :return: pandas.DataFrame
     """
-    var_codes = set(var_codes)
-    mask = datasets_df['var_codes'].apply(lambda vc: not var_codes.isdisjoint(vc))
+    vars_long = get_vars_long()
+
+    std_ECV_names_by_ECV_name = helper.many2many_to_dictOfList(
+        zip(vars_long['ECV_name'].to_list(), vars_long['std_ECV_name'].to_list()), keep_set=True
+    )
+    std_ECV_names_by_variable_name = helper.many2many_to_dictOfList(
+        zip(vars_long['variable_name'].to_list(), vars_long['std_ECV_name'].to_list()), keep_set=True
+    )
+    std_ECV_names_by_name = helper.many2manyLists_to_dictOfList(
+        itertools.chain(std_ECV_names_by_ECV_name.items(), std_ECV_names_by_variable_name.items()), keep_set=True
+    )
+    datasets_df['ecv_variables_filtered'] = [
+        sorted(
+            v for v in vs if std_ECV_names_by_name[v].intersection(std_ecv_names)
+        )
+        for vs in datasets_df['ecv_variables'].to_list()
+    ]
+    datasets_df['std_ecv_variables_filtered'] = [
+        sorted(
+            helper.image_of_dictOfLists(vs, std_ECV_names_by_name).intersection(std_ecv_names)
+        )
+        for vs in datasets_df['ecv_variables'].to_list()
+    ]
+    req_var_codes = helper.image_of_dict(std_ecv_names, VARIABLES_MAPPING)
+    datasets_df['var_codes_filtered'] = [
+        ', '.join(sorted(vc for vc in var_codes if vc in req_var_codes))
+        for var_codes in datasets_df['var_codes'].to_list()
+    ]
+
+    mask = datasets_df['std_ecv_variables_filtered'].apply(len) > 0
+    #print(list(datasets_df.platform_id))
+    #print(datasets_df[mask & (datasets_df.platform_id == 'SZW')].iloc[0])
     return datasets_df[mask]
 
 

@@ -264,52 +264,6 @@ def _get_timeline_by_station(datasets_df):
     return gantt
 
 
-def _get_timeline_by_station_and_vars(datasets_df):
-    df = datasets_df\
-        .groupby(['platform_id_RI', 'station_fullname', 'var_codes_filtered'])\
-        .apply(lambda x: _contiguous_periods(x['time_period_start'], x['time_period_end']))\
-        .reset_index()
-    df = df.sort_values('platform_id_RI')
-    facet_col_wrap = 4
-    no_platforms = len(df['platform_id_RI'].unique())
-    no_var_codes_filtered = len(df['var_codes_filtered'].unique())
-    no_facet_rows = (no_var_codes_filtered + facet_col_wrap - 1) // facet_col_wrap
-    height = 100 + max(100, 50 + 25 * no_platforms) * no_facet_rows
-    platform_id_RI_var_codes_filtered = df['var_codes_filtered'] + ' : ' + df['platform_id_RI']
-    gantt = px.timeline(
-        df, x_start='time_period_start', x_end='time_period_end', y=platform_id_RI_var_codes_filtered, color='var_codes_filtered',
-        hover_name='station_fullname',
-        hover_data={'station_fullname': True, 'platform_id_RI': True, 'var_codes_filtered': True, 'datasets': True},
-        custom_data=['indices'],
-        category_orders={'var_codes_filtered': list(get_color_by_variable_code_dict())},
-        color_discrete_sequence=list(get_color_by_variable_code_dict().values()),
-        height=height,
-    )
-    gantt.update_layout(
-        clickmode='event',
-        # selectdirection='h',
-        legend={
-            'title': 'Variable(s)',
-            'orientation': 'h',
-            'yanchor': 'bottom', 'y': 1, 'xanchor': 'left', 'x': 0
-        },
-        yaxis={
-            'title': 'Platform : Variable(s)',
-            'side': 'right',
-            'autorange': 'reversed',
-            'tickmode': 'array',
-            'tickvals': platform_id_RI_var_codes_filtered,
-            'ticktext': df['station_fullname'].map(_wrap_text),
-        },
-        xaxis={
-            'title': 'time',
-        },
-        title='',
-    )
-    # print(f'gantt={json.loads(gantt.to_json())}')
-    return gantt
-
-
 def get_avail_data_by_var_gantt(ds):
     dfs = []
     for v, da in ds.data_vars.items():

@@ -8,13 +8,13 @@ import data_access
 import data_access.common
 import utils.stations_map
 from app_tabs.common.data import stations
-from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, DATASETS_STORE_ID, APP_TABS_ID, \
+from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, SELECTED_ECV_STORE_ID, DATASETS_STORE_ID, APP_TABS_ID, \
     SELECT_DATASETS_TAB_VALUE, std_variables
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     SEARCH_DATASETS_BUTTON_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
     MAP_BACKGROUND_RADIO_ID, MAPBOX_STYLES, MAP_ZOOM_STORE_ID
-from app_tabs.select_datasets_tab.layout import VARIABLES_LEGEND_DROPDOWN_ID
+from app_tabs.select_datasets_tab.layout import VARIABLES_LEGEND_DROPDOWN_ID, get_variables_legend_options
 from utils.stations_map import DEFAULT_STATIONS_SIZE, SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, \
     SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE
 from log import logger, log_exception, log_exectime
@@ -23,22 +23,43 @@ from utils.exception_handler import callback_with_exc_handling, AppException, Ap
 
 
 @callback_with_exc_handling(
-    Output(VARIABLES_CHECKLIST_ID, 'value'),
-    Input(VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
-    prevent_initial_call=True,
+    Output(SELECTED_ECV_STORE_ID, 'data'),
+    Input(VARIABLES_CHECKLIST_ID, 'value'),
+    # prevent_initial_call=True,
 )
 @log_exception
-def toogle_variable_checklist(variables_checklist_all_none_switch):
-    if variables_checklist_all_none_switch:
-        return std_variables['value'].tolist()
+def update_selected_ecv_store(selected_ecv):
+    return selected_ecv
+
+
+@callback_with_exc_handling(
+    Output(VARIABLES_CHECKLIST_ID, 'value'),
+    Input(VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
+    State(SELECTED_ECV_STORE_ID, 'data'),
+    # prevent_initial_call=True,
+)
+@log_exception
+def toogle_variable_checklist(variables_checklist_all_none_switch, selected_ecv):
+    _all_variables = std_variables['value'].tolist()
+
+    ctx = list(dash.ctx.triggered_prop_ids.values())
+    if VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID in ctx:
+        if variables_checklist_all_none_switch:
+            return _all_variables
+        else:
+            return []
     else:
-        return []
+        if selected_ecv is None:
+            selected_ecv = _all_variables
+        _res = [v for v in _all_variables if v in selected_ecv]
+        # print(f'_res={_res}')
+        return _res
 
 
 @callback_with_exc_handling(
     Output(SEARCH_DATASETS_BUTTON_ID, 'disabled'),
     Input(SELECTED_STATIONS_STORE_ID, 'data'),
-    Input(VARIABLES_CHECKLIST_ID, 'value'),
+    Input(SELECTED_ECV_STORE_ID, 'data'),
 )
 @log_exception
 def search_datasets_button_disabled(selected_stations_idx, selected_variables):
@@ -61,19 +82,20 @@ def change_map_background(map_background):
 
 @callback_with_exc_handling(
     Output(VARIABLES_LEGEND_DROPDOWN_ID, 'value'),
+    Output(VARIABLES_LEGEND_DROPDOWN_ID, 'options'),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
-    State(VARIABLES_CHECKLIST_ID, 'value')
+    State(SELECTED_ECV_STORE_ID, 'data')
 )
-@log_exectime
+@log_exception
 def set_variables_legend_dropdown(n_click, selected_variables):
-    return selected_variables
+    return selected_variables, get_variables_legend_options(selected_variables)
 
 
 @callback_with_exc_handling(
     Output(DATASETS_STORE_ID, 'data'),
     Output(APP_TABS_ID, 'active_tab', allow_duplicate=True),
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
-    State(VARIABLES_CHECKLIST_ID, 'value'),
+    State(SELECTED_ECV_STORE_ID, 'data'),
     State(SELECTED_STATIONS_STORE_ID, 'data'),
     prevent_initial_call=True
 )
