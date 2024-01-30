@@ -9,9 +9,6 @@ VARIABLES_LEGEND_DROPDOWN_ID = 'variables-legend-dropdown'
 # 'options' contains a list of dictionaries {'label' -> variable label, 'value' -> variable description}
 # 'value' contains a list of variable labels in the dropdown
 
-GANTT_VIEW_RADIO_ID = 'gantt-view-radio'
-# 'value' contains 'compact' or 'detailed'
-
 GANTT_GRAPH_ID = 'gantt-graph'
 # 'figure' contains a Plotly figure object
 
@@ -44,29 +41,25 @@ OPACITY_BY_BAR_SELECTION_STATUS = {
 }
 
 
-def get_select_datasets_tab():
-    gantt_view_radio = dbc.InputGroup(
-        [
-            dbc.InputGroupText('View: ', style={'margin-right': '10px'}),
-            dbc.RadioItems(
-                id=GANTT_VIEW_RADIO_ID,
-                options=[
-                    {'label': 'compact', 'value': 'compact'},
-                    {'label': 'detailed', 'value': 'detailed'},
-                ],
-                value='compact',
-                inline=True
-            ),
-        ],
-        size='lg',
-        style={
-            'display': 'flex',
-            'align-items': 'center',
-            'border': '1px solid lightgrey',
-            'border-radius': '5px'
-        }
-    )
+def get_variables_legend_options(selected_std_variables):
+    filtered_std_variables = std_variables[std_variables['value'].isin(selected_std_variables)]
+    variables_legend_options = filtered_std_variables.to_dict(orient='records')
+    _color_by_std_ECV_name_dict = colors.get_color_by_std_ECV_name_dict()
+    for variables_legend_option in variables_legend_options:
+        _std_ecv_name = variables_legend_option['value']
+        _color = _color_by_std_ECV_name_dict[_std_ecv_name]
+        variables_legend_option['label'] = html.P(
+            [
+                html.I(className='fa-solid fa-square', style={'color': _color}),
+                ' ',
+                variables_legend_option['label']
+            ],
+            style={'font-size': '120%'}
+        )
+    return variables_legend_options
 
+
+def get_select_datasets_tab():
     reset_gantt_selection_button = dbc.Button(
         id=RESET_DATASETS_SELECTION_BUTTON_ID,
         n_clicks=0,
@@ -142,19 +135,7 @@ def get_select_datasets_tab():
                 ],
                 style={'overflowY': 'scroll'}
             ),
-            dbc.CardFooter(
-                html.Div(
-                    [
-                        html.Div(reset_gantt_selection_button),
-                        html.Div(gantt_view_radio),
-                    ],
-                    style={
-                        'display': 'flex',
-                        'justify-content': 'space-between',
-                        'align-items': 'center',
-                    },
-                ),
-            )
+            dbc.CardFooter(reset_gantt_selection_button)
         ],
         style={'height': '70vh'}  # 70% of viewport height
     )
@@ -169,20 +150,6 @@ def get_select_datasets_tab():
             dbc.Row(dbc.Col(table)),
         ])
     ])
-
-    variables_legend_options = std_variables.to_dict(orient='records')
-    _color_by_std_ECV_name_dict = colors.get_color_by_std_ECV_name_dict()
-    for variables_legend_option in variables_legend_options:
-        _std_ecv_name = variables_legend_option['value']
-        _color = _color_by_std_ECV_name_dict[_std_ecv_name]
-        variables_legend_option['label'] = html.P(
-            [
-                html.I(className='fa-solid fa-square', style={'color': _color}),
-                ' ',
-                variables_legend_option['label']
-            ],
-            style={'font-size': '120%'}
-        )
 
     return dbc.Tab(
         label='2. Select datasets',
@@ -201,7 +168,6 @@ def get_select_datasets_tab():
                                     html.B('Variables legend:'),
                                     dcc.Dropdown(
                                         id=VARIABLES_LEGEND_DROPDOWN_ID,
-                                        options=variables_legend_options,
                                         multi=True,
                                         clearable=True,
                                     ),

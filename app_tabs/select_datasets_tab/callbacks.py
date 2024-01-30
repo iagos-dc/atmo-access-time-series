@@ -15,7 +15,7 @@ from app_tabs.common.data import station_by_shortnameRI
 from app_tabs.common.layout import APP_TABS_ID, DATASETS_STORE_ID, INTEGRATE_DATASETS_REQUEST_ID, \
     GANTT_SELECTED_DATASETS_IDX_STORE_ID, GANTT_SELECTED_BARS_STORE_ID, FILTER_DATA_TAB_VALUE, \
     SELECT_DATASETS_TAB_VALUE
-from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, GANTT_VIEW_RADIO_ID, \
+from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, VARIABLES_LEGEND_DROPDOWN_ID, \
     DATASETS_TABLE_ID, DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
     RESET_DATASETS_SELECTION_BUTTON_ID, SELECTED_GANTT_OPACITY, UNSELECTED_GANTT_OPACITY, BAR_UNSELECTED, \
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
@@ -104,15 +104,17 @@ def update_selection_on_gantt_graph(
     Output(GANTT_GRAPH_ID, 'figure'),
     Output(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     Output(GANTT_SELECTED_BARS_STORE_ID, 'data'),
-    Input(GANTT_VIEW_RADIO_ID, 'value'),
     Input(DATASETS_STORE_ID, 'data'),
+    Input(VARIABLES_LEGEND_DROPDOWN_ID, 'value'),
     Input(APP_TABS_ID, 'active_tab'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
     State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
 @log_exception
 #@log_exectime
-def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_datasets):
+def get_gantt_figure(datasets_json, selected_variables, app_tab_value, selected_datasets):
+    print(f'selected_variables={selected_variables}')
+    #print(f'datasets_json={json.dumps(json.loads(datasets_json), indent=2)}')
     # TODO: transfer gantt_figure_selectedData to that of output (now it is cleared)
     if app_tab_value != SELECT_DATASETS_TAB_VALUE:
         raise dash.exceptions.PreventUpdate
@@ -131,15 +133,14 @@ def get_gantt_figure(gantt_view_type, datasets_json, app_tab_value, selected_dat
     selected_datasets = set(selected_datasets) if selected_datasets is not None else set()
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
+    datasets_df = data_access.filter_datasets_on_vars(datasets_df, selected_variables)
+
     datasets_df = datasets_df.join(station_by_shortnameRI['station_fullname'], on='platform_id_RI')  # column 'station_fullname' joined to datasets_df
 
     if len(datasets_df) == 0:
        return charts.empty_figure(height=400), selected_datasets_output, None
 
-    if gantt_view_type == 'compact':
-        fig = charts._get_timeline_by_station(datasets_df)
-    else:
-        fig = charts._get_timeline_by_station_and_vars(datasets_df)
+    fig = charts._get_timeline_by_station(datasets_df)
 
     fig.update_traces(
         selected={'marker_opacity': SELECTED_GANTT_OPACITY},
