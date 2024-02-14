@@ -166,11 +166,11 @@ def integrate_datasets(dss):
                 freq_str = ''
 
             v_ri_freq = f'{v}_{ri}_{freq_str}' if freq_str else f'{v}_{ri}'
-            var_id = (v_ri_freq, da_md[metadata.CITY_OR_STATION_NAME], attrs.get('sampling_height'), selector, )
+            var_id = (v_ri_freq, da_md[metadata.CITY_OR_STATION_NAME], da_md[metadata.STATION_CODE], attrs.get('sampling_height'), selector, )
             var_id = tuple(map(lambda i: str(i) if i is not None else '', var_id))  # ensure all parts of var_id are strings
             tree_of_var_ids.add_path(var_id, da)
 
-    das_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=3)  # we want to keep v_ri_freq in the var_id
+    das_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=2)  # we want to keep v_ri_freq and da_md[metadata.CITY_OR_STATION_NAME] in the var_id
     da_by_var_id = {}
     for var_id, das in das_by_var_id.items():
         if len(das) == 1:

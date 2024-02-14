@@ -6,6 +6,7 @@ VARIABLE_LABEL = 'variable_label'
 UNITS = 'units'
 YAXIS_LABEL = 'yaxis_label'
 CITY_OR_STATION_NAME = 'city_or_station_name'
+STATION_CODE = 'station_code'
 
 
 def dict_get(d, *keys, default=None):
@@ -37,12 +38,19 @@ def da_attr_to_metadata_dict(da=None, attrs=None):
     units = attrs.get('units', '???')
     yaxis_label = units  # units = f'{variable_label} ({units})'
     city_or_station_name = dict_get(attrs, 'city', 'station_name', 'region', 'ebas_station_name')
+    station_code = dict_get(
+        attrs,
+        'IATA_code', 'region_code', # IAGOS
+        'station_id', # ICOS
+        'ebas_station_code', # ACTRIS
+    )
 
     metadata = {
         VARIABLE_LABEL: variable_label,
         UNITS: units,
         YAXIS_LABEL: yaxis_label,
         CITY_OR_STATION_NAME: city_or_station_name,
+        STATION_CODE: station_code
     }
     # # print(f'da_metadata={metadata}')
     return metadata
