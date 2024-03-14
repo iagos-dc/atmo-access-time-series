@@ -9,6 +9,7 @@ import pkg_resources
 DATA_DIR = pathlib.Path(pkg_resources.resource_filename('data_access', 'resources'))
 
 IAGOS_REGIONS = {
+    'WArc': ('the western hemisphere Arctic', [-150, 0], [60, 85]),
     'WNAm': ('western North America', [-125, -105], [40, 60]),
     'EUS': ('the eastern United States', [-90, -60], [35, 50]),
     'NAt': ('the North Atlantic', [-50, -20], [50, 60]),
