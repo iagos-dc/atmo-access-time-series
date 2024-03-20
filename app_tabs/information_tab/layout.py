@@ -1,7 +1,7 @@
 from dash import html
 import dash_bootstrap_components as dbc
 
-from app_tabs.common.layout import INFORMATION_TAB_VALUE, get_next_button
+from app_tabs.common.layout import INFORMATION_TAB_VALUE, get_help_icon, get_next_button
 
 
 PASS_INFO_BUTTON_ID = 'pass-info-button'
@@ -103,7 +103,20 @@ def get_information_tab(actris_logo, iagos_logo, icos_logo):
         children=[
             html.Div(
                 children=[
-                    html.Div(get_next_button(PASS_INFO_BUTTON_ID), style={'display': 'flex', 'justify-content': 'end'}),
+                    dbc.Row(
+                        dbc.Col(
+                            children=dbc.Row(
+                                [
+                                    dbc.Col(get_help_icon()),
+                                    dbc.Col(html.Div(get_next_button(PASS_INFO_BUTTON_ID))),
+                                ],
+                                align='center'
+                            ),
+                            width='auto',
+                        ),
+                        justify='end',
+                        style={'margin-bottom': '10px'},
+                    ),
                     html.H6('This service allows you to search, analyse and visualise data from three Atmosphere European Research Infrastructures.'),
                     html.H6('It has been implemented in the framework of the European Project ATMO-ACCESS to demonstrate interoperability within the Research Infrastructures'),
                     html.H6('Only Essential Climate Variables are available. You can find more information about the provided datasets in the table below.'),

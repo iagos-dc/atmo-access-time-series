@@ -2,7 +2,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 import utils.stations_map
-from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE, get_next_button, std_variables
+from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE, get_help_icon, get_next_button, std_variables
 from utils.dash_persistence import get_dash_persistence_kwargs
 
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
@@ -199,7 +199,13 @@ def get_search_datasets_tab():
             children=[
                 dbc.Row(
                     dbc.Col(
-                        children=html.Div(get_next_button(SEARCH_DATASETS_BUTTON_ID)),
+                        children=dbc.Row(
+                            [
+                                dbc.Col(get_help_icon('#search-datasets')),
+                                dbc.Col(html.Div(get_next_button(SEARCH_DATASETS_BUTTON_ID))),
+                            ],
+                            align='center'
+                        ),
                         width='auto',
                     ),
                     justify='end',

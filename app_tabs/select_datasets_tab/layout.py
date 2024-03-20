@@ -2,7 +2,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
 
 from utils.dash_persistence import get_dash_persistence_kwargs
-from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG, get_next_button, std_variables
+from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG, get_help_icon, get_next_button, std_variables
 from utils import colors
 
 VARIABLES_LEGEND_DROPDOWN_ID = 'variables-legend-dropdown'
@@ -142,8 +142,10 @@ def get_select_datasets_tab():
 
     datasets_table_card = dbc.Card([
         dbc.CardHeader(
-            'b) Select your datasets here',
-            style={'font-weight': 'bold'},
+            [
+                html.B('b) Select your datasets here'), ' ', '(up to 10 datasets)'
+            ]
+            #style={'font-weight': 'bold'},
         ),
         dbc.CardBody([
             dbc.Row(dbc.Col(all_none_switch)),
@@ -172,11 +174,18 @@ def get_select_datasets_tab():
                                         clearable=True,
                                     ),
                                 ],
-                                width=11
+                                width=10
                             ),
                             dbc.Col(
-                                children=html.Div(get_next_button(SELECT_DATASETS_BUTTON_ID), style={'display': 'flex', 'justify-content': 'end'}),
-                                width=1,
+                                children=dbc.Row(
+                                    [
+                                        dbc.Col(get_help_icon('#select-datasets'), width='auto'),
+                                        dbc.Col(html.Div(get_next_button(SELECT_DATASETS_BUTTON_ID)), width='auto'),
+                                    ],
+                                    justify='end',
+                                    align='center'
+                                ),
+                                width=2,
                             ),
                         ],
                         justify='between',

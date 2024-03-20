@@ -1,7 +1,7 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
-from app_tabs.common.layout import get_tooltip, FILTER_DATA_TAB_VALUE, get_next_button
+from app_tabs.common.layout import get_tooltip, FILTER_DATA_TAB_VALUE, get_help_icon, get_next_button
 
 TIME_FILTER_CONTAINER_ID = 'filter-tab-container-row'
     # 'children' contains a layout of the filter tab
@@ -134,7 +134,13 @@ def get_filter_data_tab():
             children=[
                 dbc.Row(
                     dbc.Col(
-                        children=html.Div(get_next_button(FILTER_DATA_BUTTON_ID)),
+                        children=dbc.Row(
+                            [
+                                dbc.Col(get_help_icon('#filter-data')),
+                                dbc.Col(html.Div(get_next_button(FILTER_DATA_BUTTON_ID))),
+                            ],
+                            align='center'
+                        ),
                         width='auto',
                     ),
                     justify='end',

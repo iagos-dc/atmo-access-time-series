@@ -1,7 +1,8 @@
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
-from app_tabs.common.layout import DATA_ANALYSIS_TAB_VALUE
+from app_tabs.common.layout import DATA_ANALYSIS_TAB_VALUE, get_help_icon
+
 
 KIND_OF_ANALYSIS_TABS_ID = 'kind-of-analysis-tabs'
 DATA_ANALYSIS_PARAMETERS_CARDBODY_ID = 'data-analysis-parameters-cardbody'
@@ -37,15 +38,15 @@ def get_data_analysis_tab():
                             id=DATA_ANALYSIS_PARAMETERS_CARDBODY_ID,
                         ),
                     ]),
-                    # fake download buttons
-                    html.Div(dbc.Row(
-                        [
-                            dbc.Col(dbc.Button('Download data'), width=4, align='left'),
-                            dbc.Col(dbc.Button('Download figures'), width=4, align='right'),
-                        ],
-                        align='bottom',
-                        justify='between',
-                    ))
+                    # TODO: implement download data button
+                    # html.Div(dbc.Row(
+                    #     [
+                    #         dbc.Col(dbc.Button('Download data'), width=4, align='left'),
+                    #         dbc.Col(dbc.Button('Download figures'), width=4, align='right'),
+                    #     ],
+                    #     align='bottom',
+                    #     justify='between',
+                    # ))
                 ],
                 fluid=True,
             ),
@@ -72,7 +73,14 @@ def get_data_analysis_tab():
                     'margin-left': '0px',
                     'margin-right': '0px',
                 },
-                children=data_analysis_tab_container_content,
+                children=[
+                    dbc.Row(
+                        dbc.Col(get_help_icon('#data-analysis'), width='auto'),
+                        justify='end',
+                        style={'margin-bottom': '10px'},
+                    ),
+                    data_analysis_tab_container_content
+                ],
         # children=dbc.Container(
         #     style={
         #         'margin-top': '10px',

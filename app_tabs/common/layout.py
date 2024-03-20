@@ -131,6 +131,14 @@ def get_tooltip(tooltip_text, target, **kwargs):
     )
 
 
+def get_help_icon(tag=''):
+    return html.A(
+        className='fa-solid fa-circle-info fa-2x',
+        href=f'https://www.atmo-access.eu/atmo-access-time-series-analysis-service-help/{tag}',
+        target='_blank',
+    ),
+
+
 def get_next_button(button_id):
     return dbc.Button(
         id=button_id,
