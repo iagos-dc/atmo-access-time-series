@@ -53,7 +53,7 @@ GRAPH_CONFIG = {
     },
     'toImageButtonOptions': {
         'filename': 'atmo-access-plot',
-        'format': 'svg',
+        'format': 'png',
         'height': 800,
     },
     'showAxisDragHandles': True,
