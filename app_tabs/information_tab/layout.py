@@ -78,7 +78,12 @@ def _get_description_table(actris_logo, iagos_logo, icos_logo):
             html.Div(
                 "The collection used contains the final quality controlled hourly averaged data for the mole fractions of CO2, CH4, N2O, CO and meteorological observations measured at the relevant vertical levels of the measurements stations."),
             html.Div(
-                "All stations follow the ICOS Atmospheric Station specification V2.0 (doi:10.18160/GK28-218) and are certified as ICOS atmospheric stations Class I or II. Data processing has been performed as described in Hazan et al., 2016"),
+                [
+                    "All stations follow the ICOS Atmospheric Station specification V2.0 (",
+                    html.A(html.Span("doi.org/10.18160/GK28-2188"), href="https://doi.org/10.18160/GK28-2188", target="_blank"),
+                    ") and are certified as ICOS atmospheric stations Class I or II. Data processing has been performed as described in Hazan et al., 2016"
+                ]
+            ),
             html.Div(children=[
                 html.Span("More information on the ICOS Data Portal: "),
                 html.A(
@@ -117,9 +122,20 @@ def get_information_tab(actris_logo, iagos_logo, icos_logo):
                         justify='end',
                         style={'margin-bottom': '10px'},
                     ),
-                    html.H6('This service allows you to search, analyse and visualise data from three Atmosphere European Research Infrastructures.'),
-                    html.H6('It has been implemented in the framework of the European Project ATMO-ACCESS to demonstrate interoperability within the Research Infrastructures'),
-                    html.H6('Only Essential Climate Variables are available. You can find more information about the provided datasets in the table below.'),
+                    html.H6('This service allows you to search, analyse and visualise data from three Atmosphere European Research Infrastructures'),
+
+                    html.H6(children=[
+                        'It has been implemented in the framework of the ',
+                        html.A('European Project ATMO-ACCESS', href='https://www.atmo-access.eu/', target='_blank'),
+                        ' to demonstrate interoperability within the Research Infrastructures'
+                    ]),
+                    html.H6(
+                        children=[
+                            'Only ',
+                            html.A("Essential Climate Variables", href="https://gcos.wmo.int/en/essential-climate-variables", target='_blank'),
+                            ' are available. You can find more information about the provided datasets in the table below.'
+                        ]
+                    ),
                 ],
                 style={'margin-top': '5px', 'margin-left': '20px', 'margin-right': '20px'},
             ),
