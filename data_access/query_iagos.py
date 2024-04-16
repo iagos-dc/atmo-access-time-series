@@ -1,3 +1,4 @@
+import io
 import requests
 from requests.exceptions import HTTPError
 import xarray as xr  
@@ -106,18 +107,20 @@ def query_datasets_stations(codes):
         print(f'Other error occurred: {err}')
 
 
-def read_dataset(dataset_id, variables_list, temporal_extent, spatial_extent):
-    print(REST_URL_DOWNLOAD + "?fileId=" + dataset_id.replace("#", "%23"))
-    results = requests.get(REST_URL_DOWNLOAD + "?fileId=" + dataset_id.replace("#", "%23"))
-    with open('/tmp/fic.nc', 'wb') as f:
-        f.write(results.content)
-    ds = xr.open_dataset('/tmp/fic.nc', decode_times=False)
-    varlist = [ ]
-    for varname, da in ds.data_vars.items():
-        if 'standard_name' in da.attrs and (da.attrs['standard_name'] in variables_list or da.attrs['standard_name'] in STATIC_PARAMETERS):
-            varlist.append(varname)
-    ds = ds[varlist] 
-    return ds
+def read_dataset(dataset_id, variables_list):
+    try:
+        request_url = REST_URL_DOWNLOAD + "?fileId=" + dataset_id.replace("#", "%23")
+        response = requests.get(request_url)
+        response.raise_for_status()
+        with io.BytesIO(response.content) as buf:
+            with xr.open_dataset(buf) as ds:
+                varlist = []
+                for varname, da in ds.data_vars.items():
+                    if 'standard_name' in da.attrs and (da.attrs['standard_name'] in variables_list or da.attrs['standard_name'] in STATIC_PARAMETERS):
+                        varlist.append(varname)
+                return ds[varlist].load()
+    except Exception as e:
+        raise RuntimeError(f'Reading the IAGOS dataset failed: {dataset_id}') from e
 
 
 if __name__ == "__main__":
@@ -128,6 +131,6 @@ if __name__ == "__main__":
     for dataset in query_datasets_stations("FRA,NAt"):
         for url in dataset['urls']:
             if url['type'] == "LANDING_PAGE":
-                array = read_dataset(url['url'], ['mole_fraction_of_carbon_monoxide_in_air', 'mole_fraction_of_ozone_in_air' ], None, None)
+                array = read_dataset(url['url'], ['mole_fraction_of_carbon_monoxide_in_air', 'mole_fraction_of_ozone_in_air' ])
                 print(array['CO_mean'][0:10])
-
+                
