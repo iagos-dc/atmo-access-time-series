@@ -20,8 +20,16 @@ from icoscp.station import station
 from icoscp.cpb.dobj import Dobj
 from icoscp.sparql.runsparql import RunSparql
 
-from data_access import helper
 
+def getkeyvals(obj, *keys):
+    if obj is None or not isinstance(obj, dict):
+        return None
+    for key in keys:
+        try:
+            obj = obj[key]
+        except KeyError:
+            return None
+    return obj
 
 
 # all stations info
@@ -306,13 +314,13 @@ def read_dataset(pid):
     # setup global attributes
     dobj_station = getattr(digital_object, 'station', None)
     dataset.attrs = {
-        'title': helper.getkeyvals(meta_data, 'references', 'title'),
-        'station_id': helper.getkeyvals(dobj_station, 'id'),
-        'station_name': helper.getkeyvals(dobj_station, 'org', 'name'),
+        'title': getkeyvals(meta_data, 'references', 'title'),
+        'station_id': getkeyvals(dobj_station, 'id'),
+        'station_name': getkeyvals(dobj_station, 'org', 'name'),
         'station_lon': getattr(digital_object, 'lon', None),
         'station_lat': getattr(digital_object, 'lat', None),
         'station_alt': getattr(digital_object, 'alt', None),
-        'sampling_height': helper.getkeyvals(meta_data, 'specificInfo', 'acquisition', 'samplingHeight')
+        'sampling_height': getkeyvals(meta_data, 'specificInfo', 'acquisition', 'samplingHeight')
     }
 
     # Loop over the variables in the meta-data.
