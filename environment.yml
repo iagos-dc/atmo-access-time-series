@@ -8,6 +8,7 @@ dependencies:
   - dash==2.14.2
   - plotly==5.18.0
   - dash-bootstrap-components==1.5.0
+  - dash-mantine-components==0.12.1
   - gunicorn>=20.0.4
   - netcdf4>=1.5.8
   - pandas>=1.4.2

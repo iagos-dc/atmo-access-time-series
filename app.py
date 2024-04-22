@@ -8,6 +8,7 @@ from dash import dcc, Dash
 from dash import html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
+import dash_mantine_components as dmc
 
 import app_logging  # noq
 
@@ -117,10 +118,10 @@ app = Dash(
 
 server = app.server
 
-app.layout = dbc.Container(
+app.layout = dmc.MantineProvider(dbc.Container(
     get_dashboard_layout(app),
     fluid=True
-)
+))
 app.title = 'ATMO-ACCESS time-series analysis'
 
 # Begin of callback definitions and their helper routines.

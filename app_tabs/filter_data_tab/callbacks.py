@@ -2,6 +2,7 @@ import warnings
 import numpy as np
 import dash
 import dash_bootstrap_components as dbc
+import dash_mantine_components as dmc
 import pandas as pd
 from dash import callback, Output, ALL, Input, State, ctx, html
 from dash.exceptions import PreventUpdate
@@ -249,16 +250,23 @@ def _get_filter_container(v, v_filter):
 
 def _get_accordion(list_of_v_title_component):
     accordion_items = []
-    for v, title, component in list_of_v_title_component:
+    for i, (v, title, component) in enumerate(list_of_v_title_component):
         accordion_items.append(
-            dbc.AccordionItem(component, title=title, item_id=f'filter-{v}')
+            dmc.AccordionItem(
+                children=[
+                    dmc.AccordionControl(title, style={'text-transform': 'none'}),
+                    dmc.AccordionPanel(component)
+                ],
+                value=f'accordion-item-{i}',
+            )
         )
 
-    return dbc.Accordion(
-        accordion_items,
-        always_open=True,
-        active_item=[f'filter-{v}' for v, _, _ in list_of_v_title_component],
-        # style={'text-transform': None},
+    return dmc.AccordionMultiple(
+        children=accordion_items,
+        chevronPosition='left',
+        variant='contained',
+        radius='lg',
+        value=[f'accordion-item-{i}' for i in range(len(list_of_v_title_component))],
     )
 
 
@@ -328,12 +336,20 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
         city_or_station_name = md[metadata.CITY_OR_STATION_NAME]
         if city_or_station_name is not None:
             title = f'{title}, {city_or_station_name}'
-        filter_and_title_by_v[v] = var_filter, f'Filter {v} : {title}'
+        filter_and_title_by_v[v] = (
+            var_filter,
+            dmc.Group([
+                html.B(dmc.Text(v)),
+                dmc.Text(title, size='sm', fw=400, c='dimmed'),
+            ])
+        )
 
     time_filter_accordion = _get_accordion([
         (
             'time',
-            'Filter on time',
+            dmc.Group([
+                html.B(dmc.Text('time')),
+            ]),
             _get_filter_container('time', time_filter)
         )
     ])

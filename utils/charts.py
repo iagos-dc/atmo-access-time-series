@@ -341,12 +341,22 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         else:
             raise ValueError(f'unknown granularity={granularity}')
         if isinstance(ds, xr.Dataset):
-            ds_avail = ds.notnull().resample({'time': freq}).mean()
+            ds_resampled = ds.notnull().resample({'time': freq})
+            ds_avail = ds_resampled.mean()
+            ds_count = ds_resampled.sum()
         else:
             # ds is a dictionary {var_label: xr.DataArray}
             ds_avail = xr.merge(
                 [
                     da.reset_coords(drop=True).notnull().resample({'time': freq}).mean().rename(v)
+                    for v, da in ds.items()
+                ],
+                join='outer',
+                # compat='override',
+            )
+            ds_count = xr.merge(
+                [
+                    da.reset_coords(drop=True).notnull().resample({'time': freq}).sum().rename(v)
                     for v, da in ds.items()
                 ],
                 join='outer',
@@ -364,12 +374,15 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         else:
             raise ValueError(f'unknown granularity={granularity}')
         ds_avail['time_period'] = t2
-        return ds_avail.set_coords('time_period')
+        ds_count['time_period'] = t2
+        return ds_avail.set_coords('time_period'), ds_count.set_coords('time_period')
 
-    def get_heatmap(ds_avail, adjust_color_intensity_to_max, color_mapping):
+    def get_heatmap(ds_avail, ds_count, adjust_color_intensity_to_max, color_mapping):
         vs = list(reversed(list(ds_avail.data_vars)))
         n_vars = len(vs)
         availability_data = np.stack([ds_avail[v].values for v in vs])
+        count_data = np.stack([ds_count[v].values for v in vs])
+        hover_data = np.dstack((100 * availability_data, count_data))
 
         if not adjust_color_intensity_to_max:
             z_data = availability_data
@@ -406,8 +419,8 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
             #xperiodalignment='end',
             y=vs,
             colorscale=colorscale,
-            customdata=100 * availability_data,   # availability in %
-            hovertemplate='%{x}: %{customdata:.0f}%',
+            customdata=hover_data,   # availability in %
+            hovertemplate='%{x}: %{customdata[0]:.0f}% (%{customdata[1]} samples)',
             name='',
             showscale=False,
             xgap=1,
@@ -417,7 +430,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         )
         return heatmap
 
-    ds_avail = get_data_avail_with_freq(ds, granularity)
+    ds_avail, ds_count = get_data_avail_with_freq(ds, granularity)
     if ds_avail is None:
         return empty_figure()
 
@@ -428,7 +441,7 @@ def get_avail_data_by_var_heatmap(ds, granularity, adjust_color_intensity_to_max
         'margin': {'b': 25, 't': 35},
     }
 
-    fig = go.Figure(data=get_heatmap(ds_avail, adjust_color_intensity_to_max, color_mapping), layout=layout_dict)
+    fig = go.Figure(data=get_heatmap(ds_avail, ds_count, adjust_color_intensity_to_max, color_mapping), layout=layout_dict)
     if granularity == 'year':
         dtick = 'M12'
         tickformat = '%Y'
