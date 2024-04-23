@@ -348,7 +348,7 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
         (
             'time',
             dmc.Group([
-                html.B(dmc.Text('time')),
+                html.B(dmc.Text('Time')),
             ]),
             _get_filter_container('time', time_filter)
         )

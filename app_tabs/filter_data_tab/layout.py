@@ -146,6 +146,7 @@ def get_filter_data_tab():
                     justify='end',
                     style={'margin-bottom': '10px'},
                 ),
+                dbc.Row('Filter on time and examine data availability', style={'font-weight': 'bold'}),
                 dbc.Row(id=TIME_FILTER_CONTAINER_ID),
                 dbc.Row(
                     [
