@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import sklearn.cluster
 from plotly import graph_objects as go
 from dash import Patch
 from pyproj import Transformer
@@ -93,22 +92,6 @@ def get_stations_with_displacement_coords(stations, zoom):
     return _stations
 
 
-def uncluster2(stations, zoom):
-    if zoom <= 3:
-        _stations = cluster(stations, zoom)
-        _stations['marker_size'] = 14 # 2 * DEFAULT_STATIONS_SIZE
-    else:
-        _stations = stations.copy()
-        _stations['marker_size'] = 7 # DEFAULT_STATIONS_SIZE
-
-    _, _, _stations['lon_displaced'], _stations['lat_displaced'] = uncluster(
-        _stations['lon_3857'],
-        _stations['lat_3857'],
-        zoom
-    )
-    return _stations
-
-
 def get_displacement_vectors(df, zoom):
     d = _zoom_to_marker_radius(zoom)
     not_a_small_displacement = np.sqrt(
@@ -124,25 +107,6 @@ def get_displacement_vectors(df, zoom):
     lat[::3] = df['latitude'].values
     lat[1::3] = df['lat_displaced'].values
     return lon, lat
-
-
-def cluster(stations, zoom):
-    clusters = []
-    for ri, stations_for_ri in stations.groupby('RI'):
-        kmeans_algo = sklearn.cluster.KMeans(n_clusters=int(1 + 5 * 2**zoom), random_state=0)
-        lon_lat = stations_for_ri[['lon_3857', 'lat_3857']].values
-        kmeans_model = kmeans_algo.fit(lon_lat)
-        clusters_lon, clusters_lat = kmeans_model.cluster_centers_.T
-        clusters_for_ri = pd.DataFrame({'lon_3857': clusters_lon, 'lat_3857': clusters_lat})
-
-        clusters_idx = kmeans_model.predict(lon_lat)
-        stations_for_ri['cluster_idx'] = clusters_idx
-        station_names = stations_for_ri.groupby('cluster_idx')['long_name'].agg(list)
-        clusters_for_ri['long_name'] = station_names
-        clusters_for_ri['RI'] = ri
-
-        clusters.append(clusters_for_ri)
-    return pd.concat(clusters, axis='index', ignore_index=True)
 
 
 def get_station_and_displacement_vector_and_ori_position_traces(df, color, zoom, customdata_columns, hovertemplate=None, trace_kwargs=None, marker_kwargs=None):
