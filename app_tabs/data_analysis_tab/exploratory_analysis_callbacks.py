@@ -230,8 +230,8 @@ def get_exploratory_plot_callback(
         title=plot_title,
         xaxis={'title': 'time'},
         uirevision=integrate_datasets_request_hash,
-        hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
-        # hovermode='x unified'
+        # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
+        hovermode='x unified'  # https://plotly.com/python/hover-text-and-formatting/#control-hovermode-with-dash
     )
     fig = charts.add_watermark(fig)
 

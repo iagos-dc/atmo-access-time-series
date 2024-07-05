@@ -205,7 +205,7 @@ def autocorrelation(da, period=pd.Timedelta('365D')):
     series = _to_series(da)
 
     assert series.index.is_monotonic_increasing, f'The index of the series is not monotone; series={series}, index={series.index}'
-    assert series.index.is_all_dates, f'The index of the series is not all dates; series={series}, index={series.index}'
+    assert series.index.dtype.kind == 'M', f'The index of the series is not all dates; series={series}, index={series.index}'
 
     time = pd.Series(series.index)
     dtime = time - time.iloc[0]

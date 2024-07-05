@@ -1,4 +1,5 @@
 import functools
+import uuid
 import dash
 from dash import dcc, callback, MATCH, ctx
 import dash_bootstrap_components as dbc
@@ -22,13 +23,14 @@ from log import log_exception
 # from utils.exception_handler import callback_with_exc_handling
 
 
+# cf. https://community.plotly.com/t/dcc-graph-config-options/14672/2
 _GRAPH_WITH_HORIZONTAL_SELECTION_CONFIG = {
-    'autosizable': False,
+    'autosizable': True,
     'displayModeBar': True,
     # 'fillFrame': True,
     'editSelection': True,
     #'modeBarButtons': [['select2d'], ['toImage']],
-    'modeBarButtons': [['toImage']],
+    'modeBarButtons': [['resetScale2d'], ['toImage']],
     'toImageButtonOptions': {
         'filename': 'atmo-access-plot',
         'format': 'png',
@@ -43,11 +45,11 @@ _GRAPH_WITH_HORIZONTAL_SELECTION_CONFIG = {
         'annotationText': False,
         'annotationPosition': False,
     },
-    'showAxisDragHandles': False,
-    'showAxisRangeEntryBoxes': False,
+    'showAxisDragHandles': True,
+    'showAxisRangeEntryBoxes': True,
     'showTips': False,
     'displaylogo': False,
-    # 'responsive': True,
+    # 'responsive': True, # why not ??? see: https://plotly.com/javascript/configuration-options/#making-a-responsive-chart
 }
 
 
@@ -194,6 +196,7 @@ callback(
     Output(from_input_id(MATCH, MATCH), 'invalid'),
     Output(to_input_id(MATCH, MATCH), 'invalid'),
     Output(selected_range_store_id(MATCH, MATCH), 'data'),
+    #Output(graph_id(MATCH, MATCH), 'selectedData'),
     Input(graph_id(MATCH, MATCH), 'selectedData'),
     Input(reset_selection_button_id(MATCH, MATCH), 'n_clicks'),
     Input(from_input_id(MATCH, MATCH), 'value'),
@@ -207,6 +210,7 @@ ddc.dynamic_callback(
     ddc.DynamicOutput(from_input_id(MATCH, MATCH), 'invalid'),
     ddc.DynamicOutput(to_input_id(MATCH, MATCH), 'invalid'),
     ddc.DynamicOutput(selected_range_store_id(MATCH, MATCH), 'data'),
+    #ddc.DynamicOutput(graph_id(MATCH, MATCH), 'selectedData'),
     ddc.DynamicInput(graph_id(MATCH, MATCH), 'selectedData'),
     ddc.DynamicInput(reset_selection_button_id(MATCH, MATCH), 'n_clicks'),
     ddc.DynamicInput(from_input_id(MATCH, MATCH), 'value'),
@@ -250,8 +254,11 @@ def figure_update_layout(figure):
     figure.update_layout(
         dragmode='select',
         selectdirection='h',
-        yaxis={'fixedrange': True}
-        # activeselection={'fillcolor': 'yellow'},
+        yaxis={'fixedrange': True},
+        selectionrevision=uuid.uuid4().hex
+        # TODO: this is to ignore user selection in a sense that plotly applies opacity to non-selected traces;
+        #  must have it when uirevision is set (in the user-code)
+        #  can we get this patch cleaner?
     )
     return figure
 

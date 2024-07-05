@@ -181,6 +181,7 @@ def get_trend_plots_callback(
         # xaxis={'title': 'time'},
         xaxis={'title': ''},
         uirevision=integrate_datasets_request_hash,
+        hovermode=False  # turn-off the hover
     )
     orig_timeseries_fig_data = {
         'fig': orig_timeseries_fig,
@@ -335,6 +336,7 @@ def get_trend_plots_callback(
         xaxis={'title': 'time'},
         # uirevision=integrate_datasets_request_hash,
         # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
+        hovermode='x unified'  # https://plotly.com/python/hover-text-and-formatting/#control-hovermode-with-dash
     )
     trend_fig = charts.add_watermark(trend_fig)
 
@@ -376,6 +378,8 @@ def get_trend_plots_callback(
             'zerolinecolor': 'grey',
             'zerolinewidth': 1,
         },
+        # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
+        hovermode='x unified'  # https://plotly.com/python/hover-text-and-formatting/#control-hovermode-with-dash
     )
     autocorr_fig = charts.add_watermark(autocorr_fig)
 

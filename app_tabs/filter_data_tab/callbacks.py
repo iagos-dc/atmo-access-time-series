@@ -94,6 +94,7 @@ def update_histograms_callback(
     filter_time_coincidence_select_style = None if cross_filtering else {'display': 'none'}
 
     req = data_processing.IntegrateDatasetsRequest.from_dict(integrate_datasets_request)
+    integrate_datasets_request_hash = req.deterministic_hash()
     ds = req.compute()
     color_mapping = charts.get_color_mapping(ds)
 
@@ -140,7 +141,10 @@ def update_histograms_callback(
             x_min=x_min, x_max=x_max,
             log_x=log_x, log_y=log_y
         )
-        new_fig = new_fig.update_layout(title=f'Distribution of {variable_label}')
+        new_fig = new_fig.update_layout(
+            title=f'Distribution of {variable_label}',
+            uirevision=integrate_datasets_request_hash + f':{log_x}'
+        )
 
         return {
             'fig': new_fig,
@@ -165,7 +169,10 @@ def update_histograms_callback(
                     time_granularity[0],
                     color_mapping=color_mapping
                 )
-                fig = fig.update_layout(title='Data availability')
+                fig = fig.update_layout(
+                    title='Data availability',
+                    uirevision=integrate_datasets_request_hash
+                )
 
                 new_fig = {
                     'fig': fig,
@@ -193,7 +200,10 @@ def update_histograms_callback(
             time_granularity[0],
             color_mapping=color_mapping
         )
-        fig = fig.update_layout(title='Data availability')
+        fig = fig.update_layout(
+            title='Data availability',
+            uirevision=integrate_datasets_request_hash
+        )
 
         new_fig = {
             'fig': fig,

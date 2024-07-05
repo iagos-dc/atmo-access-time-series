@@ -35,6 +35,7 @@ INTEGRATE_DATASETS_REQUEST_ID = 'integrate-datasets-request'
 FILTER_DATA_REQUEST_ID = 'filter-data-request'
 # 'data' stores a JSON representation of a request executed
 
+# https://community.plotly.com/t/dcc-graph-config-options/14672/2
 GRAPH_CONFIG = {
     'autosizable': True,
     'displayModeBar': True,

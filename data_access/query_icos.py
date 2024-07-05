@@ -22,6 +22,9 @@ from icoscp.sparql.runsparql import RunSparql
 
 from data_access import helper
 
+# from config import ICOSCP_TOKEN
+# from icoscp.cpauth.authentication import Authentication
+# Authentication(token=ICOSCP_TOKEN)
 
 
 # all stations info
