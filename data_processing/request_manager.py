@@ -4,7 +4,7 @@ import hashlib
 import json
 import diskcache
 import time
-import icoscp.cpb.dobj
+import icoscp.dobj
 import pandas as pd
 import flask
 
@@ -208,7 +208,7 @@ class GetICOSDatasetTitleRequest(Request):
 
     def execute(self):
         logger().info(f'execute {str(self)}')
-        return icoscp.cpb.dobj.Dobj(self.dobj).meta['references']['title']
+        return icoscp.dobj.Dobj(self.dobj).meta['references']['title']
 
     @request_cache(custom_expire=None)
     def compute(self):

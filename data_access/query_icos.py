@@ -17,7 +17,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from icoscp.station import station
-from icoscp.cpb.dobj import Dobj
+from icoscp.dobj import Dobj
 from icoscp.sparql.runsparql import RunSparql
 
 from data_access import helper
