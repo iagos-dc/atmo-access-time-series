@@ -4,7 +4,6 @@ channels:
   - conda-forge
 dependencies:
   - python>=3.10
-  - ipython
   - pip
   - dash==2.14.2
   - plotly==5.18.0
