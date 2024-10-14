@@ -279,15 +279,19 @@ def datasets_as_table(
     Output(DATASETS_TABLE_ID, 'active_cell'),
     Input(DATASETS_TABLE_ID, 'active_cell'),
     State(DATASETS_STORE_ID, 'data'),
+    State(VARIABLES_LEGEND_DROPDOWN_ID, 'value'),
     prevent_initial_call=True,
 )
 @log_exception
-def popup_graphs(active_cell, datasets_json):
+def popup_graphs(active_cell, datasets_json, selected_variables):
     if datasets_json is None or active_cell is None:
         return [], None  # children=None instead of [] does not work
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
-    ds_md = datasets_df.loc[active_cell['row_id']]
+    ds_md = datasets_df.loc[[active_cell['row_id']]].copy()
+    ds_md = data_access.filter_datasets_on_vars(ds_md, selected_variables)
+    ds_md = ds_md.iloc[0]
+    # print('selected_variables =', selected_variables, '; ds_md =', ds_md)
 
     if 'selector' in ds_md and isinstance(ds_md['selector'], str) and len(ds_md['selector']) > 0:
         selector = ds_md['selector']
@@ -379,15 +383,19 @@ def select_datasets_button_disabled(selected_row_ids):
     Input(SELECT_DATASETS_BUTTON_ID, 'n_clicks'),
     State(DATASETS_STORE_ID, 'data'),
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
+    State(VARIABLES_LEGEND_DROPDOWN_ID, 'value'),
     prevent_initial_call=True,
 )
 @log_exception
-def select_datasets(n_clicks, datasets_json, selected_row_ids):
+def select_datasets(n_clicks, datasets_json, selected_row_ids, selected_variables):
     if datasets_json is None or selected_row_ids is None:
         raise dash.exceptions.PreventUpdate
 
     datasets_df = pd.read_json(datasets_json, orient='split', convert_dates=['time_period_start', 'time_period_end'])
-    ds_md = datasets_df.loc[selected_row_ids]
+    ds_md = datasets_df.loc[selected_row_ids].copy()
+    ds_md = data_access.filter_datasets_on_vars(ds_md, selected_variables)
+    # print('selected_variables =', selected_variables, '; ds_md =', ds_md, '; ds_md.iloc[0] =', dict(ds_md.iloc[0]))
+
     read_dataset_requests = []
     for idx, ds_metadata in ds_md.iterrows():
         ri = ds_metadata['RI']

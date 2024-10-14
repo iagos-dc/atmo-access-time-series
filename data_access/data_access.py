@@ -297,8 +297,8 @@ def get_datasets(variables, station_codes=None, ris=None, lon_min=None, lon_max=
     datasets_df = filter_datasets_on_vars(datasets_df, variables)
 
     # datasets_df['url'] = datasets_df['urls'].apply(lambda x: x[-1]['url'])  # now we take the last proposed url; TODO: see what should be a proper rule (first non-empty url?)
-    datasets_df['time_period_start'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[0]))
-    datasets_df['time_period_end'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[1]))
+    datasets_df['time_period_start'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[0], tz='UTC'))
+    datasets_df['time_period_end'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[1], tz='UTC'))
     datasets_df['platform_id_RI'] = datasets_df['platform_id'] + ' (' + datasets_df['RI'] + ')'
 
     # return datasets_df.drop(columns=['urls', 'time_period'])
@@ -451,8 +451,7 @@ def read_dataset(ri, url, ds_metadata, selector=None):
         ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
         ds = ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
     elif ri == 'iagos':
-        iagos_data_path = DATA_DIR / 'iagos_L3_postprocessed'
-        ds = xr.open_dataset(iagos_data_path / url)
+        ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
         if selector is not None:
             dim, coord = selector.split('=')
             coord = coord.split(':')
@@ -464,12 +463,6 @@ def read_dataset(ri, url, ds_metadata, selector=None):
                 raise ValueError(f'bad selector={selector}')
             # if ds[dim].dtype is not object/str, need to convert coord to the dtype
             ds = ds.sel({dim: coord})
-        std_ecv_to_vcode = {
-            'Carbon Monoxide': 'CO_mean',
-            'Ozone': 'O3_mean',
-        }
-        vs = [std_ecv_to_vcode[v] for v in ds_metadata['std_ecv_variables_filtered']]
-        ds = ds[vs].load()
     else:
         raise ValueError(f'unknown RI={ri}')
 

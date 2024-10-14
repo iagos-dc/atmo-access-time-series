@@ -250,7 +250,7 @@ class ReadDataRequest(Request):
         return self.execute()
 
     def get_hashable(self):
-        return 'read_dataset', _get_hashable(self.ri), _get_hashable(self.url), _get_hashable(self.selector)
+        return 'read_dataset', _get_hashable(self.ri), _get_hashable(self.url), _get_hashable(self.ds_metadata), _get_hashable(self.selector)
 
     def to_dict(self):
         return dict(
