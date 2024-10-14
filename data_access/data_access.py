@@ -16,16 +16,9 @@ from . import helper
 from log import logger
 
 from . import query_actris
-from . import query_iagos
+from . import query_iagos as query_iagos_old
+from . import query_iagos2 as query_iagos
 from . import query_icos
-
-
-LON_LAT_BBOX_EPS = 0.05  # epsilon of margin for selecting stations
-
-# for caching purposes
-# TODO: do it properly
-_stations = None
-_variables = None
 
 
 _RIS = ['actris', 'iagos', 'icos']
@@ -117,6 +110,12 @@ def _get_stations(ris=None):
                 stations_df = pd.read_pickle(cache_path)
             except FileNotFoundError:
                 stations = ri_query_module.get_list_platforms()
+                if ri == 'iagos':
+                    # add IAGOS regions
+                    regions = ri_query_module.get_list_regions()
+                    for region in regions:
+                        region['is_region'] = True
+                    stations.extend(regions)
                 stations_df = pd.DataFrame.from_dict(stations)
                 stations_df.to_pickle(cache_path)
 
@@ -128,10 +127,6 @@ def _get_stations(ris=None):
                 stations_dfs.append(stations_df)
             elif ri == 'iagos':
                 stations_df = stations_df.rename(columns={'altitude': 'ground_elevation'})
-
-                # add IAGOS regions
-                stations_df = pd.concat([stations_df, _get_iagos_regions()], ignore_index=True)
-
                 stations_df['RI'] = 'IAGOS'
                 stations_df['uri'] = np.nan
                 stations_df['country'] = np.nan
@@ -150,11 +145,15 @@ def _get_stations(ris=None):
     all_stations_df['short_name_RI'] = all_stations_df['short_name'] + ' (' + all_stations_df['RI'] + ')'
     all_stations_df['idx'] = all_stations_df.index
 
-    all_stations_df['is_region'] = all_stations_df['is_region'].fillna(False)
+    if 'is_region' not in all_stations_df:
+        all_stations_df['is_region'] = False
+    else:
+        all_stations_df['is_region'] = all_stations_df['is_region'].fillna(False)
 
     return all_stations_df
 
 
+@functools.lru_cache()
 def get_stations():
     """
     For each ACTRIS, IAGOS and ICOS station (for the moment it is ICOS only).
@@ -180,12 +179,10 @@ def get_stations():
         'latitude_max': NaN,
         'is_region': False,
     """
-    global _stations
-    if _stations is None:
-        _stations = _get_stations()
-    return _stations
+    return _get_stations()
 
 
+@functools.lru_cache()
 def get_vars_long():
     """
     Provide a listing of RI's variables. For the same variable code there might be many records with different ECV names
@@ -194,26 +191,24 @@ def get_vars_long():
         'variable_name': 'co', 'ECV_name': 'Carbon Dioxide, Methane and other Greenhouse gases', 'std_ECV_name': 'Carbon Monoxide', 'code': 'CO';
         'variable_name': 'co', 'ECV_name': 'co', 'std_ECV_name': 'Carbon Monoxide', 'code': 'CO';
     """
-    global _variables
-    if _variables is None:
-        # ri_query_module_by_ri = _get_ri_query_module_by_ri(['actris', 'icos'])
-        variables_dfs = []
-        for ri, ri_query_module in _ri_query_module_by_ri.items():
-            cache_path = CACHE_DIR / f'variables_{ri}.pkl'
+    # ri_query_module_by_ri = _get_ri_query_module_by_ri(['actris', 'icos'])
+    variables_dfs = []
+    for ri, ri_query_module in _ri_query_module_by_ri.items():
+        cache_path = CACHE_DIR / f'variables_{ri}.pkl'
+        try:
             try:
-                try:
-                    variables_df = pd.read_pickle(cache_path)
-                except FileNotFoundError:
-                    variables = ri_query_module.get_list_variables()
-                    variables_df = pd.DataFrame.from_dict(variables)
-                    variables_df.to_pickle(cache_path)
-                variables_dfs.append(variables_df)
-            except Exception as e:
-                logger().exception(f'getting {ri.upper()} variables failed', exc_info=e)
-        df = pd.concat(variables_dfs, ignore_index=True)
-        df['std_ECV_name'] = df['ECV_name'].apply(lambda l: l[0])
-        df = df.join(_var_codes_by_ECV, on='std_ECV_name')
-        _variables = df.explode('ECV_name', ignore_index=True).drop_duplicates(keep='first', ignore_index=True)
+                variables_df = pd.read_pickle(cache_path)
+            except FileNotFoundError:
+                variables = ri_query_module.get_list_variables()
+                variables_df = pd.DataFrame.from_dict(variables)
+                variables_df.to_pickle(cache_path)
+            variables_dfs.append(variables_df)
+        except Exception as e:
+            logger().exception(f'getting {ri.upper()} variables failed', exc_info=e)
+    df = pd.concat(variables_dfs, ignore_index=True)
+    df['std_ECV_name'] = df['ECV_name'].apply(lambda l: l[0])
+    df = df.join(_var_codes_by_ECV, on='std_ECV_name')
+    _variables = df.explode('ECV_name', ignore_index=True).drop_duplicates(keep='first', ignore_index=True)
 
     # sort _variables dataframe by 'code', 'std_ECV_name', 'ECV_name'
     # however, do not distinguish between lower and upper-case letters
@@ -258,14 +253,15 @@ def get_std_ECV_name_by_code():
 
 #@log_exectime
 #@log_profiler_info()
-def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+def get_datasets(variables, station_codes=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
     """
     Provide metadata of datasets selected according to the provided criteria.
     :param variables: list of str or None; list of variable standard ECV names (as in the column 'std_ECV_name' of the dataframe returned by get_vars function)
-    :param lon_min: float or None
-    :param lon_max: float or None
-    :param lat_min: float or None
-    :param lat_max: float or None
+    :param station_code: list or None
+    :param lon_min: float or None (deprecated)
+    :param lon_max: float or None (deprecated)
+    :param lat_min: float or None (deprecated)
+    :param lat_max: float or None (deprecated)
     :return: pandas.DataFrame with columns: 'title', 'url', 'ecv_variables', 'platform_id', 'RI', 'selector', 'var_codes',
      'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes_filtered',
      'time_period_start', 'time_period_end', 'platform_id_RI';
@@ -298,7 +294,7 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
     for ri, get_ri_datasets in _GET_DATASETS_BY_RI.items():
         # get_ri_datasets = log_exectime(get_ri_datasets)
         try:
-            df = get_ri_datasets(variables, bbox)
+            df = get_ri_datasets(variables, station_codes, bbox)
         except Exception as e:
             logger().exception(f'getting datasets for {ri.upper()} failed', exc_info=e)
             continue
@@ -336,7 +332,7 @@ def get_datasets(variables, lon_min=None, lon_max=None, lat_min=None, lat_max=No
     return datasets_df.drop(columns=['time_period']).rename(columns={'urls': 'url'})
 
 
-def _get_actris_datasets(variables, bbox):
+def _get_actris_datasets(variables, station_codes, bbox):
     datasets = query_actris.query_datasets(variables=variables, temporal_extent=[], spatial_extent=bbox)
     if not datasets:
         return None
@@ -349,7 +345,7 @@ def _get_actris_datasets(variables, bbox):
     return datasets_df
 
 
-def _get_icos_datasets(variables, bbox):
+def _get_icos_datasets(variables, station_codes, bbox):
     datasets = query_icos.query_datasets(variables=variables, temporal=[], spatial=bbox)
     if not datasets:
         return None
@@ -362,28 +358,21 @@ def _get_icos_datasets(variables, bbox):
     return datasets_df
 
 
-_iagos_catalogue_df = None
-
-def _get_iagos_datasets_catalogue():
-    global _iagos_catalogue_df
-    if _iagos_catalogue_df is None:
-        url = DATA_DIR / 'catalogue.json'
-        with open(url, 'r') as f:
-            md = json.load(f)
-        _iagos_catalogue_df = pd.DataFrame.from_records(md)
-    return _iagos_catalogue_df
-
-
-def _get_iagos_datasets(variables, bbox):
+def _get_iagos_datasets(variables, station_codes, bbox):
     variables = set(variables)
-    df = _get_iagos_datasets_catalogue()
+    if station_codes is None:
+        station_codes = _get_stations(['iagos'])['short_name']
+    station_codes = list(station_codes)
+
+    datasets = query_iagos.query_datasets_stations(station_codes, variables_list=variables)
+    for dataset in datasets:
+        dataset['urls'] = dataset['urls'][0]['url']
+    df = pd.DataFrame.from_records(datasets)
+    df['RI'] = 'IAGOS'
     variables_filter = df['ecv_variables'].map(lambda vs: bool(variables.intersection(vs)))
-    lon_min, lat_min, lon_max, lat_max = bbox
-    bbox_filter = (df['longitude'] >= lon_min - LON_LAT_BBOX_EPS) & (df['longitude'] <= lon_max + LON_LAT_BBOX_EPS) & \
-                  (df['latitude'] >= lat_min - LON_LAT_BBOX_EPS) & (df['latitude'] <= lat_max + LON_LAT_BBOX_EPS)
-    df = df[variables_filter & bbox_filter].explode('layer', ignore_index=True)
-    df['title'] = df['title'] + ' in ' + df['layer']
-    df['selector'] = 'layer=' + df['layer']
+    df = df[variables_filter].explode('layers', ignore_index=True)
+    df['title'] = df['title'] + ' in ' + df['layers']
+    df['selector'] = 'layer=' + df['layers']
     df = df[['title', 'urls', 'ecv_variables', 'time_period', 'platform_id', 'RI', 'selector']]
     return df
 

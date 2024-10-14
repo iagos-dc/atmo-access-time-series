@@ -89,6 +89,7 @@ def get_stations_with_displacement_coords(stations, zoom):
         _stations['lat_3857'],
         zoom
     )
+    print('zoom = ', zoom, _stations.iloc[0])
     return _stations
 
 
