@@ -70,36 +70,6 @@ def _get_ri_query_module_by_ri(ris=None):
 _ri_query_module_by_ri = _get_ri_query_module_by_ri()
 
 
-def _get_iagos_regions():
-    regions = {
-        'WArc': ('the western hemisphere Arctic', [-150, 0], [60, 85]),
-        'WNAm': ('western North America', [-125, -105], [40, 60]),
-        'EUS': ('the eastern United States', [-90, -60], [35, 50]),
-        'NAt': ('the North Atlantic', [-50, -20], [50, 60]),
-        'Eur': ('Europe', [-15, 15], [45, 55]),
-        'WMed': ('the western Mediterranean basin', [-5, 15], [35, 45]),
-        'MidE': ('the Middle East', [25, 55], [35, 45]),
-        'Sib': ('Siberia', [40, 120], [50, 65]),
-        'NEAs': ('the northeastern Asia', [105, 145], [30, 50]),
-    }
-    short_name = list(regions)
-    long_name = list(v[0] for v in regions.values())
-    longitude_min, longitude_max = zip(*(v[1] for v in regions.values()))
-    latitude_min, latitude_max = zip(*(v[2] for v in regions.values()))
-    df = pd.DataFrame.from_dict({
-        'short_name': short_name,
-        'long_name': long_name,
-        'longitude_min': longitude_min,
-        'longitude_max': longitude_max,
-        'latitude_min': latitude_min,
-        'latitude_max': latitude_max,
-    })
-    df['longitude'] = 0.5 * (df['longitude_min'] + df['longitude_max'])
-    df['latitude'] = 0.5 * (df['latitude_min'] + df['latitude_max'])
-    df['is_region'] = True
-    return df
-
-
 def _get_stations(ris=None):
     ri_query_module_by_ri = _get_ri_query_module_by_ri(ris)
     stations_dfs = []
@@ -114,6 +84,8 @@ def _get_stations(ris=None):
                     # add IAGOS regions
                     regions = ri_query_module.get_list_regions()
                     for region in regions:
+                        region['longitude'] = 0.5 * (region['longitude_min'] + region['longitude_max'])
+                        region['latitude'] = 0.5 * (region['latitude_min'] + region['latitude_max'])
                         region['is_region'] = True
                     stations.extend(regions)
                 stations_df = pd.DataFrame.from_dict(stations)
@@ -253,11 +225,12 @@ def get_std_ECV_name_by_code():
 
 #@log_exectime
 #@log_profiler_info()
-def get_datasets(variables, station_codes=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+def get_datasets(variables, station_codes=None, ris=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
     """
     Provide metadata of datasets selected according to the provided criteria.
     :param variables: list of str or None; list of variable standard ECV names (as in the column 'std_ECV_name' of the dataframe returned by get_vars function)
     :param station_code: list or None
+    :param ris: list or None; must correspond to station_codes
     :param lon_min: float or None (deprecated)
     :param lon_max: float or None (deprecated)
     :param lat_min: float or None (deprecated)
@@ -294,7 +267,7 @@ def get_datasets(variables, station_codes=None, lon_min=None, lon_max=None, lat_
     for ri, get_ri_datasets in _GET_DATASETS_BY_RI.items():
         # get_ri_datasets = log_exectime(get_ri_datasets)
         try:
-            df = get_ri_datasets(variables, station_codes, bbox)
+            df = get_ri_datasets(variables, station_codes, ris, bbox)
         except Exception as e:
             logger().exception(f'getting datasets for {ri.upper()} failed', exc_info=e)
             continue
@@ -332,7 +305,7 @@ def get_datasets(variables, station_codes=None, lon_min=None, lon_max=None, lat_
     return datasets_df.drop(columns=['time_period']).rename(columns={'urls': 'url'})
 
 
-def _get_actris_datasets(variables, station_codes, bbox):
+def _get_actris_datasets(variables, station_codes, ris, bbox):
     datasets = query_actris.query_datasets(variables=variables, temporal_extent=[], spatial_extent=bbox)
     if not datasets:
         return None
@@ -345,7 +318,7 @@ def _get_actris_datasets(variables, station_codes, bbox):
     return datasets_df
 
 
-def _get_icos_datasets(variables, station_codes, bbox):
+def _get_icos_datasets(variables, station_codes, ris, bbox):
     datasets = query_icos.query_datasets(variables=variables, temporal=[], spatial=bbox)
     if not datasets:
         return None
@@ -358,13 +331,17 @@ def _get_icos_datasets(variables, station_codes, bbox):
     return datasets_df
 
 
-def _get_iagos_datasets(variables, station_codes, bbox):
+def _get_iagos_datasets(variables, station_codes, ris, bbox):
     variables = set(variables)
     if station_codes is None:
-        station_codes = _get_stations(['iagos'])['short_name']
+        _iagos_stations = _get_stations(['iagos'])
+        station_codes = _iagos_stations['short_name']
+        ris = _iagos_stations['RI']
     station_codes = list(station_codes)
+    ris = list(ris)
+    iagos_station_codes = [code for code, ri in zip(station_codes, ris) if ri == 'IAGOS']
 
-    datasets = query_iagos.query_datasets_stations(station_codes, variables_list=variables)
+    datasets = query_iagos.query_datasets_stations(iagos_station_codes, variables_list=variables)
     for dataset in datasets:
         dataset['urls'] = dataset['urls'][0]['url']
     df = pd.DataFrame.from_records(datasets)

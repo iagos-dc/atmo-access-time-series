@@ -114,13 +114,17 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx):
     )   # TODO: do it cleanly
 
     lon_min, lon_max, lat_min, lat_max = _get_bounding_box(selected_stations_idx)
+    selected_stations = stations.iloc[selected_stations_idx]
 
-    datasets_df = data_access.get_datasets(selected_variables, lon_min, lon_max, lat_min, lat_max)
+    datasets_df = data_access.get_datasets(
+        selected_variables,
+        station_codes=selected_stations['short_name'],
+        ris=selected_stations['RI'],
+        lon_min=lon_min, lon_max=lon_max, lat_min=lat_min, lat_max=lat_max)
 
     if datasets_df is None:
         datasets_df = empty_datasets_df
 
-    selected_stations = stations.iloc[selected_stations_idx]
     datasets_df_filtered = datasets_df[
         datasets_df['platform_id'].isin(selected_stations['short_name']) &
         datasets_df['RI'].isin(selected_stations['RI'])     # short_name of the station might not be unique among RI's
