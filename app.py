@@ -39,27 +39,50 @@ ICOS_LOGO_FILENAME = 'icos_logo.png'
 def get_dashboard_layout(app):
     stores = get_app_data_stores()
 
+    feedback_button = dbc.Button(
+        href='https://www.atmo-access.eu/virtual-access-feedback-form/#/',
+        target='_blank',
+        color='primary',
+        outline=True,
+        # type='submit',
+        children=html.Div(
+            [
+                html.Div(
+                    'Give feedback',
+                    style={'font-weight': 'bold', 'font-size': '135%', 'font-variant-caps': 'all-small-caps'}
+                ),
+            ],
+        ),
+        #className='me-1',
+        size='lg',
+        style={'height': '40px', 'align-self': 'center', 'margin-right': '20px'},
+    )
+
     # logo and application title
     title_and_logo_bar = html.Div(
-        style={'display': 'flex', 'justify-content': 'space-between', 'margin-bottom': '10px'},
+        style={'display': 'flex', 'justify-content': 'space-between', 'align-content': 'center', 'margin-bottom': '10px'},
         children=[
             html.Div(children=[
                 html.H2('Time-series analysis', style={'font-weight': 'bold'}),
             ]),
-            html.Div(children=[
-                html.A(
-                    html.Img(
-                        src=app.get_asset_url(ATMO_ACCESS_LOGO_FILENAME),
-                        style={
-                            'float': 'right',
-                            'height': '70px',
-                            'margin-top': '10px'
-                        }
+            html.Div(
+                style={'display': 'flex', 'justify-content': 'end'},
+                children=[
+                    feedback_button,
+                    html.A(
+                        html.Img(
+                            src=app.get_asset_url(ATMO_ACCESS_LOGO_FILENAME),
+                            style={
+                                'float': 'right',
+                                'height': '70px',
+                                'margin-top': '10px'
+                            }
+                        ),
+                        href="https://www.atmo-access.eu/",
+                        target='_blank',
                     ),
-                    href="https://www.atmo-access.eu/",
-                    target='_blank',
-                ),
-            ]),
+                ],
+            ),
         ]
     )
 
