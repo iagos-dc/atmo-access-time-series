@@ -3,7 +3,7 @@ import json
 import pandas as pd
 import xarray as xr
 
-from .common import CACHE_DIR
+from . import CACHE_DIR
 
 
 MAPPING_ECV2ACTRIS = {

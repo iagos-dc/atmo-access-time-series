@@ -5,7 +5,6 @@ import dash
 from dash import Output, Input, State, Patch, callback
 
 import data_access
-import data_access.common
 import utils.stations_map
 from app_tabs.common.data import stations
 from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, SELECTED_ECV_STORE_ID, DATASETS_STORE_ID, APP_TABS_ID, \

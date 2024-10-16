@@ -1,9 +1,9 @@
 import shutil
 import pathlib
-import pkg_resources
+import importlib.resources
 
 
-CACHE_DIR = pathlib.Path(pkg_resources.resource_filename('data_access', 'cache'))
+CACHE_DIR = pathlib.PurePath(importlib.resources.files('data_access') / 'cache')
 
 
 def clear_cache():

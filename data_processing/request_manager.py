@@ -8,7 +8,6 @@ import icoscp.dobj
 import pandas as pd
 import flask
 
-import data_access.common
 from log import logger
 
 import data_access
@@ -20,8 +19,8 @@ def get_request_metadata():
     return {'time': pd.Timestamp.now(tz='UTC')}
 
 
-_REQUESTS_DEQUE_PATH = str(data_access.common.CACHE_DIR / 'requests.tmp')
-_CACHE_MAP_PATH = str(data_access.common.CACHE_DIR / 'cache.tmp')
+_REQUESTS_DEQUE_PATH = str(data_access.CACHE_DIR / 'requests.tmp')
+_CACHE_MAP_PATH = str(data_access.CACHE_DIR / 'cache.tmp')
 
 _RESULT_EXPIRE = 3600 * 12  # 12h
 _IN_PROGRESS_EXPIRE = 30  # 30 sec

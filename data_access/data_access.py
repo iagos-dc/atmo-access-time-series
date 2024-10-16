@@ -10,14 +10,12 @@ import json
 import itertools
 import functools
 
-from .common import CACHE_DIR, DATA_DIR
-from . import helper
+from . import helper, CACHE_DIR
 
 from log import logger
 
 from . import query_actris
-from . import query_iagos as query_iagos_old
-from . import query_iagos2 as query_iagos
+from . import query_iagos
 from . import query_icos
 
 

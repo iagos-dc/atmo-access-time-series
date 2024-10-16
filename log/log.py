@@ -1,4 +1,5 @@
-import pkg_resources
+import pathlib
+import importlib.resources
 import logging
 import functools
 import time
@@ -231,5 +232,5 @@ def start_logging_callbacks(log_filename):
     _callback_args_by_time = diskcache.Cache(directory=log_filename)
 
 
-logfile = pkg_resources.resource_filename('log', 'log.txt')
+logfile = pathlib.PurePath(importlib.resources.files('log') / 'log.txt')
 start_logging(log_filename=logfile, logging_level=logging.INFO)

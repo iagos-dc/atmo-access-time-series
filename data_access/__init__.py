@@ -1,4 +1,8 @@
-from .common import CACHE_DIR
+import pathlib
+import importlib.resources
+
+CACHE_DIR = pathlib.PurePath(importlib.resources.files('data_access') / 'cache')
+pathlib.Path(CACHE_DIR).mkdir(exist_ok=True)
 
 from .data_access import (
     get_stations,

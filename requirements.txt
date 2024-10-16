@@ -16,4 +16,4 @@ numba>=0.53.1
 pyproj>=3.5.0
 scipy>=1.9.3
 dacite==1.8.1
-icoscp>=0.2.0
+icoscp>=0.2.1
