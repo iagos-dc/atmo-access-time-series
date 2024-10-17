@@ -44,18 +44,22 @@ def get_dashboard_layout(app):
         target='_blank',
         color='primary',
         outline=True,
-        # type='submit',
         children=html.Div(
             [
                 html.Div(
                     'Give feedback',
-                    style={'font-weight': 'bold', 'font-size': '135%', 'font-variant-caps': 'all-small-caps'}
+                    style={
+                        'font-weight': 'bold',
+                        'font-size': '135%',
+                        'font-variant-caps': 'all-small-caps',
+                        'white-space': 'nowrap'
+                    }
                 ),
             ],
         ),
-        #className='me-1',
         size='lg',
-        style={'height': '40px', 'align-self': 'center', 'margin-right': '20px'},
+        # style={'height': '40px', 'align-self': 'center', 'margin-right': '20px'},
+        style={'margin-right': '20px'},
     )
 
     # logo and application title
@@ -65,24 +69,25 @@ def get_dashboard_layout(app):
             html.Div(children=[
                 html.H2('Time-series analysis', style={'font-weight': 'bold'}),
             ]),
-            html.Div(
-                style={'display': 'flex', 'justify-content': 'end'},
-                children=[
-                    feedback_button,
-                    html.A(
-                        html.Img(
-                            src=app.get_asset_url(ATMO_ACCESS_LOGO_FILENAME),
-                            style={
-                                'float': 'right',
-                                'height': '70px',
-                                'margin-top': '10px'
-                            }
+            html.Div(children=dbc.Row(
+                [
+                    dbc.Col(feedback_button),
+                    dbc.Col(
+                        html.A(
+                            html.Img(
+                                src=app.get_asset_url(ATMO_ACCESS_LOGO_FILENAME),
+                                style={
+                                    'float': 'right',
+                                    'height': '70px',
+                                    'margin-top': '10px'
+                                }
+                            ),
+                            href="https://www.atmo-access.eu/",
+                            target='_blank',
                         ),
-                        href="https://www.atmo-access.eu/",
-                        target='_blank',
-                    ),
+                    )
                 ],
-            ),
+            )),
         ]
     )
 

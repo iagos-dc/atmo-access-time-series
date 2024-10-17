@@ -3,7 +3,7 @@ import pathlib
 import importlib.resources
 
 
-CACHE_DIR = pathlib.PurePath(importlib.resources.files('data_access') / 'cache')
+CACHE_DIR = pathlib.Path(importlib.resources.files('data_access') / 'cache')
 
 
 def clear_cache():
