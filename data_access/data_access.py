@@ -14,9 +14,8 @@ from . import helper, CACHE_DIR
 
 from log import logger
 
+from atmoaccess_data_access import query_iagos, query_icos
 from . import query_actris
-from . import query_iagos
-from . import query_icos
 
 
 _RIS = ['actris', 'iagos', 'icos']

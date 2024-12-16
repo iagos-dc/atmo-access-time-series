@@ -2,6 +2,9 @@
 ATMO-ACCESS time series service
 """
 
+import os
+os.environ['REACT_VERSION'] = '18.2.0'  # needed by dash_mantine_components
+
 # Dash imports; for documentation (including tutorial), see: https://dash.plotly.com/
 import dash
 from dash import dcc, Dash
@@ -161,4 +164,8 @@ app.title = 'ATMO-ACCESS time-series analysis'
 
 # Launch the Dash application in development mode
 if __name__ == "__main__":
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    # in the new version of Dash (e.g. 2.18.1), it seems one to have to do this
+    # (otherwise the env. variables HOST and PORT take precedence over the kwargs of app.run)
+    os.environ['HOST'] = 'localhost'
+    os.environ['PORT'] = '8050'
+    app.run(debug=True)

@@ -271,12 +271,13 @@ def _get_accordion(list_of_v_title_component):
             )
         )
 
-    return dmc.AccordionMultiple(
+    return dmc.Accordion(
         children=accordion_items,
         chevronPosition='left',
         variant='contained',
         radius='lg',
         value=[f'accordion-item-{i}' for i in range(len(list_of_v_title_component))],
+        multiple=True,
     )
 
 
