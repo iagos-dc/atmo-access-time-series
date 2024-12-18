@@ -209,7 +209,7 @@ def get_stations_map(zoom):
     station_original_position_traces = {}
 
     # ground stations
-    station_customdata_columns = ['idx', 'RI', 'latitude', 'longitude', 'ground_elevation']
+    station_customdata_columns = ['idx', 'RI', 'latitude', 'longitude', 'altitude']
     station_hovertemplate = '<b>%{hovertext}</b><br><br>' \
                             'RI=%{customdata[1]}<br>' \
                             'latitude=%{customdata[2]:.2f}<br>' \

@@ -98,6 +98,8 @@ def subsampling(series, n):
 
 def winding_number(points, poly):
     """
+    Compute the winding number for each point from points with respect to the polygon poly.
+    See: https://en.wikipedia.org/wiki/Winding_number
 
     :param points: np.array of shape (2, n)
     :param poly: np.array of shape (2, k)

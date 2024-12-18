@@ -84,29 +84,14 @@ def _get_stations(ris=None):
                         region['longitude'] = 0.5 * (region['longitude_min'] + region['longitude_max'])
                         region['latitude'] = 0.5 * (region['latitude_min'] + region['latitude_max'])
                         region['is_region'] = True
+                        region['URI'] = region['url']
+                        del region['url']
                     stations.extend(regions)
                 stations_df = pd.DataFrame.from_dict(stations)
                 stations_df.to_pickle(cache_path)
 
-            if ri == 'actris':
-                stations_df = stations_df.rename(columns={'URI': 'uri', 'altitude': 'ground_elevation'})
-                stations_df['RI'] = 'ACTRIS'
-                stations_df['country'] = np.nan
-                stations_df['theme'] = np.nan
-                stations_dfs.append(stations_df)
-            elif ri == 'iagos':
-                stations_df = stations_df.rename(columns={'altitude': 'ground_elevation'})
-                stations_df['RI'] = 'IAGOS'
-                stations_df['uri'] = np.nan
-                stations_df['country'] = np.nan
-                stations_df['theme'] = np.nan
-                stations_dfs.append(stations_df)
-            elif ri == 'icos':
-                for col in ['latitude', 'longitude', 'ground_elevation']:
-                    stations_df[col] = pd.to_numeric(stations_df[col])
-                stations_dfs.append(stations_df)
-            else:
-                raise ValueError(f'ri={ri}')
+            stations_df['RI'] = ri.upper()
+            stations_dfs.append(stations_df)
         except Exception as e:
             logger().exception(f'getting {ri.upper()} stations failed', exc_info=e)
 
@@ -127,20 +112,17 @@ def get_stations():
     """
     For each ACTRIS, IAGOS and ICOS station (for the moment it is ICOS only).
     :return: pandas Dataframe with stations data; it has the following columns:
-    'uri', 'short_name', 'long_name', 'country', 'latitude', 'longitude', 'ground_elevation', 'RI', 'short_name_RI',
-    'theme', 'idx',
+    'URI', 'short_name', 'long_name', 'latitude', 'longitude', 'altitude', 'RI', 'short_name_RI', 'idx',
     'longitude_min', 'longitude_max', 'latitude_min', 'latitude_max', 'is_region'
     A sample record is:
-        'uri': 'http://meta.icos-cp.eu/resources/stations/AS_BIR',
+        'URI': 'http://meta.icos-cp.eu/resources/stations/AS_BIR',
         'short_name': 'BIR',
         'long_name': 'Birkenes',
-        'country': 'NO',
         'latitude': 58.3886,
         'longitude': 8.2519,
-        'ground_elevation': 219.0,
+        'altitude': 219.0,
         'RI': 'ICOS',
         'short_name_RI': 'BIR (ICOS)',
-        'theme': 'AS',
         'idx': 2,
         'longitude_min': NaN,
         'longitude_max': NaN,
