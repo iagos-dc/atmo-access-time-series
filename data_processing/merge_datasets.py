@@ -168,28 +168,32 @@ def integrate_datasets(dss):
             v_ri_freq = f'{v}_{ri}_{freq_str}' if freq_str else f'{v}_{ri}'
             var_id = (v_ri_freq, da_md[metadata.CITY_OR_STATION_NAME], da_md[metadata.STATION_CODE], attrs.get('sampling_height'), selector, )
             var_id = tuple(map(lambda i: str(i) if i is not None else '', var_id))  # ensure all parts of var_id are strings
-            tree_of_var_ids.add_path(var_id, da)
+            tree_of_var_ids.add_path(var_id, (da, md))
 
-    das_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=2)  # we want to keep v_ri_freq and da_md[metadata.CITY_OR_STATION_NAME] in the var_id
+    list_of_da_md_by_var_id = tree_of_var_ids.get_compressed_paths(after_level=2)  # we want to keep v_ri_freq and da_md[metadata.CITY_OR_STATION_NAME] in the var_id
     da_by_var_id = {}
-    for var_id, das in das_by_var_id.items():
-        if len(das) == 1:
-            da, = das
+    for var_id, list_of_da_md in list_of_da_md_by_var_id.items():
+        if len(list_of_da_md) == 1:
+            (da, md), = list_of_da_md
             da.name = _get_variable_id(var_id)
-            da_by_var_id[da.name] = da
-        elif len(das) > 1:
-            logger().info(f'var_id={var_id}: concatenate {len(das)} DataArrays:')
-            for da in das:
-                logger().info(f'{da}')
+            # if the variable contains only NaN's, skip it
+            if da.notnull().any():
+                da_by_var_id[da.name] = da
+        elif len(list_of_da_md) > 1:
+            logger().info(f'var_id={var_id}: concatenate {len(list_of_da_md)} DataArrays:')
+            list_of_da_md = sorted(list_of_da_md, key=lambda da_md: da_md[1]['time_period_start'])
+            for da, md in list_of_da_md:
+                logger().info(f'metadata={md}; DataArray={da}')
             try:
-                da = xr.concat(das, dim='time')
+                da = xr.concat([da for da, md in list_of_da_md], dim='time')
+                assert da.indexes['time'].is_monotonic_increasing
             except Exception as e:
                 logger().exception(
-                    f'var_id={var_id}: concatenate of {len(das)} DataArrays failed; '
+                    f'var_id={var_id}: concatenate of {len(list_of_da_md)} DataArrays failed; '
                     f'fall back to present them separately by add an No. to their var_id', exc_info=e
                 )
                 _var_id = _get_variable_id(var_id)
-                for i, da in enumerate(das):
+                for i, (da, md) in enumerate(list_of_da_md):
                     da.name = f'{_var_id}_{i}'
                     # if the variable contains only NaN's, skip it
                     if da.notnull().any():

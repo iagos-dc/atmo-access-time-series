@@ -14,8 +14,7 @@ from . import helper, CACHE_DIR
 
 from log import logger
 
-from atmoaccess_data_access import query_iagos, query_icos
-from . import query_actris
+from atmoaccess_data_access import query_iagos, query_icos, query_actris
 
 
 _RIS = ['actris', 'iagos', 'icos']
@@ -285,13 +284,10 @@ def get_datasets(variables, station_codes=None, ris=None, lon_min=None, lon_max=
 
 
 def _get_actris_datasets(variables, station_codes, ris, bbox):
-    datasets = query_actris.query_datasets(variables=variables, temporal_extent=[], spatial_extent=bbox)
+    datasets = query_actris.query_datasets_stations(station_codes, variables_list=variables)
     if not datasets:
         return None
     datasets_df = pd.DataFrame.from_dict(datasets)
-
-    # fix title for ACTRIS datasets: remove time span
-    datasets_df['title'] = datasets_df['title'].str.slice(stop=-62)
 
     datasets_df['RI'] = 'ACTRIS'
     return datasets_df
@@ -398,6 +394,9 @@ def read_dataset(ri, url, ds_metadata, selector=None):
     if isinstance(url, (list, tuple)):
         ds = None
         for single_url in url:
+            if ri == 'ACTRIS' and single_url.get('type') != 'OPeNDAP':
+                # for ACTRIS urls, we can choose OPeNDAP
+                continue
             ds = read_dataset(ri, single_url, ds_metadata)
             if ds is not None:
                 break
