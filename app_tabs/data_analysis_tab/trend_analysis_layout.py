@@ -13,6 +13,7 @@ TREND_ANALYSIS_METHOD_RADIO_ID = 'trend-analysis-method-radio'
 TREND_GRAPH_ID = 'trend-analysis-graph'
 AUTOCORRELATION_GRAPH_ID = 'autocorrelation-graph'
 TREND_SUMMARY_BAR_GRAPH_ID = 'trend-summary-bar-graph'
+TREND_ALIGN_ALL_Y_AXES_BUTTON_ID = 'trend-analysis-align-all-y-axes-button'
 
 # TREND_SUMMARY_CONTAINER_ID = 'trend-summary-container'
 
@@ -226,7 +227,26 @@ def _get_trend_graph():
         # style={"border": "1px grey solid"},
         # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
     ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
+
+    # return dbc.Card([
+    #     dbc.CardBody(graph),
+    #     dbc.CardFooter(dbc.Row(dbc.Col(align_yaxes_button, width='auto'), justify='center'))
+    # ])
     return graph
+
+
+def _get_align_y_axes_button():
+    align_yaxes_button = dbc.Button(
+        id=ddc.add_active_to_component_id(TREND_ALIGN_ALL_Y_AXES_BUTTON_ID),
+        n_clicks=0,
+        outline=True,
+        color='primary',
+        type='submit',
+        style={'font-weight': 'bold'},
+        size='lg',
+        children='Align y-axes',
+    )
+    return align_yaxes_button
 
 
 def _get_autocorrelation_graph():
@@ -252,5 +272,6 @@ def _get_trend_summary_bar_graph():
 
 
 trend_graph = _get_trend_graph()
+align_y_axes_button = _get_align_y_axes_button()
 autocorrelation_graph = _get_autocorrelation_graph()
 trend_summary_bar_graph = _get_trend_summary_bar_graph()

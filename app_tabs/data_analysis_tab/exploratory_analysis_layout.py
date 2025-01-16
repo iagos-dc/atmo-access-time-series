@@ -11,6 +11,7 @@ EXPLORATORY_ANALYSIS_METHOD_RADIO_ID = 'exploratory-analysis-method-radio'
 EXPLORATORY_ANALYSIS_METHOD_PARAMETERS_CARDBODY_ID = 'exploratory-analysis-method-parameters-cardbody'
 EXPLORATORY_GRAPH_ID = 'exploratory-analysis-graph'
 EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID = 'exploratory-analysis-graph-scatter-mode-radio'
+EXPLORATORY_ALIGN_ALL_Y_AXES_BUTTON_ID = 'exploratory-analysis-align-all-y-axes-button'
 
 GAUSSIAN_MEAN_AND_STD_METHOD = 'Gaussian mean and std'
 PERCENTILES_METHOD = 'Percentiles'
@@ -103,6 +104,7 @@ def _get_exploratory_plot():
         config=GRAPH_CONFIG,
         # responsive=True,  # WARNING: this triggers relayoutData={'autosize': True}
     ) # does it provide any performance improvement to scattergl?, config={'plotGlPixelRatio': 1})
+
     scatter_mode_radio = dbc.RadioItems(
         id=ddc.add_active_to_component_id(EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID),
         options=[
@@ -115,15 +117,43 @@ def _get_exploratory_plot():
         persistence=True,
         persistence_type='session',
     )
+
+    align_yaxes_button = dbc.Button(
+        id=ddc.add_active_to_component_id(EXPLORATORY_ALIGN_ALL_Y_AXES_BUTTON_ID),
+        n_clicks=0,
+        outline=True,
+        color='secondary',
+        type='submit',
+        style={'font-weight': 'bold'},
+        size='lg',
+        children='Align y-axes',
+    )
+    align_yaxes_button = dbc.Checkbox(
+        id=ddc.add_active_to_component_id(EXPLORATORY_ALIGN_ALL_Y_AXES_BUTTON_ID),
+        label='Align y-axes',
+        value=False,
+    )
+
     scatter_mode_input_group = [
-        dbc.Label('Plot mode:', width='auto'),
-        dbc.Col(scatter_mode_radio),
+        dbc.Col(
+            dbc.Row(
+                [
+                    dbc.Col(dbc.Label('Plot mode:'), width='auto'),
+                    dbc.Col(scatter_mode_radio, width='auto'),
+                ],
+                justify='between'
+            ),
+            width='auto'
+        ),
+        dbc.Col(align_yaxes_button, width='auto'),
     ]
 
-    return [
-        dbc.Row(graph),
-        dbc.Row(scatter_mode_input_group, align='end'),
-    ]
+    return dbc.Card([
+        dbc.CardBody(dbc.Row(graph)),
+        dbc.CardFooter(
+            dbc.Row(scatter_mode_input_group, align='end', justify='evenly')
+        ),
+    ])
 
 
 exploratory_plot = _get_exploratory_plot()

@@ -1,6 +1,7 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
+from app_tabs.common.data import stations
 import utils.stations_map
 from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE, get_help_icon, get_next_button, std_variables
 from utils.dash_persistence import get_dash_persistence_kwargs
@@ -95,6 +96,8 @@ def get_stations_dash_component():
 
 
 def get_search_datasets_tab():
+    station_labels = stations['short_name'] + ' (' + stations['long_name'] + ', ' + stations['RI'] + ')'
+
     variable_selection_card = dbc.Card([
         dbc.CardHeader(
             'Select variables',
@@ -180,7 +183,9 @@ def get_search_datasets_tab():
                         dcc.Dropdown(
                             id=SELECTED_STATIONS_DROPDOWN_ID,
                             multi=True,
-                            clearable=False,
+                            clearable=True,
+                            value=[],
+                            options=[{'value': idx, 'label': station_label} for idx, station_label in station_labels.items()],
                             #**get_dash_persistence_kwargs(persistence_id=True)
                         ),
                     ],

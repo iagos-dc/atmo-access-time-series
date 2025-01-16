@@ -60,6 +60,8 @@ def get_extra_parameters(tab_id, analysis_method):
     ddc.DynamicInput(exploratory_analysis_layout.PERCENTILES_CHECKLIST_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.PERCENTILE_USER_DEF_INPUT_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID, 'value'),
+    #ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ALIGN_ALL_Y_AXES_BUTTON_ID, 'n_clicks'),
+ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ALIGN_ALL_Y_AXES_BUTTON_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID, 'relayoutData'),
 )
 @log_exception
@@ -75,6 +77,7 @@ def get_exploratory_plot_callback(
         percentiles,
         user_def_percentile,
         scatter_mode,
+        align_y_axes_n_click,
         relayout_data
 ):
     if tab_id != tabs_layout.EXPLORATORY_ANALYSIS_TAB_ID:
@@ -93,9 +96,14 @@ def get_exploratory_plot_callback(
 
     figure_extent = charts.get_figure_extent(relayout_data)
     # print(f'figure_extent={figure_extent}')
+    ###align_y_axes = ddc.add_active_to_component_id(exploratory_analysis_layout.EXPLORATORY_ALIGN_ALL_Y_AXES_BUTTON_ID) in dash_ctx
+    align_y_axes = align_y_axes_n_click
+    # print('align_y_axes =', align_y_axes)
 
-    if dash_ctx == [ddc.add_active_to_component_id(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID)] and not figure_extent:
-        logger().warning(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
+    # if the callback was triggered due to user's action on figure layout which does not touch x-axis, this callback will have no effect
+    if dash_ctx == [ddc.add_active_to_component_id(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID)] \
+            and (figure_extent is None or isinstance(figure_extent, dict) and 'xaxis' not in figure_extent):
+        # logger().warning(f'prevented update with relayout_data={relayout_data}; dash_ctx={dash_ctx}')
         raise dash.exceptions.PreventUpdate
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request)
@@ -147,6 +155,7 @@ def get_exploratory_plot_callback(
             # variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
             color_mapping=colors_by_var,
+            align_all_ranges=align_y_axes,
             filtering_on_figure_extent=filtering_on_figure_extent,
             subsampling=5_000,
         )
@@ -190,6 +199,7 @@ def get_exploratory_plot_callback(
             yaxis_label_by_var=yaxis_label_by_var,
             color_mapping=colors_by_var,
             line_dash_style_by_sublabel=exploratory_analysis_layout.LINE_DASH_STYLE_BY_PERCENTILE,
+            align_all_ranges=align_y_axes,
             filtering_on_figure_extent=filtering_on_figure_extent,
             subsampling=5_000,
         )
@@ -219,6 +229,7 @@ def get_exploratory_plot_callback(
             # variable_label_by_var=variable_label_by_var,
             yaxis_label_by_var=yaxis_label_by_var,
             color_mapping=colors_by_var,
+            align_all_ranges=align_y_axes,
             filtering_on_figure_extent=filtering_on_figure_extent,
             subsampling=5_000,
         )
@@ -233,6 +244,10 @@ def get_exploratory_plot_callback(
         # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
         hovermode='x unified'  # https://plotly.com/python/hover-text-and-formatting/#control-hovermode-with-dash
     )
+    # the line below is needed if we want to re-align y-axes after playing with y-axes via UI
+    # (otherwise the uiversion for the figure layout keeps the figure layout, including yaxes ranges, intact).
+    fig.update_yaxes(uirevision=integrate_datasets_request_hash + f'-{align_y_axes_n_click}')
+
     fig = charts.add_watermark(fig)
 
     # if dash.ctx.triggered_id != FILTER_DATA_REQUEST_ID:

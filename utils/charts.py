@@ -605,7 +605,7 @@ def align_range_containing_zero(rng, nticks_positive, nticks_negative, log_coeff
     return (low_aligned, high_aligned), low_aligned, dtick
 
 
-def get_range_tick0_dtick_by_var(df, nticks, error_df=None, align_zero=False):
+def get_range_tick0_dtick_by_var(df, nticks, error_df=None, align_zero=False, align_all=False):
     """
 
     :param df: pandas DataFrame or dict of pandas Series {variable_id: series}, or dict of dict of pandas Series
@@ -642,7 +642,13 @@ def get_range_tick0_dtick_by_var(df, nticks, error_df=None, align_zero=False):
                     hi = max(hi, 0)
                 range_by_var[v] = [lo, hi]
 
-    if not align_zero:
+    if align_all and len(range_by_var) > 0:
+        lo = min(lo_hi[0] for lo_hi in range_by_var.values())
+        hi = max(lo_hi[1] for lo_hi in range_by_var.values())
+        for v in list(range_by_var):
+            range_by_var[v] = [lo, hi]
+
+    if not align_zero or align_all:
         range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range(rng, nticks=nticks), range_by_var)
     else:
         lo, hi = np.array(list(range_by_var.values())).T
@@ -674,6 +680,8 @@ def get_range_tick0_dtick_by_var(df, nticks, error_df=None, align_zero=False):
             nticks_positive = int(np.ceil((nticks - 1) * _hi / (_hi - _lo))) + 1
             nticks_negative = int(np.ceil((nticks - 1) * (-_lo) / (_hi - _lo))) + 1
             range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range_containing_zero(rng, nticks_positive, nticks_negative), range_by_var)
+        else:
+            range_tick0_dtick_by_var = toolz.valmap(lambda rng: align_range(rng, nticks=nticks), range_by_var)
 
     return range_tick0_dtick_by_var
 
@@ -707,6 +715,7 @@ def multi_line(
         yaxis_label_by_var=None,
         color_mapping=None,
         range_tick0_dtick_by_var=None,
+        align_all_ranges=False,
         line_dash_style_by_sublabel=None,
         marker_opacity_by_sublabel=None,
         filtering_on_figure_extent=None,
@@ -730,6 +739,7 @@ def multi_line(
     keys of the dict are that of df (if DataFrame, that's the df columns)
     :param color_mapping: dict or None;
     :param range_tick0_dtick_by_var: dict or None;
+    :param align_all_ranges: bool, default False; if True, all ranges will be aligned
     :param line_dash_style_by_sublabel: None or dict of the form {sublabel: str}, where values are from
     [‘solid’, ‘dot’, ‘dash’, ‘longdash’, ‘dashdot’, ‘longdashdot’]
     :param marker_opacity_by_sublabel: None or dict of the form {sublabel: float}, where floats are in [0, 1]
@@ -752,7 +762,7 @@ def multi_line(
     if color_mapping is None:
         color_mapping = get_color_mapping(list(df))
     if range_tick0_dtick_by_var is None:
-        range_tick0_dtick_by_var = get_range_tick0_dtick_by_var(df, nticks, error_df=df_std)
+        range_tick0_dtick_by_var = get_range_tick0_dtick_by_var(df, nticks, error_df=df_std, align_all=align_all_ranges)
 
     fig = go.Figure()
 
@@ -1377,7 +1387,7 @@ def get_figure_extent(relayout_data):
     :param relayout_data:
     :return: dict or True; True if autosize=True is within relayout_data
     """
-    print(f'get_figure_extent(relayout_data={relayout_data})')
+    # print(f'get_figure_extent(relayout_data={relayout_data})')
 
     if relayout_data is not None:
         layout_dict = {}

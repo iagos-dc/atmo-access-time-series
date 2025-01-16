@@ -6,7 +6,8 @@ from app_tabs.data_analysis_tab.tabs_layout import DATA_ANALYSIS_PARAMETERS_CARD
     KIND_OF_ANALYSIS_TABS_ID, EXPLORATORY_ANALYSIS_TAB_ID, TREND_ANALYSIS_TAB_ID, MULTIVARIATE_ANALYSIS_TAB_ID, BORDER_STYLE
 from app_tabs.data_analysis_tab.exploratory_analysis_layout import exploratory_analysis_cardbody, \
     exploratory_plot
-from app_tabs.data_analysis_tab.trend_analysis_layout import get_time_filter, get_trend_analysis_cardbody, trend_graph, autocorrelation_graph, trend_summary_bar_graph
+from app_tabs.data_analysis_tab.trend_analysis_layout import get_time_filter, get_trend_analysis_cardbody, \
+    trend_graph, align_y_axes_button, autocorrelation_graph, trend_summary_bar_graph
 from app_tabs.data_analysis_tab.multivariate_analysis_layout import multivariate_analysis_cardbody, multivariate_plot
 from log import log_exception
 from utils.exception_handler import callback_with_exc_handling, AppException
@@ -36,10 +37,9 @@ def get_data_analysis_carbody_content(tab_id):
         param_cardbody_children = get_trend_analysis_cardbody(time_filter)
         figure_container_children = dbc.Container(
             [
-                dbc.Row([
-                    # dbc.Col(time_filter.get_graph(), width=6, style=BORDER_STYLE),
-                    dbc.Col(trend_graph, width=12, style=BORDER_STYLE),
-                ]),
+                dbc.Row(
+                    dbc.Col([trend_graph, align_y_axes_button], width=12, style=BORDER_STYLE),
+                ),
                 dbc.Row([
                     dbc.Col(trend_summary_bar_graph, width=6, style=BORDER_STYLE),
                     dbc.Col(autocorrelation_graph, width=6, style=BORDER_STYLE),

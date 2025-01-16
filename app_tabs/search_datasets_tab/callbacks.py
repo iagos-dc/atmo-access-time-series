@@ -203,7 +203,6 @@ def _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_opti
     Output(SELECTED_STATIONS_STORE_ID, 'data'),
     Output(STATIONS_MAP_ID, 'figure'),
     Output(MAP_ZOOM_STORE_ID, 'data'),
-    Output(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
     Output(SELECTED_STATIONS_DROPDOWN_ID, 'value'),
     Input(SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, 'n_clicks'),
     Input(STATIONS_MAP_ID, 'selectedData'),
@@ -295,9 +294,5 @@ def get_selected_stations_bbox_and_dropdown(
     patched_fig = utils.stations_map.get_stations_map_patch(zoom, size, opacity)
 
     selected_stations_df = stations.loc[selected_stations_idx] if selected_stations_idx is not None else stations.loc[[]]
-    selected_stations_dropdown_options, selected_stations_dropdown_value = _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options)
 
-    return (
-        selected_stations_idx, patched_fig, zoom,
-        selected_stations_dropdown_options, selected_stations_dropdown_value,
-    )
+    return selected_stations_idx, patched_fig, zoom, list(selected_stations_df.index)

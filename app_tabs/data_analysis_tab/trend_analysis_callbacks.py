@@ -90,6 +90,7 @@ def _get_theil_sen_slope(series):
     ddc.DynamicInput(trend_analysis_layout.DESEASONIZE_CHECKBOX_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'value'),
     ddc.DynamicInput(trend_analysis_layout.MOVING_AVERAGE_PERIOD_SELECT_ID, 'value'),
+    ddc.DynamicInput(trend_analysis_layout.TREND_ALIGN_ALL_Y_AXES_BUTTON_ID, 'n_clicks'),
     prevent_initial_call=True
 )
 @log_exception
@@ -106,10 +107,13 @@ def get_trend_plots_callback(
         min_sample_size,
         do_deseasonize,
         apply_moving_average,
-        moving_average_period
+        moving_average_period,
+        align_y_axes_n_click
 ):
     if tab_id != tabs_layout.TREND_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
+
+    dash_ctx = list(dash.ctx.triggered_prop_ids.values())
 
     args = (
         tab_id, filter_data_request_as_dict, vs, analysis_method, time_rng, do_aggregate, aggregation_period,
@@ -125,7 +129,7 @@ def get_trend_plots_callback(
     ):
         raise dash.exceptions.PreventUpdate
 
-    # print(f'get_trend_plots_callback with ctx={list(dash.ctx.triggered_prop_ids.values())}')
+    align_y_axes = ddc.add_active_to_component_id(trend_analysis_layout.TREND_ALIGN_ALL_Y_AXES_BUTTON_ID) in dash_ctx
 
     filter_data_request = data_processing.FilterDataRequest.from_dict(filter_data_request_as_dict)
     integrate_datasets_request = filter_data_request.integrate_datasets_request
@@ -318,6 +322,7 @@ def get_trend_plots_callback(
             TIMESERIES_LEGEND_SUBLABEL: 0.4,
             'trend': 1,
         },
+        align_all_ranges=align_y_axes,
         subsampling=5_000,
     )
 
