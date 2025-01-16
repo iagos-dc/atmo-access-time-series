@@ -174,7 +174,7 @@ def extract_seasonality(da, period=pd.Timedelta(8766, unit='H')):  # the default
     series = _to_series(da)
 
     assert series.index.is_monotonic_increasing, f'The index of the series is not monotone; series={series}, index={series.index}'
-    assert series.index.is_all_dates, f'The index of the series is not all dates; series={series}, index={series.index}'
+    assert isinstance(series.index, pd.DatetimeIndex), f'The index of the series is not all dates; series={series}, index={series.index}'
 
     # freq = x.index.freq
     # if freq is None:
