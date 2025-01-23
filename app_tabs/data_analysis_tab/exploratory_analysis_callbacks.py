@@ -8,7 +8,6 @@ import data_processing
 from data_processing import metadata, analysis
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from app_tabs.data_analysis_tab import exploratory_analysis_layout
-from log import log_exception, logger, log_callback
 from utils import dash_dynamic_components as ddc, charts, helper
 from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning
 
@@ -21,7 +20,6 @@ from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarni
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ANALYSIS_METHOD_RADIO_ID, 'value'),
     prevent_initial_call=True,
 )
-@log_exception
 def get_extra_parameters(tab_id, analysis_method):
     if analysis_method is None or tab_id != tabs_layout.EXPLORATORY_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
@@ -64,7 +62,6 @@ def get_extra_parameters(tab_id, analysis_method):
 ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_ALIGN_ALL_Y_AXES_BUTTON_ID, 'value'),
     ddc.DynamicInput(exploratory_analysis_layout.EXPLORATORY_GRAPH_ID, 'relayoutData'),
 )
-@log_exception
 def get_exploratory_plot_callback(
         tab_id,
         filter_data_request,

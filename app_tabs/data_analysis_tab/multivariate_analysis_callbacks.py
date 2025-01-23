@@ -10,7 +10,7 @@ import data_processing.analysis
 from app_tabs.common import layout as common_layout
 from . import multivariate_analysis_layout, tabs_layout
 from data_processing import metadata
-from log import log_exception, logger
+from log import logger
 from utils import dash_dynamic_components as ddc, charts, helper
 from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning, EmptyFigureException
 
@@ -22,7 +22,6 @@ from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarni
     Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
     prevent_initial_call=False,
 )
-@log_exception
 def get_multivariate_analysis_variables_cardbody_callback(tab_id, analysis_method, filter_data_request):
     if filter_data_request is None or tab_id != tabs_layout.MULTIVARIATE_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
@@ -75,7 +74,6 @@ def get_multivariate_analysis_variables_cardbody_callback(tab_id, analysis_metho
     ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'disabled'),
     prevent_initial_call=True,
 )
-@log_exception
 def get_extra_parameters(tab_id, plot_type, c_variable, c_variable_disabled):
     if plot_type is None or tab_id != tabs_layout.MULTIVARIATE_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
@@ -110,7 +108,6 @@ def get_extra_parameters(tab_id, plot_type, c_variable, c_variable_disabled):
     ddc.DynamicInput(multivariate_analysis_layout.MULTIVARIATE_GRAPH_ID, 'relayoutData'),
     prevent_initial_call=True,
 )
-@log_exception
 #@log_exectime
 def get_multivariate_plot_callback(
         tab_id,

@@ -14,7 +14,7 @@ from data_processing import metadata, analysis
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from . import common_layout, tabs_layout
 from app_tabs.data_analysis_tab import trend_analysis_layout
-from log import log_exception, log_profiler_info, dump_exception_to_log
+from log import dump_exception_to_log
 from utils import dash_dynamic_components as ddc, charts, dash_persistence, helper
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id
 from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarning, AppException
@@ -44,7 +44,6 @@ def _get_min_max_time(da_by_var):
     ddc.DynamicInput(trend_analysis_layout.AGGREGATE_CHECKBOX_ID, 'value'),
     prevent_initial_call=True
 )
-@log_exception
 def show_aggregate_card(tab_id, aggregate_checkbox):
     if tab_id != tabs_layout.TREND_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
@@ -60,7 +59,6 @@ def show_aggregate_card(tab_id, aggregate_checkbox):
     ddc.DynamicInput(trend_analysis_layout.APPLY_MOVING_AVERAGE_CHECKBOX_ID, 'value'),
     prevent_initial_call=True
 )
-@log_exception
 def show_moving_average_card(tab_id, deseasonize_checkbox, apply_moving_average_checkbox):
     if tab_id != tabs_layout.TREND_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
@@ -93,7 +91,6 @@ def _get_theil_sen_slope(series):
     ddc.DynamicInput(trend_analysis_layout.TREND_ALIGN_ALL_Y_AXES_BUTTON_ID, 'n_clicks'),
     prevent_initial_call=True
 )
-@log_exception
 #@log_profiler_info()
 def get_trend_plots_callback(
         tab_id,

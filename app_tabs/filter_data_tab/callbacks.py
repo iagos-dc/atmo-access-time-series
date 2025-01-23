@@ -18,7 +18,6 @@ from app_tabs.common.layout import INTEGRATE_DATASETS_REQUEST_ID, FILTER_DATA_RE
 from utils import charts
 from utils.graph_with_horizontal_selection_AIO import figure_data_store_id, selected_range_store_id, \
     GraphWithHorizontalSelectionAIO, graph_id, interval_input_group_id
-from log import log_exception
 from utils.exception_handler import callback_with_exc_handling, AppException, AppWarning
 
 
@@ -29,7 +28,6 @@ DATA_FILTER_AIO_CLASS = 'data_filter'
     Output(FILTER_DATA_TAB_VALUE, 'disabled'),
     Input(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
 )
-@log_exception
 def enable_filter_data_tab(integrate_datasets_request):
     return integrate_datasets_request is None
 
@@ -70,7 +68,6 @@ def _get_min_max_time(da_by_var):
     State(INTEGRATE_DATASETS_REQUEST_ID, 'data'),
     prevent_initial_call=True,
 )
-@log_exception
 def update_histograms_callback(
         selected_ranges, selected_range_ids,
         time_granularity, filter_type, cross_filtering_time_coincidence,
@@ -288,7 +285,6 @@ def _get_accordion(list_of_v_title_component):
     Input(APP_TABS_ID, 'active_tab'),  # dummy trigger; it is a way to workaround plotly bug of badly resized figures
     prevent_initial_call=True,
 )
-@log_exception
 def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_value):
     if app_tab_value != FILTER_DATA_TAB_VALUE:
         raise PreventUpdate
@@ -391,7 +387,6 @@ def data_filtering_create_layout_callback(integrate_datasets_request, app_tab_va
     State(FILTER_TIME_CONINCIDENCE_SELECT_ID, 'value'),
     prevent_initial_call=True,
 )
-@log_exception
 def filter_data_callback(
         n_clicks,
         integrate_datasets_request,

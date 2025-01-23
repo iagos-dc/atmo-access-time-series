@@ -25,7 +25,6 @@ from app_tabs.select_datasets_tab.layout import SELECT_DATASETS_BUTTON_ID, \
 from app_tabs.filter_data_tab.layout import FILTER_DATA_BUTTON_ID, \
     get_filter_data_tab
 from app_tabs.data_analysis_tab.tabs_layout import get_data_analysis_tab
-from log import log_exception
 from utils.dash_persistence import get_dash_persistence_kwargs
 from utils.exception_handler import alert_popups
 

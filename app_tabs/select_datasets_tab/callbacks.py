@@ -19,7 +19,7 @@ from app_tabs.select_datasets_tab.layout import GANTT_GRAPH_ID, VARIABLES_LEGEND
     DATASETS_TABLE_ID, DATASETS_TABLE_CHECKLIST_ALL_NONE_SWITCH_ID, QUICKLOOK_POPUP_ID, SELECT_DATASETS_BUTTON_ID, \
     RESET_DATASETS_SELECTION_BUTTON_ID, SELECTED_GANTT_OPACITY, UNSELECTED_GANTT_OPACITY, BAR_UNSELECTED, \
     BAR_PARTIALLY_SELECTED, BAR_SELECTED, OPACITY_BY_BAR_SELECTION_STATUS
-from log import logger, log_exception, log_exectime
+from log import logger
 from utils import charts
 from utils import colors
 from utils.exception_handler import callback_with_exc_handling, handle_exception, AppException, AppWarning
@@ -29,7 +29,6 @@ from utils.exception_handler import callback_with_exc_handling, handle_exception
     Output(SELECT_DATASETS_TAB_VALUE, 'disabled'),
     Input(DATASETS_STORE_ID, 'data'),
 )
-@log_exception
 def enable_select_datasets_tab(datasets_json):
     return datasets_json is None
 
@@ -48,7 +47,6 @@ custom_callback_with_exc_handling = handle_exception(callback, dash.no_update, d
     State(GANTT_SELECTED_BARS_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
-@log_exception
 def update_selection_on_gantt_graph(
         reset_datasets_selection_button,
         click_data,
@@ -110,7 +108,6 @@ def update_selection_on_gantt_graph(
     State(GANTT_SELECTED_DATASETS_IDX_STORE_ID, 'data'),
     prevent_initial_call=True,
 )
-@log_exception
 #@log_exectime
 def get_gantt_figure(datasets_json, selected_variables, app_tab_value, selected_datasets):
     print(f'selected_variables={selected_variables}')
@@ -193,7 +190,6 @@ def get_gantt_figure(datasets_json, selected_variables, app_tab_value, selected_
     State(DATASETS_TABLE_ID, 'selected_row_ids'),
     prevent_initial_call=True,
 )
-@log_exception
 def datasets_as_table(
         datasets_indices,
         datasets_table_checklist_all_none_switch,
@@ -282,7 +278,6 @@ def datasets_as_table(
     State(VARIABLES_LEGEND_DROPDOWN_ID, 'value'),
     prevent_initial_call=True,
 )
-@log_exception
 def popup_graphs(active_cell, datasets_json, selected_variables):
     if datasets_json is None or active_cell is None:
         return [], None  # children=None instead of [] does not work
@@ -356,7 +351,6 @@ def popup_graphs(active_cell, datasets_json, selected_variables):
 #     State(DATASET_MD_STORE_ID, 'data'),
 #     prevent_initial_call=True,
 # )
-@log_exception
 def download_csv(n_clicks, ds_md_json):
     try:
         s = pd.Series(json.loads(ds_md_json))
@@ -372,7 +366,6 @@ def download_csv(n_clicks, ds_md_json):
     Output(SELECT_DATASETS_BUTTON_ID, 'disabled'),
     Input(DATASETS_TABLE_ID, 'selected_row_ids'),
 )
-@log_exception
 def select_datasets_button_disabled(selected_row_ids):
     return not selected_row_ids
 
@@ -386,7 +379,6 @@ def select_datasets_button_disabled(selected_row_ids):
     State(VARIABLES_LEGEND_DROPDOWN_ID, 'value'),
     prevent_initial_call=True,
 )
-@log_exception
 def select_datasets(n_clicks, datasets_json, selected_row_ids, selected_variables):
     if datasets_json is None or selected_row_ids is None:
         raise dash.exceptions.PreventUpdate

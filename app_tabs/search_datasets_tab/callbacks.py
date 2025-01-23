@@ -16,7 +16,6 @@ from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLE
 from app_tabs.select_datasets_tab.layout import VARIABLES_LEGEND_DROPDOWN_ID, get_variables_legend_options
 from utils.stations_map import DEFAULT_STATIONS_SIZE, SELECTED_STATIONS_OPACITY, UNSELECTED_STATIONS_OPACITY, \
     SELECTED_STATIONS_SIZE, UNSELECTED_STATIONS_SIZE
-from log import logger, log_exception, log_exectime
 from data_processing.utils import points_inside_polygons
 from utils.exception_handler import callback_with_exc_handling, AppException, AppWarning
 
@@ -26,7 +25,6 @@ from utils.exception_handler import callback_with_exc_handling, AppException, Ap
     Input(VARIABLES_CHECKLIST_ID, 'value'),
     # prevent_initial_call=True,
 )
-@log_exception
 def update_selected_ecv_store(selected_ecv):
     return selected_ecv
 
@@ -37,7 +35,6 @@ def update_selected_ecv_store(selected_ecv):
     State(SELECTED_ECV_STORE_ID, 'data'),
     # prevent_initial_call=True,
 )
-@log_exception
 def toogle_variable_checklist(variables_checklist_all_none_switch, selected_ecv):
     _all_variables = std_variables['value'].tolist()
 
@@ -60,7 +57,6 @@ def toogle_variable_checklist(variables_checklist_all_none_switch, selected_ecv)
     Input(SELECTED_STATIONS_STORE_ID, 'data'),
     Input(SELECTED_ECV_STORE_ID, 'data'),
 )
-@log_exception
 def search_datasets_button_disabled(selected_stations_idx, selected_variables):
     return not (selected_stations_idx and selected_variables)
 
@@ -70,7 +66,6 @@ def search_datasets_button_disabled(selected_stations_idx, selected_variables):
     Input(MAP_BACKGROUND_RADIO_ID, 'value'),
     prevent_initial_call=True
 )
-@log_exception
 def change_map_background(map_background):
     if map_background not in MAPBOX_STYLES:
         raise dash.exceptions.PreventUpdate
@@ -85,7 +80,6 @@ def change_map_background(map_background):
     Input(SEARCH_DATASETS_BUTTON_ID, 'n_clicks'),
     State(SELECTED_ECV_STORE_ID, 'data')
 )
-@log_exception
 def set_variables_legend_dropdown(n_click, selected_variables):
     return selected_variables, get_variables_legend_options(selected_variables)
 
@@ -98,7 +92,6 @@ def set_variables_legend_dropdown(n_click, selected_variables):
     State(SELECTED_STATIONS_STORE_ID, 'data'),
     prevent_initial_call=True
 )
-@log_exception
 #@log_exectime
 def search_datasets(n_clicks, selected_variables, selected_stations_idx):
     if not (selected_stations_idx and selected_variables):
@@ -213,7 +206,6 @@ def _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_opti
     State(SELECTED_STATIONS_STORE_ID, 'data'),
     State(SELECTED_STATIONS_DROPDOWN_ID, 'options'),
 )
-@log_exception
 def get_selected_stations_bbox_and_dropdown(
         reset_stations_button,
         selected_data,

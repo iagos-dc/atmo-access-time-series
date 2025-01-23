@@ -8,7 +8,6 @@ from . import common_layout, tabs_layout
 import data_processing
 from app_tabs.common.layout import FILTER_DATA_REQUEST_ID
 from data_processing import metadata
-from log import log_exception
 from utils import dash_dynamic_components as ddc, dash_persistence, charts
 from utils.exception_handler import callback_with_exc_handling, dynamic_callback_with_exc_handling, AppException, AppWarning
 
@@ -20,7 +19,6 @@ from utils.exception_handler import callback_with_exc_handling, dynamic_callback
     ddc.DynamicInput(common_layout.DATA_ANALYSIS_VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, 'value'),
     prevent_initial_call=False,
 )
-@log_exception
 def get_variables_callback(tab_id, filter_data_request, variables_checklist_all_none_switch):
     if tab_id not in [tabs_layout.EXPLORATORY_ANALYSIS_TAB_ID, tabs_layout.TREND_ANALYSIS_TAB_ID]:
         raise dash.exceptions.PreventUpdate
