@@ -1,10 +1,11 @@
 import pathlib
-import importlib.resources
 import pandas as pd
 import diskcache
 
+import config
 
-_REQUESTS_DIR = pathlib.PurePath(importlib.resources.files('data_access') / 'cache/requests.tmp')
+
+_REQUESTS_DIR = pathlib.PurePath(config.APP_CACHE_DIR) / 'requests.tmp'
 
 
 def analyze_requests(requests_dir=_REQUESTS_DIR):

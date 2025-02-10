@@ -1,20 +1,12 @@
 import shutil
 import pathlib
-import importlib.resources
 
-
-CACHE_DIR = pathlib.Path(importlib.resources.files('data_access') / 'cache')
+import config
 
 
 def clear_cache():
-    # if CACHE_DIR.exists():
-    #   shutil.rmtree(CACHE_DIR)
-    (CACHE_DIR / 'stations_iagos.pkl').unlink(missing_ok=True)
-    (CACHE_DIR / 'stations_icos.pkl').unlink(missing_ok=True)
-    (CACHE_DIR / 'variables_iagos.pkl').unlink(missing_ok=True)
-    (CACHE_DIR / 'variables_icos.pkl').unlink(missing_ok=True)
-    if (CACHE_DIR / 'cache.tmp').exists():
-        shutil.rmtree(CACHE_DIR / 'cache.tmp')
+    if pathlib.Path(config.APP_CACHE_DIR).exists():
+        shutil.rmtree(config.APP_CACHE_DIR)
 
 
 if __name__ == '__main__':

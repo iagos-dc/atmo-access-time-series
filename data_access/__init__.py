@@ -1,10 +1,5 @@
-import pathlib
-import importlib.resources
-
-CACHE_DIR = pathlib.PurePath(importlib.resources.files('data_access') / 'cache')
-pathlib.Path(CACHE_DIR).mkdir(exist_ok=True)
-
 from .data_access import (
+    CACHE_DIR,
     get_stations,
     get_vars,
     get_vars_long,

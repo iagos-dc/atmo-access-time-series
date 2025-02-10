@@ -2,6 +2,7 @@
 This module provides a unified API for access to metadata and datasets from ACTRIS, IAGOS and ICOS RI's.
 At the moment, the access to ICOS RI is implemented here.
 """
+import pathlib
 
 import numpy as np
 import pandas as pd
@@ -9,13 +10,22 @@ import xarray as xr
 import json
 import itertools
 import functools
+import warnings
 
-from . import helper, CACHE_DIR
+import config
+import log
+from . import helper
 
 from log import logger
+from utils.exception_handler import AppWarning
 
 from atmoaccess_data_access import query_iagos, query_icos, query_actris
 
+
+CACHE_DIR = pathlib.Path(config.APP_CACHE_DIR)
+CACHE_DIR.mkdir(exist_ok=True)
+
+query_actris._open_cache(CACHE_DIR / 'actris-cache.tmp')
 
 _RIS = ['actris', 'iagos', 'icos']
 _GET_DATASETS_BY_RI = dict()
@@ -66,7 +76,13 @@ def _get_ri_query_module_by_ri(ris=None):
 _ri_query_module_by_ri = _get_ri_query_module_by_ri()
 
 
+@functools.lru_cache()
 def _get_stations(ris=None):
+    """
+
+    :param ris: tuple of RIs or None; cannot be a list due to caching!
+    :return: pandas.DataFrame
+    """
     ri_query_module_by_ri = _get_ri_query_module_by_ri(ris)
     stations_dfs = []
     for ri, ri_query_module in ri_query_module_by_ri.items():
@@ -106,7 +122,6 @@ def _get_stations(ris=None):
     return all_stations_df
 
 
-@functools.lru_cache()
 def get_stations():
     """
     For each ACTRIS, IAGOS and ICOS station (for the moment it is ICOS only).
@@ -283,8 +298,46 @@ def get_datasets(variables, station_codes=None, ris=None, lon_min=None, lon_max=
     return datasets_df.drop(columns=['time_period']).rename(columns={'urls': 'url'})
 
 
+def _get_urls(url, ri):
+    if isinstance(url, (list, tuple)):
+        urls = []
+        for single_url in url:
+            urls.extend(_get_urls(single_url, ri))
+        return urls
+    elif isinstance(url, dict):
+        if ri == 'ACTRIS' and url.get('type') != 'OPeNDAP':
+            # for ACTRIS urls, we can choose OPeNDAP only
+            return []
+        else:
+            _url = url.get('url')
+            return [_url] if _url is not None else []
+    elif isinstance(url, str):
+        return [url] if url else []
+    else:
+        raise ValueError(f'url must be a list, dict or non-empty str; got: {url} of type={type(url)}')
+
+
+@log.log_args
 def _get_actris_datasets(variables, station_codes, ris, bbox):
-    datasets = query_actris.query_datasets_stations(station_codes, variables_list=variables)
+    if station_codes is None:
+        _actris_stations = _get_stations(('actris', ))
+        station_codes = _actris_stations['short_name']
+        ris = _actris_stations['RI']
+    station_codes = list(station_codes)
+    ris = list(ris)
+    actris_station_codes = [code for code, ri in zip(station_codes, ris) if ri == 'ACTRIS']
+
+    _datasets = query_actris.query_datasets_stations(actris_station_codes, variables_list=variables)
+    if not _datasets:
+        return None
+    datasets = []
+
+    # filter ACTRIS datasets on their actual ECVs
+    variables = set(variables)
+    for dataset in _datasets:
+        if not variables.isdisjoint(dataset['ecv_variables']):
+            datasets.append(dataset)
+
     if not datasets:
         return None
     datasets_df = pd.DataFrame.from_dict(datasets)
@@ -294,9 +347,14 @@ def _get_actris_datasets(variables, station_codes, ris, bbox):
 
 
 def _get_icos_datasets(variables, station_codes, ris, bbox):
-    datasets = query_icos.query_datasets(variables=variables, temporal=[], spatial=bbox)
-    if not datasets:
+    _datasets = query_icos.query_datasets(variables=variables, temporal=[], spatial=bbox)
+    if not _datasets:
         return None
+    datasets = []
+    for dataset in _datasets:
+        dataset['urls'] = _get_urls(dataset['urls'], 'ICOS')
+        if len(dataset['urls']) > 0:
+            datasets.append(dataset)
     datasets_df = pd.DataFrame.from_dict(datasets)
 
     # fix title for ICOS datasets: remove time span, which is after last comma
@@ -309,19 +367,22 @@ def _get_icos_datasets(variables, station_codes, ris, bbox):
 def _get_iagos_datasets(variables, station_codes, ris, bbox):
     variables = set(variables)
     if station_codes is None:
-        _iagos_stations = _get_stations(['iagos'])
+        _iagos_stations = _get_stations(('iagos', ))
         station_codes = _iagos_stations['short_name']
         ris = _iagos_stations['RI']
     station_codes = list(station_codes)
     ris = list(ris)
     iagos_station_codes = [code for code, ri in zip(station_codes, ris) if ri == 'IAGOS']
 
-    datasets = query_iagos.query_datasets_stations(iagos_station_codes, variables_list=variables)
-    for dataset in datasets:
-        dataset['urls'] = dataset['urls'][0]['url']
+    _datasets = query_iagos.query_datasets_stations(iagos_station_codes, variables_list=variables)
+    datasets = []
+    for dataset in _datasets:
+        dataset['urls'] = _get_urls(dataset['urls'], 'IAGOS')
+        if len(dataset['urls']) > 0:
+            datasets.append(dataset)
     df = pd.DataFrame.from_records(datasets)
     df['RI'] = 'IAGOS'
-    variables_filter = df['ecv_variables'].map(lambda vs: bool(variables.intersection(vs)))
+    variables_filter = df['ecv_variables'].map(lambda vs: bool(variables.intersection(vs)))  # TODO: no longer needed?
     df = df[variables_filter].explode('layers', ignore_index=True)
     df['title'] = df['title'] + ' in ' + df['layers']
     df['selector'] = 'layer=' + df['layers']
@@ -384,85 +445,69 @@ def filter_datasets_on_vars(datasets_df, std_ecv_names):
 def _infer_ts_frequency(da):
     dt = da.dropna('time', how='all')['time'].diff('time').to_series().reset_index(drop=True)
     if len(dt) > 0:
-        freq = dt.value_counts().sort_index().index[0]
+        freq = dt.value_counts().index[0] #.sort_index().index[0]
     else:
         freq = pd.Timedelta(0)
     return freq
 
 
 def read_dataset(ri, url, ds_metadata, selector=None):
-    if isinstance(url, (list, tuple)):
-        ds = None
-        for single_url in url:
-            if ri == 'ACTRIS' and single_url.get('type') != 'OPeNDAP':
-                # for ACTRIS urls, we can choose OPeNDAP
-                continue
-            ds = read_dataset(ri, single_url, ds_metadata)
-            if ds is not None:
-                break
-        return ds
-
-    if isinstance(url, dict):
-        return read_dataset(ri, url['url'], ds_metadata)
-
-    if not isinstance(url, str):
-        raise ValueError(f'url must be str; got: {url} of type={type(url)}')
-
-    # logger().info(f'ri={ri}, url={url}, ds_metadata=\n{ds_metadata}')
-
+    urls = _get_urls(url, ri)
     ri = ri.lower()
-    if ri == 'actris':
-        ds = _ri_query_module_by_ri[ri].read_dataset(url, ds_metadata['ecv_variables_filtered'])
-        # TODO: this is a temporary patch !!! to be done properly
-        if len(ds.dims) > 1:
-            non_time_dims = [d for d in ds.dims if d != 'time']
-            non_time_dims_selector = {d: 0 for d in non_time_dims}
-            ds = ds.isel(non_time_dims_selector, drop=True)
-    elif ri == 'icos':
-        ds = _ri_query_module_by_ri[ri].read_dataset(url)
-        vars_long = get_vars_long()
-        variables_names_filtered = list(vars_long.join(
-            pd.DataFrame(index=ds_metadata['std_ecv_variables_filtered']),
-            on='std_ECV_name',
-            how='inner')['variable_name'].unique())
-        variables_names_filtered = [v for v in ds if v in variables_names_filtered]
-        ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
-        ds = ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
-    elif ri == 'iagos':
-        ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
-        if selector is not None:
-            dim, coord = selector.split('=')
-            coord = coord.split(':')
-            if len(coord) == 1:
-                coord, = coord
-            elif len(coord) == 2 or len(coord) == 3:
-                coord = slice(*coord)
-            else:
-                raise ValueError(f'bad selector={selector}')
-            # if ds[dim].dtype is not object/str, need to convert coord to the dtype
-            ds = ds.sel({dim: coord})
-    else:
-        raise ValueError(f'unknown RI={ri}')
+    ds = None
+    for url in urls:
+        if ri == 'actris':
+            ds = _ri_query_module_by_ri[ri].read_dataset(url, ds_metadata['ecv_variables_filtered'])
+            if ds is None:
+                warnings.warn(f'ACTRIS dataset {url}: no compatibile variables found; choose another dataset.', category=AppWarning)
+                continue
+        elif ri == 'icos':
+            ds = _ri_query_module_by_ri[ri].read_dataset(url)
+            if ds is None:
+                continue
+            vars_long = get_vars_long()
+            variables_names_filtered = list(vars_long.join(
+                pd.DataFrame(index=ds_metadata['std_ecv_variables_filtered']),
+                on='std_ECV_name',
+                how='inner')['variable_name'].unique())
+            variables_names_filtered = [v for v in ds if v in variables_names_filtered]
+            ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
+            ds = ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
+        elif ri == 'iagos':
+            ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
+            if ds is None:
+                continue
+            if selector is not None:
+                dim, coord = selector.split('=')
+                coord = coord.split(':')
+                if len(coord) == 1:
+                    coord, = coord
+                elif len(coord) == 2 or len(coord) == 3:
+                    coord = slice(*coord)
+                else:
+                    raise ValueError(f'bad selector={selector}')
+                # if ds[dim].dtype is not object/str, need to convert coord to the dtype
+                ds = ds.sel({dim: coord})
+        else:
+            raise ValueError(f'unknown RI={ri}')
+        if ds is not None:
+            # accept a first (non-empty) dataset
+            break
 
-    res = {}
     if ds is not None:
         for v, da in ds.items():
             freq = _infer_ts_frequency(da)
-            if pd.Timedelta(28, 'D') <= freq <= pd.Timedelta(31, 'D'):
+            if pd.Timedelta(27, 'D') <= freq <= pd.Timedelta(32, 'D'):
                 freq = '1M'
+            elif pd.Timedelta(1, 'D') - pd.Timedelta(60, 's') <= freq <= pd.Timedelta(1, 'D') + pd.Timedelta(60, 's'):
+                freq = '1D'
+            elif freq % pd.Timedelta(1, 'H') <= pd.Timedelta(5, 's') or pd.Timedelta(1, 'H') - freq % pd.Timedelta(1, 'H') <= pd.Timedelta(5, 's'):
+                hours = (freq + pd.Timedelta(5, 's')) // pd.Timedelta(1, 'H')
+                freq = f'{hours}H'
             else:
                 freq = f'{int(freq.total_seconds())}s'
             da.attrs['_aats_freq'] = freq
-            if freq != '0s':
-                # da_resampled = da.resample({'time': freq}).asfreq()
-                # da_resampled = da.resample({'time': freq}).interpolate()
-                # da_resampled.attrs = dict(da.attrs)
-                # res[v] = da_resampled
-                res[v] = da
-            else:
-                res[v] = da
 
-    #return res
     return ds
 
 
