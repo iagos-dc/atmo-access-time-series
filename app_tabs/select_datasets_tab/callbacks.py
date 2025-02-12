@@ -394,7 +394,6 @@ def select_datasets(n_clicks, datasets_json, selected_row_ids, selected_variable
         url = ds_metadata['url']
         selector = ds_metadata['selector'] if 'selector' in ds_metadata else None
         req = data_processing.ReadDataRequest(ri, url, ds_metadata, selector=selector)
-        # req.compute()  ###
         read_dataset_requests.append(req)
 
     if len(read_dataset_requests) == 0:
