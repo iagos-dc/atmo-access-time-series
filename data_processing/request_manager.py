@@ -5,6 +5,7 @@ import json
 import diskcache
 import time
 import icoscp.dobj
+import numpy as np
 import pandas as pd
 import flask
 
@@ -34,13 +35,13 @@ _cache_map = diskcache.Cache(directory=_CACHE_MAP_PATH)
 
 def _get_hashable(obj):
     """
-    Provides a hashable version of obj, if possible:
+    Provides a hashable and JSON serializable version of obj, if possible:
       list -> tuple,
       set -> tuple of sorted elems,
       dict -> tuple of pairs (k, v), where keys are sorted
       Request -> Request.get_hashable(obj)
     :param obj: a Python object
-    :return: a hashable version of obj
+    :return: a hashable and JSON serializable version of obj
     """
     if isinstance(obj, list):
         return tuple(_get_hashable(item) for item in obj)
@@ -50,10 +51,18 @@ def _get_hashable(obj):
         return tuple((k, _get_hashable(obj[k])) for k in sorted(obj))
     elif isinstance(obj, Request):
         return obj.get_hashable()
+    elif isinstance(obj, (np.datetime64, pd.Timestamp)):
+        t = str(pd.Timestamp(obj))
+        t = t.replace(' ', 'T')  # in order to conform with dash JSON serialization of date-time objects
+        return t
     elif pd.isnull(obj):  # because np.nan == np.nan is False!
         return None
     else:
-        return obj
+        try:
+            json.dumps(obj)
+            return obj
+        except TypeError:
+            return str(obj)
 
 
 class _NoResultYet:
@@ -150,10 +159,8 @@ def request_cache(custom_expire=-1):
 
 class Request(abc.ABC):
     """
-    Represents a web-service request with internal caching mechanism based on action and args, excluding aux_args
+    Represents a web-service request with internal caching mechanism
     """
-    _REQUEST_KEYS = {'action', 'args', 'aux_args'}
-
     @abc.abstractmethod
     def execute(self):
         pass

@@ -165,7 +165,7 @@ app.title = 'ATMO-ACCESS time-series analysis'
 if __name__ == "__main__":
     # in the new version of Dash (e.g. 2.18.1), it seems one to have to do this
     # (otherwise the env. variables HOST and PORT take precedence over the kwargs of app.run)
-    #os.environ['HOST'] = 'localhost'
-    #os.environ['PORT'] = '8050'
-    #app.run(debug=True)
-    app.run(port='8050', host='0.0.0.0', debug=True)
+    os.environ['HOST'] = 'localhost'
+    os.environ['PORT'] = '8050'
+    app.run(debug=True)
+    #app.run(port='8050', host='0.0.0.0', debug=True)

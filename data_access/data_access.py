@@ -298,25 +298,6 @@ def get_datasets(variables, station_codes=None, ris=None, lon_min=None, lon_max=
     return datasets_df.drop(columns=['time_period']).rename(columns={'urls': 'url'})
 
 
-def _get_urls(url, ri):
-    if isinstance(url, (list, tuple)):
-        urls = []
-        for single_url in url:
-            urls.extend(_get_urls(single_url, ri))
-        return urls
-    elif isinstance(url, dict):
-        if ri == 'ACTRIS' and url.get('type') != 'OPeNDAP':
-            # for ACTRIS urls, we can choose OPeNDAP only
-            return []
-        else:
-            _url = url.get('url')
-            return [_url] if _url is not None else []
-    elif isinstance(url, str):
-        return [url] if url else []
-    else:
-        raise ValueError(f'url must be a list, dict or non-empty str; got: {url} of type={type(url)}')
-
-
 @log.log_args
 def _get_actris_datasets(variables, station_codes, ris, bbox):
     if station_codes is None:
@@ -327,21 +308,11 @@ def _get_actris_datasets(variables, station_codes, ris, bbox):
     ris = list(ris)
     actris_station_codes = [code for code, ri in zip(station_codes, ris) if ri == 'ACTRIS']
 
-    _datasets = query_actris.query_datasets_stations(actris_station_codes, variables_list=variables)
-    if not _datasets:
-        return None
-    datasets = []
-
-    # filter ACTRIS datasets on their actual ECVs
-    variables = set(variables)
-    for dataset in _datasets:
-        if not variables.isdisjoint(dataset['ecv_variables']):
-            datasets.append(dataset)
-
+    datasets = query_actris.query_datasets_stations(actris_station_codes, variables_list=variables)
     if not datasets:
         return None
-    datasets_df = pd.DataFrame.from_dict(datasets)
 
+    datasets_df = pd.DataFrame.from_dict(datasets)
     datasets_df['RI'] = 'ACTRIS'
     return datasets_df
 
@@ -352,9 +323,11 @@ def _get_icos_datasets(variables, station_codes, ris, bbox):
         return None
     datasets = []
     for dataset in _datasets:
-        dataset['urls'] = _get_urls(dataset['urls'], 'ICOS')
         if len(dataset['urls']) > 0:
             datasets.append(dataset)
+    if not datasets:
+        return None
+
     datasets_df = pd.DataFrame.from_dict(datasets)
 
     # fix title for ICOS datasets: remove time span, which is after last comma
@@ -377,9 +350,11 @@ def _get_iagos_datasets(variables, station_codes, ris, bbox):
     _datasets = query_iagos.query_datasets_stations(iagos_station_codes, variables_list=variables)
     datasets = []
     for dataset in _datasets:
-        dataset['urls'] = _get_urls(dataset['urls'], 'IAGOS')
         if len(dataset['urls']) > 0:
             datasets.append(dataset)
+    if not datasets:
+        return None
+
     df = pd.DataFrame.from_records(datasets)
     df['RI'] = 'IAGOS'
     variables_filter = df['ecv_variables'].map(lambda vs: bool(variables.intersection(vs)))  # TODO: no longer needed?
@@ -452,49 +427,31 @@ def _infer_ts_frequency(da):
 
 
 def read_dataset(ri, url, ds_metadata, selector=None):
-    urls = _get_urls(url, ri)
     ri = ri.lower()
-    ds = None
-    for url in urls:
-        if ri == 'actris':
-            ds = _ri_query_module_by_ri[ri].read_dataset(url, ds_metadata['ecv_variables_filtered'])
-            if ds is None:
-                warnings.warn(f'ACTRIS dataset {url}: no compatibile variables found; choose another dataset.', category=AppWarning)
-                continue
-        elif ri == 'icos':
-            ds = _ri_query_module_by_ri[ri].read_dataset(url)
-            if ds is None:
-                continue
-            vars_long = get_vars_long()
-            variables_names_filtered = list(vars_long.join(
-                pd.DataFrame(index=ds_metadata['std_ecv_variables_filtered']),
-                on='std_ECV_name',
-                how='inner')['variable_name'].unique())
-            variables_names_filtered = [v for v in ds if v in variables_names_filtered]
-            ds_filtered = ds[['TIMESTAMP'] + variables_names_filtered].compute()
-            ds = ds_filtered.assign_coords({'index': ds['TIMESTAMP']}).rename({'index': 'time'}).drop_vars('TIMESTAMP')
-        elif ri == 'iagos':
-            ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
-            if ds is None:
-                continue
-            if selector is not None:
-                dim, coord = selector.split('=')
-                coord = coord.split(':')
-                if len(coord) == 1:
-                    coord, = coord
-                elif len(coord) == 2 or len(coord) == 3:
-                    coord = slice(*coord)
-                else:
-                    raise ValueError(f'bad selector={selector}')
-                # if ds[dim].dtype is not object/str, need to convert coord to the dtype
-                ds = ds.sel({dim: coord})
-        else:
-            raise ValueError(f'unknown RI={ri}')
-        if ds is not None:
-            # accept a first (non-empty) dataset
-            break
+    if ri == 'actris':
+        ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['ecv_variables_filtered'])
+        if ds is None:
+            warnings.warn(f'ACTRIS dataset {url}: no compatibile variables found; choose another dataset.', category=AppWarning)
+    elif ri == 'icos':
+        ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
+    elif ri == 'iagos':
+        ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
+        if ds is not None and selector is not None:
+            dim, coord = selector.split('=')
+            coord = coord.split(':')
+            if len(coord) == 1:
+                coord, = coord
+            elif len(coord) == 2 or len(coord) == 3:
+                coord = slice(*coord)
+            else:
+                raise ValueError(f'bad selector={selector}')
+            # if ds[dim].dtype is not object/str, need to convert coord to the dtype
+            ds = ds.sel({dim: coord})
+    else:
+        raise ValueError(f'unknown RI={ri}')
 
     if ds is not None:
+        # infer time-series frequency
         for v, da in ds.items():
             freq = _infer_ts_frequency(da)
             if pd.Timedelta(27, 'D') <= freq <= pd.Timedelta(32, 'D'):
