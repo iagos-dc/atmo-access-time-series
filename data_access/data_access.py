@@ -23,13 +23,19 @@ from utils.exception_handler import AppWarning
 from atmoaccess_data_access import query_iagos, query_icos, query_actris
 
 
+_QUERY_MODULE_BY_RI = {
+    'icos': query_icos,
+    'actris': query_actris,
+    'iagos': query_iagos,
+}
+
 CACHE_DIR = pathlib.Path(config.APP_CACHE_DIR)
 CACHE_DIR.mkdir(exist_ok=True)
 
 # open an ACTRIS-specific cache; allows for an efficient ACTRIS metadata retrieval
 query_actris._open_cache(CACHE_DIR / 'actris-cache.tmp')
 
-_RIS = ['actris', 'iagos', 'icos']
+_RIS = ('actris', 'iagos', 'icos')
 _GET_DATASETS_BY_RI = dict()
 
 
@@ -61,41 +67,22 @@ _var_codes_by_ECV = pd.Series(VARIABLES_MAPPING, name='code')
 _ECV_by_var_codes = pd.Series({v: k for k, v in VARIABLES_MAPPING.items()}, name='ECV')
 
 
-def _get_ri_query_module_by_ri(ris=None):
-    if ris is None:
-        ris = _RIS
-    else:
-        ris = sorted(ri.lower() for ri in ris)
-    ri_query_module_by_ri = {}
-    for ri in ris:
-        if ri == 'actris':
-            ri_query_module_by_ri[ri] = query_actris
-        elif ri == 'iagos':
-            ri_query_module_by_ri[ri] = query_iagos
-        elif ri == 'icos':
-            ri_query_module_by_ri[ri] = query_icos
-        else:
-            raise ValueError(f'ri={ri}')
-    return ri_query_module_by_ri
-
-
-_ri_query_module_by_ri = _get_ri_query_module_by_ri()
-
-
 @functools.lru_cache()
-def _get_stations(ris=None):
+def _get_stations(ris):
     """
-
-    :param ris: tuple of RIs or None; cannot be a list due to caching!
+    Provide pandas DataFrame with
+    :param ris: tuple of RIs; cannot be a list due to caching!
     :return: pandas.DataFrame
     """
-    ri_query_module_by_ri = _get_ri_query_module_by_ri(ris)
+    ris = [ri.lower() for ri in ris]
     stations_dfs = []
-    for ri, ri_query_module in ri_query_module_by_ri.items():
-        cache_path = CACHE_DIR / f'stations_{ri}.pkl'
+    for ri, ri_query_module in _QUERY_MODULE_BY_RI.items():
+        if ri not in ris:
+            continue
+        cache_path = CACHE_DIR / f'stations_{ri}.json'
         try:
             try:
-                stations_df = pd.read_pickle(cache_path)
+                stations_df = pd.read_json(cache_path, orient='table')
             except FileNotFoundError:
                 stations = ri_query_module.get_list_platforms()
                 if ri == 'iagos':
@@ -108,8 +95,9 @@ def _get_stations(ris=None):
                         region['URI'] = region['url']
                         del region['url']
                     stations.extend(regions)
+
                 stations_df = pd.DataFrame.from_dict(stations)
-                stations_df.to_pickle(cache_path)
+                stations_df.to_json(cache_path, orient='table', indent=2)
 
             stations_df['RI'] = ri.upper()
             stations_dfs.append(stations_df)
@@ -150,7 +138,7 @@ def get_stations():
         'latitude_max': NaN,
         'is_region': False,
     """
-    return _get_stations()
+    return _get_stations(_RIS)
 
 
 @functools.lru_cache()
@@ -162,17 +150,16 @@ def get_vars_long():
         'variable_name': 'co', 'ECV_name': 'Carbon Dioxide, Methane and other Greenhouse gases', 'std_ECV_name': 'Carbon Monoxide', 'code': 'CO';
         'variable_name': 'co', 'ECV_name': 'co', 'std_ECV_name': 'Carbon Monoxide', 'code': 'CO';
     """
-    # ri_query_module_by_ri = _get_ri_query_module_by_ri(['actris', 'icos'])
     variables_dfs = []
-    for ri, ri_query_module in _ri_query_module_by_ri.items():
-        cache_path = CACHE_DIR / f'variables_{ri}.pkl'
+    for ri, ri_query_module in _QUERY_MODULE_BY_RI.items():
+        cache_path = CACHE_DIR / f'variables_{ri}.json'
         try:
             try:
-                variables_df = pd.read_pickle(cache_path)
+                variables_df = pd.read_json(cache_path, orient='table')
             except FileNotFoundError:
                 variables = ri_query_module.get_list_variables()
                 variables_df = pd.DataFrame.from_dict(variables)
-                variables_df.to_pickle(cache_path)
+                variables_df.to_json(cache_path, orient='table', indent=2)
             variables_dfs.append(variables_df)
         except Exception as e:
             logger().exception(f'getting {ri.upper()} variables failed', exc_info=e)
@@ -434,27 +421,20 @@ def _infer_ts_frequency(da):
 
 def read_dataset(ri, url, ds_metadata, selector=None):
     ri = ri.lower()
-    if ri == 'actris':
-        ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['ecv_variables_filtered'])
-        if ds is None:
-            warnings.warn(f'ACTRIS dataset {url}: no compatibile variables found; choose another dataset.', category=AppWarning)
-    elif ri == 'icos':
-        ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
-    elif ri == 'iagos':
-        ds = _ri_query_module_by_ri[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
-        if ds is not None and selector is not None:
-            dim, coord = selector.split('=')
-            coord = coord.split(':')
-            if len(coord) == 1:
-                coord, = coord
-            elif len(coord) == 2 or len(coord) == 3:
-                coord = slice(*coord)
-            else:
-                raise ValueError(f'bad selector={selector}')
-            # if ds[dim].dtype is not object/str, need to convert coord to the dtype
-            ds = ds.sel({dim: coord})
-    else:
-        raise ValueError(f'unknown RI={ri}')
+    ds = _QUERY_MODULE_BY_RI[ri].read_dataset(url, variables_list=ds_metadata['ecv_variables_filtered'])
+    #elif ri == 'iagos':
+    #ds = _QUERY_MODULE_BY_RI[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
+    if ds is not None and selector is not None:
+        dim, coord = selector.split('=')
+        coord = coord.split(':')
+        if len(coord) == 1:
+            coord, = coord
+        elif len(coord) == 2 or len(coord) == 3:
+            coord = slice(*coord)
+        else:
+            raise ValueError(f'bad selector={selector}')
+        # if ds[dim].dtype is not object/str, need to convert coord to the dtype
+        ds = ds.sel({dim: coord})
 
     if ds is not None:
         # infer time-series frequency
