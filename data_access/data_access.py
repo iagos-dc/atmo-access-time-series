@@ -1,6 +1,7 @@
 """
-This module provides a unified API for access to metadata and datasets from ACTRIS, IAGOS and ICOS RI's.
-At the moment, the access to ICOS RI is implemented here.
+This module provides a unified API for access to metadata and datasets from ACTRIS, IAGOS and ICOS RI's
+and is an abstract layer over a lower-level data access API implemented in the package atmoaccess_data_access:
+https://github.com/iagos-dc/atmo-access-data-access
 """
 import pathlib
 
@@ -25,6 +26,7 @@ from atmoaccess_data_access import query_iagos, query_icos, query_actris
 CACHE_DIR = pathlib.Path(config.APP_CACHE_DIR)
 CACHE_DIR.mkdir(exist_ok=True)
 
+# open an ACTRIS-specific cache; allows for an efficient ACTRIS metadata retrieval
 query_actris._open_cache(CACHE_DIR / 'actris-cache.tmp')
 
 _RIS = ['actris', 'iagos', 'icos']
@@ -39,12 +41,16 @@ VARIABLES_MAPPING = {
     'Aerosol Physical Properties': 'APP',
     'Pressure (surface)': 'AP',
     'Surface Wind Speed and direction': 'WSD',
+    'Wind speed and direction (upper-air)': 'WSDu',
     'Temperature (near surface)': 'AT',
+    'Temperature (upper-air)': 'ATu',
     'Water Vapour (surface)': 'RH',
+    'Water Vapour (upper air)': 'RHu',
     'Carbon Dioxide': 'CO2',
     'Carbon Monoxide': 'CO',
     'Methane': 'CH4',
     'Nitrous Oxide': 'N2O',
+    'Carbon Dioxide, Methane and other Greenhouse gases': 'GG',
     'NO2': 'NO2',
     'Ozone': 'O3',
     'Cloud Properties': 'ClP',
