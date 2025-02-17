@@ -1,8 +1,8 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
 
-from utils.dash_persistence import get_dash_persistence_kwargs
-from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG, get_help_icon, get_next_button, std_variables
+import data_access
+from app_tabs.common.layout import SELECT_DATASETS_TAB_VALUE, NON_INTERACTIVE_GRAPH_CONFIG, get_help_icon, get_next_button
 from utils import colors
 
 VARIABLES_LEGEND_DROPDOWN_ID = 'variables-legend-dropdown'
@@ -41,21 +41,22 @@ OPACITY_BY_BAR_SELECTION_STATUS = {
 }
 
 
-def get_variables_legend_options(selected_std_variables):
-    filtered_std_variables = std_variables[std_variables['value'].isin(selected_std_variables)]
-    variables_legend_options = filtered_std_variables.to_dict(orient='records')
-    _color_by_std_ECV_name_dict = colors.get_color_by_std_ECV_name_dict()
-    for variables_legend_option in variables_legend_options:
-        _std_ecv_name = variables_legend_option['value']
-        _color = _color_by_std_ECV_name_dict[_std_ecv_name]
-        variables_legend_option['label'] = html.P(
-            [
-                html.I(className='fa-solid fa-square', style={'color': _color}),
-                ' ',
-                variables_legend_option['label']
-            ],
-            style={'font-size': '120%'}
-        )
+def get_variables_legend_options(selected_ecvs):
+    selected_ecvs = set(selected_ecvs)
+    all_ECV = data_access.var_codes_by_ECV.index
+    ECV_filter = all_ECV.isin(set(selected_ecvs))
+    filtered_var_codes_by_ECV = data_access.var_codes_by_ECV[ECV_filter]
+    color_by_ECV_name_dict = colors.get_color_by_ECV_name_dict()
+
+    variables_legend_options = []
+    for ecv, var_code in filtered_var_codes_by_ECV.to_dict().items():
+        label = f'{var_code} - {ecv}'
+        _color = color_by_ECV_name_dict[ecv]
+        variables_legend_option = {
+            'value': ecv,
+            'label': html.P([html.I(className='fa-solid fa-square', style={'color': _color}), ' ', label], style={'font-size': '120%'})
+        }
+        variables_legend_options.append(variables_legend_option)
     return variables_legend_options
 
 
@@ -109,7 +110,7 @@ def get_select_datasets_tab():
         # filter_action='native',
         page_action="native", page_current=0, page_size=20,
         # see: https://dash.plotly.com/datatable/width
-        # hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
+        # hidden_columns=['url', 'ecv_variables', 'ecv_variables_filtered', 'var_codes', 'platform_id_RI'],
         style_data={
             'whiteSpace': 'normal',
             'height': 'auto',

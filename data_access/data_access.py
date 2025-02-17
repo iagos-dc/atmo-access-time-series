@@ -4,23 +4,16 @@ and is an abstract layer over a lower-level data access API implemented in the p
 https://github.com/iagos-dc/atmo-access-data-access
 """
 import pathlib
-
-import numpy as np
 import pandas as pd
-import xarray as xr
-import json
-import itertools
 import functools
-import warnings
+
+from atmoaccess_data_access import query_iagos, query_icos, query_actris
 
 import config
 import log
 from . import helper
 
 from log import logger
-from utils.exception_handler import AppWarning
-
-from atmoaccess_data_access import query_iagos, query_icos, query_actris
 
 
 _QUERY_MODULE_BY_RI = {
@@ -39,7 +32,7 @@ _RIS = ('actris', 'iagos', 'icos')
 _GET_DATASETS_BY_RI = dict()
 
 
-# mapping from standard ECV names to short variable names (used for time-line graphs)
+# mapping from ECV names to short variable names (used for time-line graphs)
 # must be updated on adding new RI's!
 VARIABLES_MAPPING = {
     'Aerosol Optical Properties': 'AOP',
@@ -56,15 +49,15 @@ VARIABLES_MAPPING = {
     'Carbon Monoxide': 'CO',
     'Methane': 'CH4',
     'Nitrous Oxide': 'N2O',
-    'Carbon Dioxide, Methane and other Greenhouse gases': 'GG',
+    # 'Carbon Dioxide, Methane and other Greenhouse gases': 'GG',
     'NO2': 'NO2',
     'Ozone': 'O3',
     'Cloud Properties': 'ClP',
 }
 
-
-_var_codes_by_ECV = pd.Series(VARIABLES_MAPPING, name='code')
-_ECV_by_var_codes = pd.Series({v: k for k, v in VARIABLES_MAPPING.items()}, name='ECV')
+var_codes_by_ECV = pd.Series(VARIABLES_MAPPING, name='code')
+ECV_by_var_codes = pd.Series({v: k for k, v in VARIABLES_MAPPING.items()}, name='ECV')
+_image_of_ecv2code = lambda ecvs: sorted(helper.image_of_dict(ecvs, VARIABLES_MAPPING))
 
 
 @functools.lru_cache()
@@ -141,88 +134,16 @@ def get_stations():
     return _get_stations(_RIS)
 
 
-@functools.lru_cache()
-def get_vars_long():
-    """
-    Provide a listing of RI's variables. For the same variable code there might be many records with different ECV names
-    :return: pandas.DataFrame with columns: 'variable_name', 'ECV_name', 'std_ECV_name', 'code'; sample records are:
-        'variable_name': 'co', 'ECV_name': 'Carbon Monoxide', 'std_ECV_name': 'Carbon Monoxide', 'code': 'CO';
-        'variable_name': 'co', 'ECV_name': 'Carbon Dioxide, Methane and other Greenhouse gases', 'std_ECV_name': 'Carbon Monoxide', 'code': 'CO';
-        'variable_name': 'co', 'ECV_name': 'co', 'std_ECV_name': 'Carbon Monoxide', 'code': 'CO';
-    """
-    variables_dfs = []
-    for ri, ri_query_module in _QUERY_MODULE_BY_RI.items():
-        cache_path = CACHE_DIR / f'variables_{ri}.json'
-        try:
-            try:
-                variables_df = pd.read_json(cache_path, orient='table')
-            except FileNotFoundError:
-                variables = ri_query_module.get_list_variables()
-                variables_df = pd.DataFrame.from_dict(variables)
-                variables_df.to_json(cache_path, orient='table', indent=2)
-            variables_dfs.append(variables_df)
-        except Exception as e:
-            logger().exception(f'getting {ri.upper()} variables failed', exc_info=e)
-    df = pd.concat(variables_dfs, ignore_index=True)
-    df['std_ECV_name'] = df['ECV_name'].apply(lambda l: l[0])
-    df = df.join(_var_codes_by_ECV, on='std_ECV_name')
-    _variables = df.explode('ECV_name', ignore_index=True).drop_duplicates(keep='first', ignore_index=True)
-
-    # sort _variables dataframe by 'code', 'std_ECV_name', 'ECV_name'
-    # however, do not distinguish between lower and upper-case letters
-    sortby_ori = ['code', 'std_ECV_name', 'ECV_name']
-    sortby_upper = [f'_{col}_uppercase' for col in sortby_ori]
-    for col_ori, col_upper in zip(sortby_ori, sortby_upper):
-        _variables[col_upper] = _variables[col_ori].str.upper()
-    _variables = _variables.sort_values(by=sortby_upper)
-    _variables = _variables.drop(columns=sortby_upper)
-
-    # _ = _variables.to_dict(orient='records')
-    # _ = json.dumps(_, indent=2)
-    # print(_)
-
-    return _variables
-
-
-@functools.lru_cache()
-def get_vars():
-    """
-    Provide a listing of RI's variables.
-    :return: pandas.DataFrame with columns: 'ECV_name', 'std_ECV_name', 'code'; a sample record is:
-        'ECV_name': 'Carbon Dioxide, Methane and other Greenhouse gases',
-        'std_ECV_name': 'Carbon Monoxide',
-        'code': 'CO'
-    """
-    variables_df = get_vars_long().drop(columns=['variable_name'])
-    return variables_df.drop_duplicates(subset=['std_ECV_name', 'ECV_name'], keep='first', ignore_index=True)
-
-
-@functools.lru_cache()
-def get_std_ECV_name_by_code():
-    """
-    Provides a dictionary variable code -> std ECV name
-    :return: dict
-    """
-    std_ECV_name_by_code_series = get_vars()[['code', 'std_ECV_name']].drop_duplicates().set_index('code')['std_ECV_name']
-    if not std_ECV_name_by_code_series.index.is_unique:
-        logger().warning(f'std_ECV_name is not unique for a given variable code: {std_ECV_name_by_code_series}')
-    return std_ECV_name_by_code_series.to_dict()
-
-
 #@log_exectime
 #@log_profiler_info()
-def get_datasets(variables, station_codes=None, ris=None, lon_min=None, lon_max=None, lat_min=None, lat_max=None):
+def get_datasets(variables=None, station_codes=None, ris=None):
     """
     Provide metadata of datasets selected according to the provided criteria.
-    :param variables: list of str or None; list of variable standard ECV names (as in the column 'std_ECV_name' of the dataframe returned by get_vars function)
+    :param variables: list of str or None; list of Essential Climate Variables (use the keys of the dictionary VARIABLES_MAPPING)
     :param station_code: list or None
     :param ris: list or None; must correspond to station_codes
-    :param lon_min: float or None (deprecated)
-    :param lon_max: float or None (deprecated)
-    :param lat_min: float or None (deprecated)
-    :param lat_max: float or None (deprecated)
     :return: pandas.DataFrame with columns: 'title', 'url', 'ecv_variables', 'platform_id', 'RI', 'selector', 'var_codes',
-     'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes_filtered',
+     'ecv_variables_filtered', 'var_codes_filtered',
      'time_period_start', 'time_period_end', 'platform_id_RI';
     e.g. for the call get_datasets(['Pressure (surface)', 'Temperature (near surface)'] one gets a dataframe with an example row like:
          'title': 'ICOS_ATC_L2_L2-2021.1_GAT_2.5_CTS_MTO.zip',
@@ -233,7 +154,6 @@ def get_datasets(variables, station_codes=None, ris=None, lon_min=None, lon_max=
          'selector': NaN,
          'var_codes': ['AP', 'AT', 'RH', 'WSD'],
          'ecv_variables_filtered': ['Pressure (surface)', 'Temperature (near surface)'],
-         'std_ecv_variables_filtered': ['Pressure (surface)', 'Temperature (near surface)'],
          'var_codes_filtered': 'AP, AT',
          'time_period_start': Timestamp('2016-05-10 00:00:00+0000', tz='UTC'),
          'time_period_end': Timestamp('2021-01-31 23:00:00+0000', tz='UTC'),
@@ -241,77 +161,57 @@ def get_datasets(variables, station_codes=None, ris=None, lon_min=None, lon_max=
     """
     if variables is None:
         # take all variables
-        variables = sorted(get_vars_long()['std_ECV_name'].unique())
+        variables = list(VARIABLES_MAPPING)
     else:
         variables = list(variables)
-    if None in [lon_min, lon_max, lat_min, lat_max]:
-        bbox = []
-    else:
-        bbox = [lon_min, lat_min, lon_max, lat_max]
+
+    if station_codes is None or ris is None:
+        # take all stations
+        stations_df = get_stations()
+        station_codes = stations_df['short_name'].to_list()
+        ris = stations_df['short_name'].to_list()
+
+    assert len(station_codes) == len(ris), (f'station_codes and ris must have the same length; '
+                                            f'got {station_codes=} of {len(station_codes)=} and {ris=} of {len(ris)=}')
 
     datasets_dfs = []
     for ri, get_ri_datasets in _GET_DATASETS_BY_RI.items():
-        # get_ri_datasets = log_exectime(get_ri_datasets)
+        RI = ri.upper()
         try:
-            df = get_ri_datasets(variables, station_codes, ris, bbox)
+            station_codes_for_ri = [code for code, _ri in zip(station_codes, ris) if _ri.upper() == RI]
+            df = get_ri_datasets(variables, station_codes_for_ri)
         except Exception as e:
-            logger().exception(f'getting datasets for {ri.upper()} failed', exc_info=e)
+            logger().exception(f'getting datasets for {RI} failed', exc_info=e)
             continue
         if df is not None:
+            df['RI'] = RI
             datasets_dfs.append(df)
 
     if not datasets_dfs:
         return None
-    datasets_df = pd.concat(datasets_dfs, ignore_index=True)#.reset_index()
-
-    vars_long = get_vars_long()
-
-    codes_by_ECV_name = helper.many2many_to_dictOfList(
-        zip(vars_long['ECV_name'].to_list(), vars_long['code'].to_list())
-    )
-    codes_by_variable_name = helper.many2many_to_dictOfList(
-        zip(vars_long['variable_name'].to_list(), vars_long['code'].to_list())
-    )
-    codes_by_name = helper.many2manyLists_to_dictOfList(
-        itertools.chain(codes_by_ECV_name.items(), codes_by_variable_name.items())
-    )
-    datasets_df['var_codes'] = [
-        sorted(helper.image_of_dictOfLists(vs, codes_by_name))
-        for vs in datasets_df['ecv_variables'].to_list()
-    ]
+    datasets_df = pd.concat(datasets_dfs, ignore_index=True)
 
     datasets_df = filter_datasets_on_vars(datasets_df, variables)
 
-    # datasets_df['url'] = datasets_df['urls'].apply(lambda x: x[-1]['url'])  # now we take the last proposed url; TODO: see what should be a proper rule (first non-empty url?)
-    datasets_df['time_period_start'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[0], tz='UTC'))
-    datasets_df['time_period_end'] = datasets_df['time_period'].apply(lambda x: pd.Timestamp(x[1], tz='UTC'))
+    datasets_df['var_codes'] = datasets_df['ecv_variables'].map(_image_of_ecv2code)
+    datasets_df['time_period_start'] = datasets_df['time_period'].map(lambda x: x[0])
+    datasets_df['time_period_end'] = datasets_df['time_period'].map(lambda x: x[1])
     datasets_df['platform_id_RI'] = datasets_df['platform_id'] + ' (' + datasets_df['RI'] + ')'
 
-    # return datasets_df.drop(columns=['urls', 'time_period'])
     return datasets_df.drop(columns=['time_period']).rename(columns={'urls': 'url'})
 
 
 @log.log_args
-def _get_actris_datasets(variables, station_codes, ris, bbox):
-    if station_codes is None:
-        _actris_stations = _get_stations(('actris', ))
-        station_codes = _actris_stations['short_name']
-        ris = _actris_stations['RI']
-    station_codes = list(station_codes)
-    ris = list(ris)
-    actris_station_codes = [code for code, ri in zip(station_codes, ris) if ri == 'ACTRIS']
-
-    datasets = query_actris.query_datasets_stations(actris_station_codes, variables_list=variables)
+def _get_actris_datasets(variables, station_codes):
+    datasets = query_actris.query_datasets(station_codes, variables_list=variables)
     if not datasets:
         return None
-
     datasets_df = pd.DataFrame.from_dict(datasets)
-    datasets_df['RI'] = 'ACTRIS'
     return datasets_df
 
 
-def _get_icos_datasets(variables, station_codes, ris, bbox):
-    _datasets = query_icos.query_datasets(variables=variables, temporal=[], spatial=bbox)
+def _get_icos_datasets(variables, station_codes):
+    _datasets = query_icos.query_datasets(station_codes, variables_list=variables)
     if not _datasets:
         return None
     datasets = []
@@ -326,21 +226,11 @@ def _get_icos_datasets(variables, station_codes, ris, bbox):
     # fix title for ICOS datasets: remove time span, which is after last comma
     datasets_df['title'] = datasets_df['title'].map(lambda s: ','.join(s.split(',')[:-1]))
 
-    datasets_df['RI'] = 'ICOS'
     return datasets_df
 
 
-def _get_iagos_datasets(variables, station_codes, ris, bbox):
-    variables = set(variables)
-    if station_codes is None:
-        _iagos_stations = _get_stations(('iagos', ))
-        station_codes = _iagos_stations['short_name']
-        ris = _iagos_stations['RI']
-    station_codes = list(station_codes)
-    ris = list(ris)
-    iagos_station_codes = [code for code, ri in zip(station_codes, ris) if ri == 'IAGOS']
-
-    _datasets = query_iagos.query_datasets_stations(iagos_station_codes, variables_list=variables)
+def _get_iagos_datasets(variables, station_codes):
+    _datasets = query_iagos.query_datasets(station_codes, variables_list=variables)
     datasets = []
     for dataset in _datasets:
         if len(dataset['urls']) > 0:
@@ -348,65 +238,50 @@ def _get_iagos_datasets(variables, station_codes, ris, bbox):
     if not datasets:
         return None
 
-    df = pd.DataFrame.from_records(datasets)
-    df['RI'] = 'IAGOS'
-    variables_filter = df['ecv_variables'].map(lambda vs: bool(variables.intersection(vs)))  # TODO: no longer needed?
-    df = df[variables_filter].explode('layers', ignore_index=True)
-    df['title'] = df['title'] + ' in ' + df['layers']
-    df['selector'] = 'layer=' + df['layers']
-    df = df[['title', 'urls', 'ecv_variables', 'time_period', 'platform_id', 'RI', 'selector']]
-    return df
+    datasets_for_layers = []
+    variables = set(variables)
+    for ds in datasets:
+        title = ds['title']
+        urls = ds['urls']
+        time_period = ds['time_period']
+        platform_id = ds['platform_id']
+        ecv_for_all_layers = ds['ecv_variables']
+        ecv_by_layer = ds.get('ecv_variables_by_layer', {})
+        for layer in ds['layers']:
+            ecv = ecv_by_layer.get(layer, ecv_for_all_layers)
+            if variables.isdisjoint(ecv):
+                continue
+            ds_for_layer = {
+                'title': f'{title} in {layer}',
+                'urls': urls,
+                'ecv_variables': ecv,
+                'time_period': time_period,
+                'platform_id': platform_id,
+                'selector': f'layer={layer}'
+            }
+            datasets_for_layers.append(ds_for_layer)
+
+    if not datasets_for_layers:
+        return None
+
+    return pd.DataFrame.from_dict(datasets_for_layers)
 
 
-def filter_datasets_on_stations(datasets_df, stations_short_name):
+def filter_datasets_on_vars(datasets_df, ecvs):
     """
-    Filter datasets on stations by their short names.
+    Filter datasets which have at least one variables in common with ecvs and adds two new columns to datasets_df:
+     'ecv_variables_filtered' and 'var_codes_filtered'
     :param datasets_df: pandas.DataFrame with datasets metadata (in the format returned by get_datasets function)
-    :param stations_short_name: list of str; short names of stations
+    :param ecvs: list of str; ECV names to filter on
     :return: pandas.DataFrame
     """
-    return datasets_df[datasets_df['platform_id'].isin(stations_short_name)]
-
-
-def filter_datasets_on_vars(datasets_df, std_ecv_names):
-    """
-    Filter datasets which have at least one variables in common with std_ecv_names.
-    :param datasets_df: pandas.DataFrame with datasets metadata (in the format returned by get_datasets function)
-    :param std_ecv_names: list of str; standard ECV variables names to filter on
-    :return: pandas.DataFrame
-    """
-    vars_long = get_vars_long()
-
-    std_ECV_names_by_ECV_name = helper.many2many_to_dictOfList(
-        zip(vars_long['ECV_name'].to_list(), vars_long['std_ECV_name'].to_list()), keep_set=True
-    )
-    std_ECV_names_by_variable_name = helper.many2many_to_dictOfList(
-        zip(vars_long['variable_name'].to_list(), vars_long['std_ECV_name'].to_list()), keep_set=True
-    )
-    std_ECV_names_by_name = helper.many2manyLists_to_dictOfList(
-        itertools.chain(std_ECV_names_by_ECV_name.items(), std_ECV_names_by_variable_name.items()), keep_set=True
-    )
+    ecvs = set(ecvs)
     datasets_df['ecv_variables_filtered'] = [
-        sorted(
-            v for v in vs if std_ECV_names_by_name[v].intersection(std_ecv_names)
-        )
-        for vs in datasets_df['ecv_variables'].to_list()
+        sorted(ecvs.intersection(dataset_ecvs)) for dataset_ecvs in datasets_df['ecv_variables']
     ]
-    datasets_df['std_ecv_variables_filtered'] = [
-        sorted(
-            helper.image_of_dictOfLists(vs, std_ECV_names_by_name).intersection(std_ecv_names)
-        )
-        for vs in datasets_df['ecv_variables'].to_list()
-    ]
-    req_var_codes = helper.image_of_dict(std_ecv_names, VARIABLES_MAPPING)
-    datasets_df['var_codes_filtered'] = [
-        ', '.join(sorted(vc for vc in var_codes if vc in req_var_codes))
-        for var_codes in datasets_df['var_codes'].to_list()
-    ]
-
-    mask = datasets_df['std_ecv_variables_filtered'].apply(len) > 0
-    #print(list(datasets_df.platform_id))
-    #print(datasets_df[mask & (datasets_df.platform_id == 'SZW')].iloc[0])
+    var_codes_filtered = datasets_df['ecv_variables_filtered'].map(_image_of_ecv2code)
+    datasets_df['var_codes_filtered'] = [', '.join(codes) for codes in var_codes_filtered]
+    mask = datasets_df['ecv_variables_filtered'].map(len) > 0
     return datasets_df[mask]
 
 
@@ -423,7 +298,6 @@ def read_dataset(ri, url, ds_metadata, selector=None):
     ri = ri.lower()
     ds = _QUERY_MODULE_BY_RI[ri].read_dataset(url, variables_list=ds_metadata['ecv_variables_filtered'])
     #elif ri == 'iagos':
-    #ds = _QUERY_MODULE_BY_RI[ri].read_dataset(url, variables_list=ds_metadata['std_ecv_variables_filtered'])
     if ds is not None and selector is not None:
         dim, coord = selector.split('=')
         coord = coord.split(':')

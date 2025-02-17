@@ -3,8 +3,9 @@ from dash import dcc, html
 
 from app_tabs.common.data import stations
 import utils.stations_map
-from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE, get_help_icon, get_next_button, std_variables
+from app_tabs.common.layout import SEARCH_DATASETS_TAB_VALUE, get_help_icon, get_next_button
 from utils.dash_persistence import get_dash_persistence_kwargs
+import data_access
 
 VARIABLES_CHECKLIST_ID = 'variables-checklist'
 
@@ -49,12 +50,14 @@ def get_variables_checklist():
     See: https://dash.plotly.com/dash-core-components/checklist
     :return: dash.dcc.Checklist
     """
-    variables_options = std_variables.to_dict(orient='records')
-    variables_values = std_variables['value'].tolist()
+    variable_values = data_access.var_codes_by_ECV.index
+    variable_codes = data_access.var_codes_by_ECV
+    variable_labels = variable_codes + ' - ' + variable_values
+    variables_options = [{'value': v, 'label': l} for v, l in zip(variable_values, variable_labels)]
     variables_checklist = dbc.Checklist(
         id=VARIABLES_CHECKLIST_ID,
         options=variables_options,
-        value=variables_values,
+        value=variable_values.to_list(),
         labelStyle={'display': 'flex'},  # display in column rather than in a row; not sure if it is the right way to do
         **get_dash_persistence_kwargs(True)
     )

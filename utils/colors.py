@@ -6,15 +6,15 @@ import data_access
 
 @functools.lru_cache()
 def get_color_by_variable_code_dict():
-    std_ECV_names = list(data_access.get_std_ECV_name_by_code().keys())
+    var_codes = data_access.ECV_by_var_codes.index
     _colors = px.colors.qualitative.Dark24
-    assert len(std_ECV_names) <= len(_colors)
-    return dict(zip(std_ECV_names, _colors))
+    assert len(var_codes) <= len(_colors)
+    return dict(zip(var_codes, _colors))
 
 
 @functools.lru_cache()
-def get_color_by_std_ECV_name_dict():
-    std_ECV_names = list(data_access.get_std_ECV_name_by_code().values())
+def get_color_by_ECV_name_dict():
+    ecvs = data_access.var_codes_by_ECV.index
     _colors = px.colors.qualitative.Dark24
-    assert len(std_ECV_names) <= len(_colors)
-    return dict(zip(std_ECV_names, _colors))
+    assert len(ecvs) <= len(_colors)
+    return dict(zip(ecvs, _colors))

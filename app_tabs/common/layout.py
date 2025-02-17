@@ -93,7 +93,7 @@ NON_INTERACTIVE_GRAPH_CONFIG = {
 
 
 def get_app_data_stores():
-    _all_variables = std_variables['value'].tolist()
+    _all_variables = list(data_access.ECV_by_var_codes)
     # these are special Dash components used for transferring data from one callback to other callback(s)
     # without displaying the data
     return [
@@ -160,18 +160,3 @@ def get_next_button(button_id):
         #className='me-1',
         size='lg'
     )
-
-
-def _get_std_variables(variables):
-    std_vars = variables[['std_ECV_name', 'code']].drop_duplicates()
-    # TODO: temporary
-    try:
-        std_vars = std_vars[std_vars['std_ECV_name'] != 'Aerosol Optical Properties']
-    except ValueError:
-        pass
-    std_vars['label'] = std_vars['code'] + ' - ' + std_vars['std_ECV_name']
-    return std_vars.rename(columns={'std_ECV_name': 'value'}).drop(columns='code')
-
-
-variables = data_access.get_vars()
-std_variables = _get_std_variables(variables)

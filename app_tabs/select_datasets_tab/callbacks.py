@@ -197,7 +197,7 @@ def datasets_as_table(
         previously_selected_row_ids
 ):
     table_col_ids = ['eye', 'title', 'var_codes_filtered', 'RI', 'long_name', 'platform_id', 'time_period_start', 'time_period_end',
-                     #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'std_ecv_variables_filtered', 'var_codes', 'platform_id_RI'
+                     #_#'url', 'ecv_variables', 'ecv_variables_filtered', 'var_codes', 'platform_id_RI'
                      ]
     # # on rendering HTML snipplets in DataTable cells:
     # # https://github.com/plotly/dash-table/pull/916

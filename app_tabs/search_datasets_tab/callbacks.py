@@ -8,7 +8,7 @@ import data_access
 import utils.stations_map
 from app_tabs.common.data import stations
 from app_tabs.common.layout import SELECTED_STATIONS_STORE_ID, SELECTED_ECV_STORE_ID, DATASETS_STORE_ID, APP_TABS_ID, \
-    SELECT_DATASETS_TAB_VALUE, std_variables
+    SELECT_DATASETS_TAB_VALUE
 from app_tabs.search_datasets_tab.layout import VARIABLES_CHECKLIST_ID, VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID, \
     SEARCH_DATASETS_BUTTON_ID, \
     SELECTED_STATIONS_DROPDOWN_ID, STATIONS_MAP_ID, SEARCH_DATASETS_RESET_STATIONS_BUTTON_ID, \
@@ -36,7 +36,7 @@ def update_selected_ecv_store(selected_ecv):
     # prevent_initial_call=True,
 )
 def toogle_variable_checklist(variables_checklist_all_none_switch, selected_ecv):
-    _all_variables = std_variables['value'].tolist()
+    _all_variables = list(data_access.ECV_by_var_codes)
 
     ctx = list(dash.ctx.triggered_prop_ids.values())
     if VARIABLES_CHECKLIST_ALL_NONE_SWITCH_ID in ctx:
@@ -100,19 +100,17 @@ def search_datasets(n_clicks, selected_variables, selected_stations_idx):
     empty_datasets_df = pd.DataFrame(
         columns=[
             'title', 'url', 'ecv_variables', 'platform_id', 'RI', 'var_codes', 'ecv_variables_filtered',
-            'std_ecv_variables_filtered', 'var_codes_filtered', 'time_period_start', 'time_period_end',
-            'platform_id_RI', 'id'
+            'var_codes_filtered', 'time_period_start', 'time_period_end', 'platform_id_RI', 'id'
         ]
     )   # TODO: do it cleanly
 
-    lon_min, lon_max, lat_min, lat_max = _get_bounding_box(selected_stations_idx)
     selected_stations = stations.iloc[selected_stations_idx]
 
     datasets_df = data_access.get_datasets(
         selected_variables,
         station_codes=selected_stations['short_name'],
-        ris=selected_stations['RI'],
-        lon_min=lon_min, lon_max=lon_max, lat_min=lat_min, lat_max=lat_max)
+        ris=selected_stations['RI']
+    )
 
     if datasets_df is None:
         datasets_df = empty_datasets_df
@@ -145,37 +143,6 @@ def _get_selected_points(selected_stations):
     else:
         points = []
     return pd.DataFrame.from_records(points, index='idx', columns=['idx', 'lon', 'lat'])
-
-
-def _get_bounding_box(s):
-    selected_points_df = stations.loc[s]
-
-    # decimal precision for bounding box coordinates (lon/lat)
-    decimal_precision = 1
-
-    lon_min, lon_max, lat_min, lat_max = np.inf, -np.inf, np.inf, -np.inf
-
-    if len(selected_points_df) > 0:
-        # find bounding box for selected points
-        # epsilon = np.power(10., -decimal_precision)  # precision margin for filtering on lon/lat of stations later on
-        epsilon = 0
-        lon_min2, lon_max2 = selected_points_df['longitude'].min() - epsilon, selected_points_df['longitude'].max() + epsilon
-        lat_min2, lat_max2 = selected_points_df['latitude'].min() - epsilon, selected_points_df['latitude'].max() + epsilon
-
-        # find a common bounding box for the both bboxes found above
-        lon_min, lon_max = np.min((lon_min, lon_min2)), np.max((lon_max, lon_max2))
-        lat_min, lat_max = np.min((lat_min, lat_min2)), np.max((lat_max, lat_max2))
-
-    if not np.all(np.isfinite([lon_min, lon_max, lat_min, lat_max])):
-        return [None] * 4
-    # return [round(coord, decimal_precision) for coord in (lon_min, lon_max, lat_min, lat_max)]
-    epsilon = np.power(10., -decimal_precision)
-    magnitude = np.power(10., decimal_precision)
-    return \
-        np.floor(lon_min * magnitude) * epsilon, \
-        np.ceil(lon_max * magnitude) * epsilon, \
-        np.floor(lat_min * magnitude) * epsilon, \
-        np.ceil(lat_max * magnitude) * epsilon,
 
 
 def _get_selected_stations_dropdown(selected_stations_df, stations_dropdown_options):
