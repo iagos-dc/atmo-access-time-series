@@ -44,7 +44,7 @@ VARIABLES_MAPPING = {
     'Temperature (near surface)': 'AT',
     'Temperature (upper-air)': 'ATu',
     'Water Vapour (surface)': 'RH',
-    'Water Vapour (upper air)': 'RHu',
+    'Water Vapour (upper-air)': 'RHu',
     'Carbon Dioxide': 'CO2',
     'Carbon Monoxide': 'CO',
     'Methane': 'CH4',
