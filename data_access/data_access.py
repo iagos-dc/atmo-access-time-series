@@ -169,7 +169,7 @@ def get_datasets(variables=None, station_codes=None, ris=None):
         # take all stations
         stations_df = get_stations()
         station_codes = stations_df['short_name'].to_list()
-        ris = stations_df['short_name'].to_list()
+        ris = stations_df['RI'].to_list()
 
     assert len(station_codes) == len(ris), (f'station_codes and ris must have the same length; '
                                             f'got {station_codes=} of {len(station_codes)=} and {ris=} of {len(ris)=}')
