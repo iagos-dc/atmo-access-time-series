@@ -99,7 +99,7 @@ def get_stations_dash_component():
 
 
 def get_search_datasets_tab():
-    station_labels = stations['short_name'] + ' (' + stations['long_name'] + ', ' + stations['RI'] + ')'
+    station_labels = stations['long_name'] + ' (' + stations['RI'] + ')'
 
     variable_selection_card = dbc.Card([
         dbc.CardHeader(
