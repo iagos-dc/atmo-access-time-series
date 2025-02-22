@@ -93,24 +93,45 @@ def _percentiles_by_rolling_window(da, window, p, min_sample_size=1):
     return quantiles_by_p, count
 
 
-def linear_regression(df, x_var, y_var):
-    no_result = (np.nan, ) * 3
+def pearson_correlation(df, x_var, y_var):
+    # choose only the variables X, Y without NaN's
     df = df[[x_var, y_var]].dropna()
-    if len(df) <= 1:
-        return no_result
 
-    mx, my = df.mean()
-    cov = df.cov(ddof=0).values
+    if len(df) <= 1:
+        return np.nan
+
+    # get 2x2 covariance matrix of (df[x_var], df[y_var])
+    cov = df.cov(ddof=2).values
+
     cxy = cov[0, 1]
     vx, vy = np.diag(cov)
-    if abs(cxy) < 1e-10 and vy < 1e-10:
-        return no_result
+    vxvy = vx * vy
 
-    a = cxy / vx
-    b = my - a * mx
-    r2 = cxy / vx * cxy / vy
+    # if the problem is ill-conditioned...
+    if abs(cxy) < 1e-10 and vxvy < 1e-20:
+        return np.nan
 
-    return a, b, r2
+    return cxy / np.sqrt(vx * vy)
+
+
+def spearman_rank_correlation(df, x_var, y_var):
+    def rank(a):
+        i = np.argsort(a)
+        j = np.empty_like(i)
+        j[i] = np.arange(i.size)
+        return j
+
+    # choose only the variables X, Y without NaN's
+    df = df[[x_var, y_var]].dropna()
+
+    if len(df) <= 1:
+        return np.nan
+
+    x_rank = rank(df[x_var].values)
+    y_rank = rank(df[y_var].values)
+    df_rank = pd.DataFrame({x_var: x_rank, y_var: y_rank})
+
+    return pearson_correlation(df_rank, x_var, y_var)
 
 
 def theil_sen_slope(series, subsampling=3000):

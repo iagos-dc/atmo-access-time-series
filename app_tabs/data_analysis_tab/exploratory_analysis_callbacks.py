@@ -23,7 +23,7 @@ from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarni
 def get_extra_parameters(tab_id, analysis_method):
     if analysis_method is None or tab_id != tabs_layout.EXPLORATORY_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
-    elif analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
+    elif analysis_method == exploratory_analysis_layout.MEAN_AND_STD_METHOD:
         return (
             exploratory_analysis_layout.aggregation_period_input,
             common_layout.minimal_sample_size_input,
@@ -85,7 +85,7 @@ def get_exploratory_plot_callback(
     # print(f'get_exploratory_plot_callback dash_ctx={dash_ctx}')
 
     if helper.any_is_None(filter_data_request, vs, analysis_method) \
-            or analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD \
+            or analysis_method == exploratory_analysis_layout.MEAN_AND_STD_METHOD \
             and helper.any_is_None(aggregation_period, min_sample_size, show_std, std_mode, scatter_mode) \
             or analysis_method == exploratory_analysis_layout.PERCENTILES_METHOD \
             and helper.any_is_None(aggregation_period, min_sample_size, percentiles, scatter_mode):
@@ -126,13 +126,13 @@ def get_exploratory_plot_callback(
     else:
         filtering_on_figure_extent = None
 
-    if analysis_method == exploratory_analysis_layout.GAUSSIAN_MEAN_AND_STD_METHOD:
+    if analysis_method == exploratory_analysis_layout.MEAN_AND_STD_METHOD:
         mean_by_var = {}
         std_by_var = {}
         for v, da in da_by_var.items():
             mean, std, _ = analysis.gaussian_mean_and_std(da, aggregation_period, min_sample_size=min_sample_size)
             if mean.isna().all():
-                warnings.warn(f'Not enough data to estimate Gaussian means for {v}. Try a longer aggregation period, decrease the minimal sample size for period or change the data filter.', category=AppWarning)
+                warnings.warn(f'Not enough data to estimate means for {v}. Try a longer aggregation period, decrease the minimal sample size for period or change the data filter.', category=AppWarning)
                 continue
             mean_by_var[v] = mean
             std_by_var[v] = std

@@ -13,11 +13,11 @@ EXPLORATORY_GRAPH_ID = 'exploratory-analysis-graph'
 EXPLORATORY_GRAPH_SCATTER_MODE_RADIO_ID = 'exploratory-analysis-graph-scatter-mode-radio'
 EXPLORATORY_ALIGN_ALL_Y_AXES_BUTTON_ID = 'exploratory-analysis-align-all-y-axes-button'
 
-GAUSSIAN_MEAN_AND_STD_METHOD = 'Gaussian mean and std'
+MEAN_AND_STD_METHOD = 'Mean and standard deviation'
 PERCENTILES_METHOD = 'Percentiles'
 MOVING_AVERAGE_METHOD = 'Moving average'
 EXPLORATORY_ANALYSIS_METHODS = [
-    GAUSSIAN_MEAN_AND_STD_METHOD,
+    MEAN_AND_STD_METHOD,
     PERCENTILES_METHOD,
     MOVING_AVERAGE_METHOD,
 ]

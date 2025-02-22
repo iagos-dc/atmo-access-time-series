@@ -18,11 +18,10 @@ from utils.exception_handler import dynamic_callback_with_exc_handling, AppWarni
 @dynamic_callback_with_exc_handling(
     ddc.DynamicOutput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_VARIABLES_CARDBODY_ID, 'children'),
     Input(tabs_layout.KIND_OF_ANALYSIS_TABS_ID, 'active_tab'),
-    ddc.DynamicInput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_METHOD_RADIO_ID, 'value'),
     Input(common_layout.FILTER_DATA_REQUEST_ID, 'data'),
     prevent_initial_call=False,
 )
-def get_multivariate_analysis_variables_cardbody_callback(tab_id, analysis_method, filter_data_request):
+def get_multivariate_analysis_variables_cardbody_callback(tab_id, filter_data_request):
     if filter_data_request is None or tab_id != tabs_layout.MULTIVARIATE_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
 
@@ -40,7 +39,6 @@ def get_multivariate_analysis_variables_cardbody_callback(tab_id, analysis_metho
     options_c = ([{'label': '---', 'value': '---'}] + options) if len(vs) >= 3 else None
 
     integrate_datasets_request_hash = filter_data_request.integrate_datasets_request.deterministic_hash()
-    disable_c_select = analysis_method == multivariate_analysis_layout.LINEAR_REGRESSION_METHOD
 
     return [
         multivariate_analysis_layout.get_variable_dropdown(
@@ -60,7 +58,7 @@ def get_multivariate_analysis_variables_cardbody_callback(tab_id, analysis_metho
             ['X', 'Y', 'C'],
             [options, options] + ([options_c] if options_c else []),
             [options[0]['value'], options[1]['value'], '---'],
-            [False, False, disable_c_select],
+            [False, False, False],
         )
     ]
 
@@ -101,7 +99,6 @@ def get_extra_parameters(tab_id, plot_type, c_variable, c_variable_disabled):
     ddc.DynamicInput(multivariate_analysis_layout.Y_VARIABLE_SELECT_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.C_VARIABLE_SELECT_ID, 'disabled'),
-    ddc.DynamicInput(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_METHOD_RADIO_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.PLOT_TYPE_RADIO_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.HEXBIN_PLOT_RESOLUTION_SLIDER_ID, 'value'),
     ddc.DynamicInput(multivariate_analysis_layout.AGGREGATOR_DISPLAY_BUTTONS_ID, 'value'),
@@ -116,7 +113,6 @@ def get_multivariate_plot_callback(
         y_var,
         color_var,
         color_var_disabled,
-        analysis_method,
         plot_type,
         hexbin_resolution,
         agg_func,
@@ -125,13 +121,12 @@ def get_multivariate_plot_callback(
     if tab_id != tabs_layout.MULTIVARIATE_ANALYSIS_TAB_ID:
         raise dash.exceptions.PreventUpdate
 
-    # print(f'analysis_method={analysis_method}, plot_type={plot_type}')
     # print(f'relayoutData={relayout_data}')
     dash_ctx = list(dash.ctx.triggered_prop_ids.values())
     # print(f'dash_ctx={dash_ctx}')
 
-    if helper.any_is_None(x_var, y_var, filter_data_request, analysis_method):
-        logger().warning(f'prevented update because x_var, y_var, filter_data_request, analysis_method is None={x_var is None, y_var is None, filter_data_request is None, analysis_method is None}')
+    if helper.any_is_None(x_var, y_var, filter_data_request):
+        logger().warning(f'prevented update because x_var, y_var, filter_data_request={x_var is None, y_var is None, filter_data_request is None}')
         raise dash.exceptions.PreventUpdate
 
     # ignore callback fired by relayout_data if it is abount zoom, pan, selectes, etc.
@@ -172,7 +167,6 @@ def get_multivariate_plot_callback(
         ddc.add_active_to_component_id(multivariate_analysis_layout.X_VARIABLE_SELECT_ID) not in dash_ctx,
         ddc.add_active_to_component_id(multivariate_analysis_layout.Y_VARIABLE_SELECT_ID) not in dash_ctx,
         common_layout.FILTER_DATA_REQUEST_ID not in dash_ctx,
-        ddc.add_active_to_component_id(multivariate_analysis_layout.MULTIVARIATE_ANALYSIS_METHOD_RADIO_ID) not in dash_ctx,
     ])
 
     if apply_existing_figure_extent:
@@ -200,9 +194,8 @@ def get_multivariate_plot_callback(
     # variable_label_by_var = toolz.valmap(lambda md: md[metadata.VARIABLE_LABEL], metadata_by_var)
     units_by_var = toolz.valmap(lambda md: md[metadata.YAXIS_LABEL], metadata_by_var)
 
-    # if analysis_method == multivariate_analysis_layout.SCATTER_PLOT_METHOD:
     if plot_type == multivariate_analysis_layout.INDIVIDUAL_OBSERVATIONS_PLOT:
-        plot_type = 'Scatter plot'
+        plot_title = 'Scatter plot'
 
         if C is not None and len(C) > 0:
             cmin, cmax = np.amin(C), np.amax(C)
@@ -229,7 +222,7 @@ def get_multivariate_plot_callback(
             marker_size=np.round(np.sqrt(40 * np.log1p(30_000 / len(_X)))) if len(_X) > 0 else 5
         )
     elif plot_type == multivariate_analysis_layout.HEXBIN_PLOT:
-        plot_type = 'Hex-bin plot'
+        plot_title = 'Hex-bin plot'
         if C is not None and agg_func is None or hexbin_resolution is None:
             return dash.no_update, nb_observations_as_str
         try:
@@ -242,7 +235,7 @@ def get_multivariate_plot_callback(
                 xaxis_title=f'{x_var} ({units_by_var.get(x_var, "???")})',
                 yaxis_title=f'{y_var} ({units_by_var.get(y_var, "???")})',
                 colorbar_title=f'{color_var} ({units_by_var.get(color_var, "???")})' if C is not None else 'Sample size',
-                width=1000, height=700,
+                width=1000, height=770,
             )
         except EmptyFigureException:
             warnings.warn('No data within this range. Reset the zoom', category=AppWarning)
@@ -250,39 +243,24 @@ def get_multivariate_plot_callback(
     else:
         raise ValueError(f'plot_type={plot_type}')
 
-    if analysis_method == multivariate_analysis_layout.LINEAR_REGRESSION_METHOD:
-        df = ds.to_dataframe()
-        a, b, r2 = data_processing.analysis.linear_regression(df, x_var, y_var)
-        if not (np.isnan(a) or np.isnan(b) or np.isnan(r2)):
-            def y_by_x(x):
-                return a * x + b
-            x_min, x_max = df[x_var].min(), df[x_var].max()
-            x0, y0 = x_min, y_by_x(x_min)
-            x1, y1 = x_max, y_by_x(x_max)
+    if xy_extent_cond_as_str:
+        plot_title = f'{plot_title} for {xy_extent_cond_as_str}'
+    plot_title = f'{plot_title} from {len(ds_in_figure_extent["time"]):.4g} samples'
 
-            fig.add_shape(
-                type='line',
-                x0=x0, y0=y0, x1=x1, y1=y1,
-                line={
-                    'color': 'Red',
-                    'width': 4,
-                }
-            )
-            plot_type = f'Linear regression from {nb_observations:.4g} samples: Y = {a:.4g} X + {b:.4g}; R2 = {r2:.4g}'
-        else:
-            plot_type = f'Linear regression from {nb_observations:.4g} samples: N/A'
+    # calculate Pearson and Spearman's rank correlations
+    df = ds.to_dataframe()
+    pearson_corr = data_processing.analysis.pearson_correlation(df, x_var, y_var)
+    spearman_corr = data_processing.analysis.spearman_rank_correlation(df, x_var, y_var)
 
-    plot_title = f'{plot_type}'
-    if analysis_method != multivariate_analysis_layout.LINEAR_REGRESSION_METHOD:
-        if xy_extent_cond_as_str:
-            plot_title = f'{plot_title} for {xy_extent_cond_as_str}'
-        plot_title = f'{plot_title} from {len(ds_in_figure_extent["time"]):.4g} samples'
-
+    plot_title = (f'{plot_title}<br>'
+                  f'X-Y correlation from {nb_observations:.4g} observations: Pearson = {pearson_corr:.4g}; '
+                  f'Spearman\'s rank = {spearman_corr:.4g}')
     # show title, legend, watermark, etc.
     fig.update_layout(
         legend=dict(orientation='h'),
         title=plot_title,
-        uirevision=','.join([x_var, y_var, integrate_datasets_request_hash, analysis_method]),
+        margin={'t': 70},
+        uirevision=','.join([x_var, y_var, integrate_datasets_request_hash]),
         # hovermode='x',  # performance improvement??? see: https://github.com/plotly/plotly.js/issues/6230
     )
     fig = charts.add_watermark(fig)

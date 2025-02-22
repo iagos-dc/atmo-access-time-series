@@ -11,17 +11,9 @@ MULTIVARIATE_ANALYSIS_VARIABLES_CARDHEADER_ID = 'multivariate-analysis-variables
 MULTIVARIATE_ANALYSIS_VARIABLES_CARDBODY_ID = 'multivariate-analysis-variables-cardbody'
 MULTIVARIATE_ANALYSIS_PARAMETERS_FORM_ROW_2_ID = 'multivariate-analysis-parameters-form-row-2'
 MULTIVARIATE_ANALYSIS_PARAMETERS_FORM_ROW_3_ID = 'multivariate-analysis-parameters-form-row-3'
-MULTIVARIATE_ANALYSIS_METHOD_RADIO_ID = 'multivariate-analysis-method-radio'
 PLOT_TYPE_RADIO_ID = 'plot-type-radio'
 INDIVIDUAL_OBSERVATIONS_PLOT = 'individual-observations-plot'
 HEXBIN_PLOT = 'hexbin-plot'
-
-SCATTER_PLOT_METHOD = 'Scatter plot'
-LINEAR_REGRESSION_METHOD = 'Linear regression'
-MULTIVARIATE_ANALYSIS_METHODS = [
-    SCATTER_PLOT_METHOD,
-    LINEAR_REGRESSION_METHOD,
-]
 
 MULTIVARIATE_GRAPH_ID = 'data-analysis-multivariate-graph'
 
@@ -65,22 +57,6 @@ def _get_multivariate_analysis_cardbody():
         ),
     ])
 
-    analysis_method_radio = dbc.RadioItems(
-        id=ddc.add_active_to_component_id(MULTIVARIATE_ANALYSIS_METHOD_RADIO_ID),
-        options=[
-            {'label': analysis_method, 'value': analysis_method}
-            for analysis_method in MULTIVARIATE_ANALYSIS_METHODS
-        ],
-        value=MULTIVARIATE_ANALYSIS_METHODS[0],
-        inline=False,
-        persistence=True,
-        persistence_type='session',
-    ),
-    analysis_method_card = dbc.Card([
-        dbc.CardHeader('Analysis method'),
-        dbc.CardBody(analysis_method_radio),
-    ])
-
     plot_type = [
         dbc.Label('Plot type:', width='auto'),
         dbc.Col(
@@ -111,7 +87,6 @@ def _get_multivariate_analysis_cardbody():
 
     return [
         dbc.Row(variables_card),
-        dbc.Row(analysis_method_card),
         dbc.Row(parameters_card),
     ]
 
