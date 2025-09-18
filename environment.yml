@@ -26,5 +26,4 @@ dependencies:
   - dacite==1.8.1
   - h5netcdf>=1.3.0
   - pip:
-    - icoscp==0.2.2
     - git+https://github.com/iagos-dc/atmo-access-data-access.git@main

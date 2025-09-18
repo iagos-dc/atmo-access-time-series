@@ -27,6 +27,7 @@ CACHE_DIR.mkdir(exist_ok=True)
 
 # open an ACTRIS-specific cache; allows for an efficient ACTRIS metadata retrieval
 query_actris._open_cache(CACHE_DIR / 'actris-cache.tmp')
+query_icos._open_cache(CACHE_DIR / 'icos-cache.pkl')
 
 _RIS = ('actris', 'iagos', 'icos')
 _GET_DATASETS_BY_RI = dict()
