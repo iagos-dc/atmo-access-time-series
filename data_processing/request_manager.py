@@ -4,7 +4,6 @@ import hashlib
 import json
 import diskcache
 import time
-import icoscp.dobj
 import numpy as np
 import pandas as pd
 import flask
@@ -206,36 +205,6 @@ class Request(abc.ABC):
 
     def compact_pretty_str(self):
         return self.pretty_str()
-
-
-class GetICOSDatasetTitleRequest(Request):
-    def __init__(self, dobj):
-        self.dobj = dobj
-
-    def execute(self):
-        logger().info(f'execute {str(self)}')
-        return icoscp.dobj.Dobj(self.dobj).meta['references']['title']
-
-    @request_cache(custom_expire=None)
-    def compute(self):
-        return self.execute()
-
-    def get_hashable(self):
-        return 'get_ICOS_dataset_title', _get_hashable(self.dobj)
-
-    def to_dict(self):
-        return dict(
-            _action='get_ICOS_dataset_title',
-            dobj=self.dobj,
-        )
-
-    @classmethod
-    def from_dict(cls, d):
-        try:
-            dobj = d['dobj']
-        except KeyError:
-            raise ValueError(f'bad GetICOSDatasetTitleRequest: d={str(d)}')
-        return GetICOSDatasetTitleRequest(dobj)
 
 
 class ReadDataRequest(Request):
@@ -470,9 +439,7 @@ def request_from_dict(d):
         action = d['_action']
     except KeyError:
         raise ValueError(f'd does not represent a request; d={str(d)}')
-    if action == 'get_ICOS_dataset_title':
-        return GetICOSDatasetTitleRequest.from_dict(d)
-    elif action == 'read_dataset':
+    if action == 'read_dataset':
         return ReadDataRequest.from_dict(d)
     elif action == 'merge_datasets':
         return MergeDatasetsRequest.from_dict(d)
